@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sinapse — Criar tarefas</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="home-body">
+  <div class="home-container" style="max-width:640px; align-items:stretch;">
+
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:28px;">
+      <a href="/" class="ata-back-btn" style="font-size:1.2rem;">←</a>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span style="font-size:1.4rem;">✅</span>
+        <span style="font-size:1.15rem; font-weight:700; color:var(--text);">Criar tarefas</span>
+      </div>
+    </div>
+
+    <!-- Etapa 1: Input -->
+    <div id="stepInput">
+
+      <!-- Upload de print -->
+      <div id="dropzone" style="border:2px dashed var(--border); border-radius:12px; padding:24px; text-align:center; cursor:pointer; margin-bottom:16px; transition:border-color 0.2s;">
+        <div style="font-size:2rem; margin-bottom:8px;">📎</div>
+        <div style="color:var(--muted); font-size:0.9rem;">Arraste um print aqui ou <span style="color:var(--accent); text-decoration:underline;">clique para selecionar</span></div>
+        <input type="file" id="fileInput" accept="image/*" style="display:none;">
+      </div>
+
+      <div id="previewWrapper" style="display:none; margin-bottom:16px; position:relative;">
+        <img id="previewImg" style="width:100%; border-radius:10px; border:1px solid var(--border);">
+        <button onclick="removeImage()" style="position:absolute; top:8px; right:8px; background:#0e1825cc; border:1px solid var(--border); color:var(--text); border-radius:6px; padding:4px 10px; cursor:pointer; font-size:0.8rem;">✕ Remover</button>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; color:var(--muted); font-size:0.85rem;">
+        <div style="flex:1; height:1px; background:var(--border);"></div>
+        ou cole o texto abaixo
+        <div style="flex:1; height:1px; background:var(--border);"></div>
+      </div>
+
+      <textarea id="textoInput" rows="6" class="ata-input"
+        style="resize:vertical; font-family:inherit; margin-bottom:16px;"
+        placeholder="Cole aqui um trecho de conversa, lista de pendências, e-mail ou qualquer texto com ações a executar…"></textarea>
+
+      <!-- Cliente -->
+      <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:20px;">
+        <label class="ata-label">Cliente (opcional)</label>
+        <select id="clienteSelect" class="ata-input">
+          <option value="">— Sem cliente específico —</option>
+          <option value="CC">CC — Conexão Cirúrgica</option>
+          <option value="NF">NF — Grupo NF</option>
+          <option value="PV">PV — Patricia Voggt</option>
+          <option value="HIRE">HIRE — Hire Brazil</option>
+          <option value="SRW">SRW — Speedrack West</option>
+          <option value="SCALE">SCALE — Scale</option>
+          <option value="HDLT">HDLT — HDLT</option>
+        </select>
+      </div>
+
+      <button onclick="extrairTarefas()" class="ata-btn-publish" style="width:100%; height:44px; font-size:1rem; border-radius:10px;">
+        Extrair tarefas
+      </button>
+    </div>
+
+    <!-- Etapa 2: Revisão -->
+    <div id="stepReview" style="display:none;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+        <span style="font-weight:600; color:var(--text);">Tarefas encontradas</span>
+        <button onclick="voltarInput()" class="ata-btn-secondary" style="height:32px; padding:0 14px; font-size:0.85rem;">← Voltar</button>
+      </div>
+
+      <div id="taskList" style="display:flex; flex-direction:column; gap:10px; margin-bottom:24px;"></div>
+
+      <button onclick="criarTarefas()" id="btnCriar" class="ata-btn-publish" style="width:100%; height:44px; font-size:1rem; border-radius:10px;">
+        Criar no ClickUp
+      </button>
+    </div>
+
+    <!-- Etapa 3: Resultado -->
+    <div id="stepDone" style="display:none; text-align:center; padding:32px 0;">
+      <div style="font-size:3rem; margin-bottom:12px;">🎉</div>
+      <div style="font-size:1.1rem; font-weight:600; color:var(--text); margin-bottom:8px;">Tarefas criadas!</div>
+      <div id="doneLinks" style="display:flex; flex-direction:column; gap:8px; margin:20px 0; text-align:left;"></div>
+      <button onclick="comecarNovamente()" class="ata-btn-secondary" style="height:36px; padding:0 20px; margin-top:8px;">Nova extração</button>
+    </div>
+
+    <div id="erroMsg" style="display:none; margin-top:16px; background:#2a1a1a; border:1px solid #c0392b; border-radius:10px; padding:14px; color:#e74c3c; font-size:0.9rem;"></div>
+  </div>
+
+  <script>
+    const AREAS = {
+      atendimento: "Atendimento",
+      trafego: "Tráfego",
+      redacao: "Redação",
+      automacao: "Automação",
+      conteudo: "Conteúdo",
+    };
+
+    let imagemB64 = null;
+    let tarefasExtraidas = [];
+
+    // Dropzone
+    const dz = document.getElementById("dropzone");
+    const fi = document.getElementById("fileInput");
+    dz.addEventListener("click", () => fi.click());
+    dz.addEventListener("dragover", e => { e.preventDefault(); dz.style.borderColor = "var(--accent)"; });
+    dz.addEventListener("dragleave", () => { dz.style.borderColor = "var(--border)"; });
+    dz.addEventListener("drop", e => { e.preventDefault(); dz.style.borderColor = "var(--border)"; handleFile(e.dataTransfer.files[0]); });
+    fi.addEventListener("change", () => handleFile(fi.files[0]));
+
+    function handleFile(file) {
+      if (!file || !file.type.startsWith("image/")) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        imagemB64 = e.target.result;
+        document.getElementById("previewImg").src = imagemB64;
+        document.getElementById("previewWrapper").style.display = "block";
+        dz.style.display = "none";
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function removeImage() {
+      imagemB64 = null;
+      fi.value = "";
+      document.getElementById("previewWrapper").style.display = "none";
+      dz.style.display = "block";
+    }
+
+    // Colar imagem via Ctrl+V
+    document.addEventListener("paste", e => {
+      const item = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith("image/"));
+      if (item) handleFile(item.getAsFile());
+    });
+
+    function mostrarErro(msg) {
+      const el = document.getElementById("erroMsg");
+      el.textContent = msg;
+      el.style.display = "block";
+    }
+
+    function esconderErro() {
+      document.getElementById("erroMsg").style.display = "none";
+    }
+
+    async function extrairTarefas() {
+      const texto = document.getElementById("textoInput").value.trim();
+      const cliente = document.getElementById("clienteSelect").value;
+      esconderErro();
+
+      if (!texto && !imagemB64) {
+        mostrarErro("Adicione um print ou cole um texto antes de continuar.");
+        return;
+      }
+
+      const btn = document.querySelector("#stepInput .ata-btn-publish");
+      btn.disabled = true;
+      btn.textContent = "Analisando…";
+
+      try {
+        const resp = await fetch("/api/tarefas/extrair", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ texto, imagem_b64: imagemB64 || "", cliente }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.detail || "Erro ao extrair tarefas.");
+        tarefasExtraidas = data.tasks || [];
+        if (!tarefasExtraidas.length) {
+          mostrarErro("Nenhuma tarefa encontrada no conteúdo enviado.");
+          return;
+        }
+        renderizarTarefas(tarefasExtraidas, cliente);
+        document.getElementById("stepInput").style.display = "none";
+        document.getElementById("stepReview").style.display = "block";
+      } catch (e) {
+        mostrarErro("Erro: " + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Extrair tarefas";
+      }
+    }
+
+    function renderizarTarefas(tasks, cliente) {
+      const list = document.getElementById("taskList");
+      list.innerHTML = "";
+      tasks.forEach((t, i) => {
+        const card = document.createElement("div");
+        card.style.cssText = "background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; display:flex; flex-direction:column; gap:8px;";
+        card.innerHTML = `
+          <div style="display:flex; align-items:flex-start; gap:10px;">
+            <input type="checkbox" data-i="${i}" checked style="margin-top:3px; accent-color:var(--accent); width:16px; height:16px; flex-shrink:0;">
+            <input type="text" data-field="name" data-i="${i}" value="${escHtml(t.name)}"
+              style="background:transparent; border:none; border-bottom:1px solid var(--border); color:var(--text); font-size:0.95rem; font-weight:600; width:100%; outline:none; padding-bottom:2px;">
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; padding-left:26px;">
+            <select data-field="area" data-i="${i}" class="ata-input" style="height:28px; padding:0 8px; font-size:0.8rem; flex:1; min-width:120px;">
+              ${Object.entries(AREAS).map(([k,v]) => `<option value="${k}" ${t.area===k?"selected":""}>${v}</option>`).join("")}
+            </select>
+            <input type="date" data-field="due_date" data-i="${i}" value="${t.due_date||""}"
+              style="background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text); font-size:0.8rem; padding:0 8px; height:28px; color-scheme:dark;">
+            <label style="display:flex; align-items:center; gap:6px; font-size:0.8rem; color:var(--muted); cursor:pointer;">
+              <input type="checkbox" data-field="is_client" data-i="${i}" ${t.is_client?"checked":""} style="accent-color:var(--blue-light);">
+              Cliente
+            </label>
+          </div>
+          ${t.description ? `<div style="padding-left:26px; font-size:0.82rem; color:var(--muted);">${escHtml(t.description)}</div>` : ""}
+        `;
+        // sync edits back to tarefasExtraidas
+        card.querySelectorAll("[data-field]").forEach(el => {
+          el.addEventListener("change", () => {
+            const idx = +el.dataset.i;
+            const field = el.dataset.field;
+            if (el.type === "checkbox") tarefasExtraidas[idx][field] = el.checked;
+            else tarefasExtraidas[idx][field] = el.value;
+          });
+        });
+        list.appendChild(card);
+      });
+    }
+
+    function escHtml(s) {
+      return (s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+
+    async function criarTarefas() {
+      esconderErro();
+      // Filtra só os marcados
+      const checks = document.querySelectorAll("#taskList input[type=checkbox][data-i]");
+      const selecionadas = tarefasExtraidas.filter((_, i) => checks[i]?.checked);
+      if (!selecionadas.length) { mostrarErro("Selecione ao menos uma tarefa."); return; }
+
+      const cliente = document.getElementById("clienteSelect")?.value || "";
+      const btn = document.getElementById("btnCriar");
+      btn.disabled = true;
+      btn.textContent = "Criando…";
+
+      try {
+        const resp = await fetch("/api/ata/create-tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tasks: selecionadas, client_sigla: cliente }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.detail || "Erro ao criar tarefas.");
+
+        const links = document.getElementById("doneLinks");
+        links.innerHTML = "";
+        (data.created || []).forEach(t => {
+          const a = document.createElement("a");
+          a.href = t.url || "#";
+          a.target = "_blank";
+          a.style.cssText = "display:flex; align-items:center; gap:8px; color:var(--accent); font-size:0.9rem; text-decoration:none; padding:6px 0;";
+          a.innerHTML = `<span>✅</span><span>${escHtml(t.name)}</span>`;
+          links.appendChild(a);
+        });
+        if (data.errors?.length) {
+          mostrarErro(data.errors.map(e => e.name + ": " + e.error).join("\n"));
+        }
+        document.getElementById("stepReview").style.display = "none";
+        document.getElementById("stepDone").style.display = "block";
+      } catch (e) {
+        mostrarErro("Erro: " + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Criar no ClickUp";
+      }
+    }
+
+    function voltarInput() {
+      document.getElementById("stepReview").style.display = "none";
+      document.getElementById("stepInput").style.display = "block";
+      esconderErro();
+    }
+
+    function comecarNovamente() {
+      document.getElementById("stepDone").style.display = "none";
+      document.getElementById("stepInput").style.display = "block";
+      document.getElementById("textoInput").value = "";
+      document.getElementById("clienteSelect").value = "";
+      removeImage();
+      esconderErro();
+    }
+  </script>
+</body>
+</html>

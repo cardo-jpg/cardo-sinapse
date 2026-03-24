@@ -883,10 +883,22 @@ async def create_tasks_from_ata(request: Request):
         list_id = CLICKUP_AREA_LISTS.get(area, CLICKUP_DEFAULT_LIST_ID)
         status = "solicitado" if is_client else "a fazer"
 
+        # Usa due_date da tarefa se fornecido (YYYY-MM-DD), senão amanhã
+        task_due = task.get("due_date")
+        if task_due:
+            try:
+                from datetime import date as _date2
+                y, m, d = map(int, task_due.split("-"))
+                task_due_ms = int(datetime(y, m, d, 9, 0, 0).timestamp() * 1000)
+            except Exception:
+                task_due_ms = due_ms
+        else:
+            task_due_ms = due_ms
+
         payload = {
             "name": name,
             "status": status,
-            "due_date": due_ms,
+            "due_date": task_due_ms,
             "due_date_time": False,
         }
         if description:
@@ -916,6 +928,101 @@ async def create_tasks_from_ata(request: Request):
             errors.append({"name": name, "error": r.text})
 
     return JSONResponse({"created": created, "errors": errors})
+
+
+@app.get("/tarefas", response_class=HTMLResponse)
+async def tarefas_page(request: Request):
+    if not verify_session(request):
+        return RedirectResponse("/login")
+    return templates.TemplateResponse("tarefas.html", {"request": request})
+
+
+@app.post("/api/tarefas/extrair")
+async def extrair_tarefas_livre(request: Request):
+    """Extrai tarefas de texto livre ou imagem (base64)."""
+    if not verify_session(request):
+        raise HTTPException(status_code=401)
+    body = await request.json()
+    texto = body.get("texto", "")
+    imagem_b64 = body.get("imagem_b64", "")   # data:image/...;base64,...
+    cliente = body.get("cliente", "")
+
+    members_list = "\n".join(f"- {n}" for n in CLICKUP_MEMBERS)
+    areas_desc = "\n".join(f'- "{k}": {v}' for k, v in CLICKUP_AREA_LABELS.items())
+    hoje = datetime.now().strftime("%Y-%m-%d")
+    client_sigla = cliente.upper()
+
+    system_prompt = "Você é um extrator de tarefas. Responda APENAS com JSON válido, sem texto antes ou depois, sem markdown, sem blocos de código."
+
+    instrucao = f"""Analise o conteúdo abaixo (pode ser uma conversa, lista de pendências, print ou texto livre) e extraia TODAS as ações concretas que precisam ser executadas.
+
+CLIENTE: {client_sigla or "não informado"}
+HOJE: {hoje}
+
+MEMBROS DA EQUIPE CARDÔ disponíveis:
+{members_list}
+
+ÁREAS disponíveis:
+{areas_desc}
+
+Retorne JSON:
+{{
+  "tasks": [
+    {{
+      "name": "[{client_sigla or 'TAG'}] Título conciso e acionável",
+      "description": "Contexto adicional (pode ser vazio)",
+      "assignee": "nome do membro se mencionado, senão null",
+      "due_date": "YYYY-MM-DD se prazo mencionado, senão null",
+      "area": "atendimento|trafego|redacao|automacao|conteudo",
+      "is_client": true ou false
+    }}
+  ]
+}}
+
+Regras:
+- Extraia APENAS ações concretas, não discussões
+- Google Ads, Meta Ads, tráfego → "trafego"
+- Copy, texto, script → "redacao"
+- Automação, planilha, integração → "automacao"
+- Post, stories, conteúdo orgânico → "conteudo"
+- Reunião, relatório, alinhamento → "atendimento"
+- Ações do cliente: is_client=true, area="atendimento"
+- Se o cliente não foi informado, use "TASK" como prefixo"""
+
+    if imagem_b64:
+        # Remove o prefixo data:image/...;base64,
+        if "," in imagem_b64:
+            media_type_part, data_part = imagem_b64.split(",", 1)
+            media_type = media_type_part.split(":")[1].split(";")[0] if ":" in media_type_part else "image/jpeg"
+        else:
+            data_part = imagem_b64
+            media_type = "image/jpeg"
+        content = [
+            {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": data_part}},
+            {"type": "text", "text": instrucao + ("\n\nTEXTO ADICIONAL:\n" + texto if texto else "")},
+        ]
+    else:
+        content = instrucao + "\n\nCONTEÚDO:\n" + texto
+
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=2048,
+        system=system_prompt,
+        messages=[{"role": "user", "content": content}],
+    )
+    raw = next((b.text for b in response.content if hasattr(b, "text")), "{}")
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = re.sub(r"^```[a-z]*\n?", "", raw)
+        raw = re.sub(r"\n?```$", "", raw).strip()
+    try:
+        tasks_data = json.loads(raw)
+    except json.JSONDecodeError:
+        m = re.search(r'\{[\s\S]*\}', raw)
+        if not m:
+            raise HTTPException(status_code=500, detail="Não foi possível extrair tarefas.")
+        tasks_data = json.loads(m.group())
+    return JSONResponse(tasks_data)
 
 
 @app.get("/logs", response_class=HTMLResponse)
