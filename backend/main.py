@@ -2,6 +2,8 @@ import os
 import re
 import json
 import uuid
+import hmac
+import hashlib
 import httpx
 import threading
 import subprocess
@@ -25,7 +27,12 @@ TEMPLATES_DIR = BASE_DIR / "frontend" / "templates"
 STATIC_DIR = BASE_DIR / "frontend" / "static"
 CONVS_DIR.mkdir(parents=True, exist_ok=True)
 
-APP_PASSWORD = os.getenv("APP_PASSWORD", "cardo2024")
+SECRET_KEY = os.getenv("SECRET_KEY", "sinapse-secret-2026")
+USERS = {
+    "victor": os.getenv("USER_VICTOR_PASSWORD", "C@rdobrain2026"),
+    "jose":   os.getenv("USER_JOSE_PASSWORD",   "C@rdosinapse2026"),
+}
+
 CLICKUP_API_KEY = os.getenv("CLICKUP_API_KEY")
 CLICKUP_WORKSPACE_ID = "36996433"
 
@@ -443,8 +450,19 @@ def list_conversations():
         })
     return convs[:40]
 
-def verify_session(request: Request):
-    return request.cookies.get("session") == "authenticated"
+def make_session_token(username: str) -> str:
+    sig = hmac.new(SECRET_KEY.encode(), username.encode(), hashlib.sha256).hexdigest()
+    return f"{username}:{sig}"
+
+def verify_session(request: Request) -> str | None:
+    cookie = request.cookies.get("session", "")
+    if ":" not in cookie:
+        return None
+    username, sig = cookie.split(":", 1)
+    expected = hmac.new(SECRET_KEY.encode(), username.encode(), hashlib.sha256).hexdigest()
+    if hmac.compare_digest(sig, expected) and username in USERS:
+        return username
+    return None
 
 # ── Rotas ─────────────────────────────────────────────────────────────────────
 
@@ -471,10 +489,11 @@ async def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
 @app.post("/login")
-async def login(password: str = Form(...)):
-    if password == APP_PASSWORD:
+async def login(username: str = Form(...), password: str = Form(...)):
+    if USERS.get(username) == password:
+        token = make_session_token(username)
         response = RedirectResponse("/", status_code=303)
-        response.set_cookie("session", "authenticated", max_age=86400 * 7)
+        response.set_cookie("session", token, max_age=86400 * 7)
         return response
     return RedirectResponse("/login?error=1", status_code=303)
 

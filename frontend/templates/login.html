@@ -16,7 +16,8 @@
     <div class="error-msg">Senha incorreta. Tente novamente.</div>
     {% endif %}
     <form method="post" action="/login">
-      <input type="password" name="password" placeholder="Senha de acesso" autofocus required>
+      <input type="text" name="username" placeholder="Seu usuário" autofocus required autocomplete="username">
+      <input type="password" name="password" placeholder="Senha de acesso" required autocomplete="current-password">
       <button type="submit">Entrar</button>
     </form>
   </div>
