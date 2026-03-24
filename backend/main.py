@@ -130,17 +130,82 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 # ── Granola ───────────────────────────────────────────────────────────────────
 
+# Cache em memória para o token renovado (usado no Railway onde não há arquivo local)
+_granola_token_cache: dict = {}  # {"access_token": str, "refresh_token": str, "expires_at_ms": int}
+
+def _is_token_expired_ms(obtained_at_ms: int, expires_in_s: int) -> bool:
+    import time
+    expiry_ms = obtained_at_ms + expires_in_s * 1000
+    return time.time() * 1000 > expiry_ms - 5 * 60 * 1000  # 5 min de margem
+
+def _do_refresh(refresh_token: str) -> dict:
+    """Chama a API do Granola para renovar o token. Retorna novo dict de tokens ou {}."""
+    import time as _time
+    try:
+        with httpx.Client() as c:
+            r = c.post(
+                f"{GRANOLA_API_BASE}/refresh-access-token",
+                headers={"Content-Type": "application/json",
+                         "x-granola-client-id": "granola-desktop", "x-granola-version": "2.0.0"},
+                json={"refresh_token": refresh_token},
+                timeout=10,
+            )
+        if r.status_code == 200:
+            new_tokens = r.json()
+            new_tokens["obtained_at"] = int(_time.time() * 1000)
+            if not new_tokens.get("refresh_token"):
+                new_tokens["refresh_token"] = refresh_token
+            print("[granola] Token renovado com sucesso.")
+            return new_tokens
+    except Exception as e:
+        print(f"[granola] Erro ao renovar token: {e}")
+    return {}
+
 def get_granola_token() -> str:
-    # Env var takes priority (for remote deploy)
-    env_token = os.getenv("GRANOLA_TOKEN")
-    if env_token:
-        return env_token
-    # Fallback: local Mac Granola app file
+    global _granola_token_cache
+    import time as _time
+
+    # ── Modo Railway: GRANOLA_REFRESH_TOKEN como env var ──────────────────────
+    env_refresh = os.getenv("GRANOLA_REFRESH_TOKEN")
+    if env_refresh:
+        cached = _granola_token_cache
+        obtained = cached.get("obtained_at", 0)
+        expires_in = cached.get("expires_in", 0)
+        if cached.get("access_token") and obtained and not _is_token_expired_ms(obtained, expires_in):
+            return cached["access_token"]
+        # Cache vazio ou expirado: usa GRANOLA_TOKEN estático como fallback inicial
+        if not cached.get("access_token"):
+            static = os.getenv("GRANOLA_TOKEN", "")
+            if static:
+                _granola_token_cache = {
+                    "access_token": static,
+                    "refresh_token": env_refresh,
+                    "obtained_at": int(_time.time() * 1000),
+                    "expires_in": 0,  # força refresh na próxima
+                }
+        # Renova usando refresh_token
+        print("[granola] Renovando token (Railway)...")
+        new = _do_refresh(env_refresh)
+        if new.get("access_token"):
+            _granola_token_cache = new
+            return new["access_token"]
+        return _granola_token_cache.get("access_token", "")
+
+    # ── Modo local: lê do arquivo do Granola app ───────────────────────────────
     try:
         data = json.loads(GRANOLA_SUPABASE_PATH.read_text())
         wt = data.get("workos_tokens", {})
         if isinstance(wt, str):
             wt = json.loads(wt)
+        obtained = wt.get("obtained_at", 0)
+        expires_in = wt.get("expires_in", 0)
+        if obtained and expires_in and _is_token_expired_ms(obtained, expires_in):
+            print("[granola] Token expirado, renovando...")
+            new = _do_refresh(wt.get("refresh_token", ""))
+            if new.get("access_token"):
+                data["workos_tokens"] = json.dumps(new)
+                GRANOLA_SUPABASE_PATH.write_text(json.dumps(data))
+                return new["access_token"]
         return wt.get("access_token", "")
     except Exception:
         return ""
@@ -153,7 +218,8 @@ async def granola_post(endpoint: str, payload: dict = None):
         try:
             r = await c.post(
                 f"{GRANOLA_API_BASE}/{endpoint}",
-                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json",
+                         "x-granola-client-id": "granola-desktop", "x-granola-version": "2.0.0"},
                 json=payload or {},
                 timeout=20,
             )
@@ -173,7 +239,8 @@ async def granola_get_transcript(document_id: str) -> str:
         try:
             r = await c.post(
                 f"{GRANOLA_API_BASE}/get-document-transcript",
-                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json",
+                         "x-granola-client-id": "granola-desktop", "x-granola-version": "2.0.0"},
                 json={"document_id": document_id},
                 timeout=20,
             )
@@ -1023,8 +1090,6 @@ Regras:
             raise HTTPException(status_code=500, detail="Não foi possível extrair tarefas.")
         tasks_data = json.loads(m.group())
     return JSONResponse(tasks_data)
-
-
 @app.get("/logs", response_class=HTMLResponse)
 async def view_logs(request: Request):
     if not verify_session(request):
