@@ -725,6 +725,8 @@ async def get_granola_meetings(request: Request):
         if doc.get("deleted_at"):
             continue
         title = doc.get("title") or "Sem título"
+        if title.startswith("[PRO]"):
+            continue
         date = extract_date_from_title(title) or (doc.get("created_at") or "")[:10]
         meetings.append({
             "id": doc.get("id"),
