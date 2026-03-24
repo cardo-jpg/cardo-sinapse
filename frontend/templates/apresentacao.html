@@ -36,11 +36,11 @@
         <label class="ata-label" for="cliente">Cliente</label>
         <select id="cliente" name="cliente" class="ata-input">
           <option value="">— Selecione —</option>
-          <option value="CC">CC — Clube do Contador</option>
-          <option value="NF">NF — Nutrição Funcional</option>
+          <option value="CC">CC — Conexão Cirúrgica</option>
+          <option value="NF">NF — Grupo NF</option>
           <option value="PV">PV — Patricia Voggt</option>
-          <option value="HIRE">HIRE — C.Up Hire</option>
-          <option value="SRW">SRW — Sorriso</option>
+          <option value="HIRE">HIRE — Hire Brazil</option>
+          <option value="SRW">SRW — Speedrack West</option>
           <option value="SCALE">SCALE — Scale</option>
           <option value="HDLT">HDLT — HDLT</option>
         </select>
@@ -48,9 +48,8 @@
 
       <div style="display:flex; flex-direction:column; gap:8px;">
         <label class="ata-label" for="periodo">Período</label>
-        <select id="periodo" name="periodo" class="ata-input">
-          <option value="">— Selecione —</option>
-        </select>
+        <input type="month" id="periodo" name="periodo" class="ata-input"
+               style="color-scheme:dark;">
       </div>
 
       <div style="display:flex; flex-direction:column; gap:8px;">
@@ -70,21 +69,21 @@
   </div>
 
   <script>
-    // Preenche os últimos 18 meses no select de período
+    // Define o mês atual como padrão no input de período
     (function() {
-      const sel = document.getElementById("periodo");
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, "0");
+      document.getElementById("periodo").value = `${y}-${m}`;
+    })();
+
+    function periodoLabel(val) {
+      if (!val) return "";
       const meses = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho",
                      "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-      const now = new Date();
-      for (let i = 0; i < 18; i++) {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const label = meses[d.getMonth()] + " " + d.getFullYear();
-        const opt = document.createElement("option");
-        opt.value = label;
-        opt.textContent = label;
-        sel.appendChild(opt);
-      }
-    })();
+      const [y, m] = val.split("-");
+      return meses[parseInt(m) - 1] + " " + y;
+    }
 
     document.getElementById("form-apres").addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -97,7 +96,7 @@
       const data = {
         tipo: document.querySelector('input[name="tipo"]:checked').value,
         cliente: document.getElementById("cliente").value.trim(),
-        periodo: document.getElementById("periodo").value.trim(),
+        periodo: periodoLabel(document.getElementById("periodo").value),
         contexto: document.getElementById("contexto").value.trim(),
       };
 
