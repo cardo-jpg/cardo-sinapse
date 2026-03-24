@@ -6,57 +6,60 @@
   <title>Sinapse — Apresentações</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
-<body class="conversar-body">
-  <div class="conversar-container">
-    <div class="conversar-header">
-      <a href="/" class="back-btn">←</a>
-      <div class="conversar-title">
-        <span class="conversar-icon">📊</span>
-        Gerar apresentação
+<body class="home-body">
+  <div class="home-container" style="max-width:600px; align-items:stretch;">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:32px;">
+      <a href="/" class="ata-back-btn" style="font-size:1.2rem;">←</a>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span style="font-size:1.5rem;">📊</span>
+        <span style="font-size:1.2rem; font-weight:700; color:var(--text);">Gerar apresentação</span>
       </div>
     </div>
 
-    <form id="form-apres" class="apres-form">
-      <div class="apres-row">
-        <label class="apres-label">Tipo</label>
-        <div class="apres-radio-group">
-          <label class="apres-radio">
-            <input type="radio" name="tipo" value="debriefing" checked>
-            <span>Debriefing de resultado</span>
+    <form id="form-apres" style="display:flex; flex-direction:column; gap:20px;">
+
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <label class="ata-label">Tipo</label>
+        <div style="display:flex; gap:16px;">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--text); font-size:15px;">
+            <input type="radio" name="tipo" value="debriefing" checked style="accent-color:var(--accent); width:16px; height:16px;">
+            Debriefing de resultado
           </label>
-          <label class="apres-radio">
-            <input type="radio" name="tipo" value="comercial">
-            <span>Apresentação comercial</span>
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--text); font-size:15px;">
+            <input type="radio" name="tipo" value="comercial" style="accent-color:var(--accent); width:16px; height:16px;">
+            Apresentação comercial
           </label>
         </div>
       </div>
 
-      <div class="apres-row">
-        <label class="apres-label" for="cliente">Cliente</label>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <label class="ata-label" for="cliente">Cliente</label>
         <input id="cliente" name="cliente" type="text"
-               placeholder="Ex: PV, CC, NF…" class="apres-input" autocomplete="off">
+               placeholder="Ex: PV, CC, NF…"
+               class="ata-input" autocomplete="off">
       </div>
 
-      <div class="apres-row">
-        <label class="apres-label" for="periodo">Período</label>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <label class="ata-label" for="periodo">Período</label>
         <input id="periodo" name="periodo" type="text"
-               placeholder="Ex: Janeiro 2025, Q1 2025…" class="apres-input" autocomplete="off">
+               placeholder="Ex: Janeiro 2025, Q1 2025…"
+               class="ata-input" autocomplete="off">
       </div>
 
-      <div class="apres-row">
-        <label class="apres-label" for="contexto">Contexto / destaques</label>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <label class="ata-label" for="contexto">Contexto / destaques</label>
         <textarea id="contexto" name="contexto" rows="5"
                   placeholder="Cole aqui métricas, resultados, ou qualquer informação extra que queira incluir na apresentação."
-                  class="apres-textarea"></textarea>
+                  class="ata-input" style="resize:vertical; font-family:inherit;"></textarea>
       </div>
 
-      <button type="submit" class="apres-btn" id="btn-gerar">
+      <button type="submit" class="ata-btn-publish" id="btn-gerar" style="height:44px; font-size:1rem; border-radius:10px;">
         <span id="btn-text">Gerar PPTX</span>
-        <span id="btn-loader" style="display:none">Gerando…</span>
+        <span id="btn-loader" style="display:none">Gerando… pode levar ~30s</span>
       </button>
     </form>
 
-    <div id="apres-erro" class="apres-erro" style="display:none"></div>
+    <div id="apres-erro" style="display:none; margin-top:16px; background:#2a1a1a; border:1px solid #c0392b; border-radius:10px; padding:14px; color:#e74c3c; font-size:14px;"></div>
   </div>
 
   <script>
