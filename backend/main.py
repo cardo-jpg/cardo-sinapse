@@ -9,14 +9,20 @@ import threading
 import subprocess
 import sys
 from datetime import datetime, timedelta
+from typing import Optional
 from pathlib import Path
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Form, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import anthropic
+import io
+from pptx import Presentation
+from pptx.util import Inches, Pt, Emu
+from pptx.dml.color import RGBColor
+from pptx.enum.text import PP_ALIGN
 
 load_dotenv()
 
@@ -454,7 +460,7 @@ def make_session_token(username: str) -> str:
     sig = hmac.new(SECRET_KEY.encode(), username.encode(), hashlib.sha256).hexdigest()
     return f"{username}:{sig}"
 
-def verify_session(request: Request) -> str | None:
+def verify_session(request: Request) -> Optional[str]:
     cookie = request.cookies.get("session", "")
     if ":" not in cookie:
         return None
@@ -862,3 +868,221 @@ async def view_logs(request: Request):
     if not verify_session(request):
         return RedirectResponse("/login")
     return templates.TemplateResponse("logs.html", {"request": request, "convs": list_conversations()})
+
+
+# ── Apresentações ─────────────────────────────────────────────────────────────
+
+BG_COLOR      = RGBColor(0x0E, 0x18, 0x25)
+SURFACE_COLOR = RGBColor(0x1A, 0x27, 0x3A)
+ORANGE_COLOR  = RGBColor(0xF4, 0x62, 0x1F)
+BLUE_COLOR    = RGBColor(0x48, 0x7C, 0xFF)
+WHITE_COLOR   = RGBColor(0xF2, 0xF5, 0xFA)
+GRAY_COLOR    = RGBColor(0x8A, 0x9B, 0xB0)
+
+def _set_bg(slide, color: RGBColor):
+    from pptx.oxml.ns import qn
+    from lxml import etree
+    bg = slide.background
+    fill = bg.fill
+    fill.solid()
+    fill.fore_color.rgb = color
+
+def _add_textbox(slide, text, left, top, width, height,
+                 font_size=18, bold=False, color=None, align=PP_ALIGN.LEFT):
+    txBox = slide.shapes.add_textbox(left, top, width, height)
+    tf = txBox.text_frame
+    tf.word_wrap = True
+    p = tf.paragraphs[0]
+    p.alignment = align
+    run = p.add_run()
+    run.text = text
+    run.font.size = Pt(font_size)
+    run.font.bold = bold
+    run.font.color.rgb = color or WHITE_COLOR
+    return txBox
+
+def _add_rect(slide, left, top, width, height, color: RGBColor):
+    shape = slide.shapes.add_shape(
+        1,  # MSO_SHAPE_TYPE.RECTANGLE
+        left, top, width, height
+    )
+    shape.fill.solid()
+    shape.fill.fore_color.rgb = color
+    shape.line.fill.background()
+    return shape
+
+def generate_pptx(slides_data: list) -> bytes:
+    """Gera um PPTX a partir de uma lista de slides com estrutura JSON."""
+    prs = Presentation()
+    prs.slide_width  = Inches(13.33)
+    prs.slide_height = Inches(7.5)
+
+    blank_layout = prs.slide_layouts[6]  # completamente em branco
+
+    W = prs.slide_width
+    H = prs.slide_height
+    MARGIN = Inches(0.6)
+
+    for s in slides_data:
+        tipo = s.get("tipo", "conteudo")
+        slide = prs.slides.add_slide(blank_layout)
+        _set_bg(slide, BG_COLOR)
+
+        if tipo == "titulo":
+            # Linha laranja no topo
+            _add_rect(slide, 0, 0, W, Inches(0.06), ORANGE_COLOR)
+            # Logo-placeholder (texto "CARDÔ")
+            _add_textbox(slide, "CARDÔ", MARGIN, Inches(0.15), Inches(2), Inches(0.4),
+                         font_size=11, bold=True, color=ORANGE_COLOR)
+            # Título centralizado
+            _add_textbox(slide, s.get("titulo", ""), MARGIN, Inches(2.2), W - 2*MARGIN, Inches(1.6),
+                         font_size=40, bold=True, color=WHITE_COLOR, align=PP_ALIGN.CENTER)
+            # Subtítulo
+            if s.get("subtitulo"):
+                _add_textbox(slide, s["subtitulo"], MARGIN, Inches(3.9), W - 2*MARGIN, Inches(0.7),
+                             font_size=20, color=GRAY_COLOR, align=PP_ALIGN.CENTER)
+            # Data / cliente no rodapé
+            if s.get("rodape"):
+                _add_textbox(slide, s["rodape"], MARGIN, H - Inches(0.5), W - 2*MARGIN, Inches(0.4),
+                             font_size=11, color=GRAY_COLOR, align=PP_ALIGN.CENTER)
+
+        elif tipo == "secao":
+            _add_rect(slide, 0, 0, Inches(0.12), H, ORANGE_COLOR)
+            _add_textbox(slide, s.get("titulo", ""), Inches(0.5), Inches(2.8), W - Inches(1), Inches(1.2),
+                         font_size=36, bold=True, color=WHITE_COLOR)
+            if s.get("descricao"):
+                _add_textbox(slide, s["descricao"], Inches(0.5), Inches(4.1), W - Inches(1), Inches(0.8),
+                             font_size=18, color=GRAY_COLOR)
+
+        elif tipo == "conteudo":
+            _add_textbox(slide, s.get("titulo", ""), MARGIN, MARGIN, W - 2*MARGIN, Inches(0.7),
+                         font_size=24, bold=True, color=ORANGE_COLOR)
+            _add_rect(slide, MARGIN, Inches(1.15), Inches(0.05), Inches(0.001), ORANGE_COLOR)
+            body = s.get("corpo", "")
+            _add_textbox(slide, body, MARGIN, Inches(1.3), W - 2*MARGIN, H - Inches(2),
+                         font_size=16, color=WHITE_COLOR)
+
+        elif tipo == "metricas":
+            _add_textbox(slide, s.get("titulo", ""), MARGIN, MARGIN, W - 2*MARGIN, Inches(0.7),
+                         font_size=24, bold=True, color=ORANGE_COLOR)
+            metricas = s.get("metricas", [])
+            cols = min(len(metricas), 4)
+            if cols == 0:
+                continue
+            card_w = (W - 2*MARGIN - Inches(0.2) * (cols - 1)) / cols
+            card_h = Inches(2.2)
+            top = Inches(1.5)
+            for i, m in enumerate(metricas[:cols]):
+                left = MARGIN + i * (card_w + Inches(0.2))
+                _add_rect(slide, left, top, card_w, card_h, SURFACE_COLOR)
+                _add_textbox(slide, m.get("valor", ""), left + Inches(0.15), top + Inches(0.2),
+                             card_w - Inches(0.3), Inches(0.9),
+                             font_size=32, bold=True, color=BLUE_COLOR, align=PP_ALIGN.CENTER)
+                _add_textbox(slide, m.get("label", ""), left + Inches(0.15), top + Inches(1.1),
+                             card_w - Inches(0.3), Inches(0.5),
+                             font_size=13, color=GRAY_COLOR, align=PP_ALIGN.CENTER)
+                if m.get("variacao"):
+                    _add_textbox(slide, m["variacao"], left + Inches(0.15), top + Inches(1.65),
+                                 card_w - Inches(0.3), Inches(0.4),
+                                 font_size=12, color=WHITE_COLOR, align=PP_ALIGN.CENTER)
+
+        elif tipo == "dois_colunas":
+            _add_textbox(slide, s.get("titulo", ""), MARGIN, MARGIN, W - 2*MARGIN, Inches(0.7),
+                         font_size=24, bold=True, color=ORANGE_COLOR)
+            col_w = (W - 2*MARGIN - Inches(0.3)) / 2
+            col_top = Inches(1.3)
+            col_h = H - col_top - MARGIN
+            _add_textbox(slide, s.get("esquerda", ""), MARGIN, col_top, col_w, col_h,
+                         font_size=15, color=WHITE_COLOR)
+            _add_textbox(slide, s.get("direita", ""), MARGIN + col_w + Inches(0.3), col_top, col_w, col_h,
+                         font_size=15, color=WHITE_COLOR)
+
+    buf = io.BytesIO()
+    prs.save(buf)
+    buf.seek(0)
+    return buf.read()
+
+
+APRESENTACAO_SYSTEM = """Você é um especialista em apresentações de marketing.
+Gere uma apresentação estruturada em JSON para uma agência de marketing digital chamada Cardô.
+Retorne APENAS um array JSON válido de slides, sem nenhum texto fora do JSON.
+
+Cada slide deve ter "tipo" e campos específicos:
+- tipo "titulo": titulo, subtitulo (opcional), rodape (opcional)
+- tipo "secao": titulo, descricao (opcional)
+- tipo "conteudo": titulo, corpo (texto do corpo, pode ter quebras de linha)
+- tipo "metricas": titulo, metricas (array de {valor, label, variacao})
+- tipo "dois_colunas": titulo, esquerda, direita
+
+Use no máximo 12 slides. Seja objetivo e visual.
+Para debriefing: inclua resultados, métricas principais, conquistas, próximos passos.
+Para comercial: inclua proposta de valor, serviços, cases, investimento."""
+
+
+@app.get("/apresentacao", response_class=HTMLResponse)
+async def apresentacao_page(request: Request):
+    if not verify_session(request):
+        return RedirectResponse("/login")
+    return templates.TemplateResponse("apresentacao.html", {"request": request})
+
+
+@app.post("/api/apresentacao/gerar")
+async def gerar_apresentacao(request: Request):
+    if not verify_session(request):
+        raise HTTPException(status_code=401)
+
+    body = await request.json()
+    tipo = body.get("tipo", "debriefing")       # debriefing | comercial
+    cliente = body.get("cliente", "")
+    contexto = body.get("contexto", "")
+    periodo = body.get("periodo", "")
+
+    # Busca docs do cliente se informado
+    docs_text = ""
+    if cliente:
+        client_dir = DOCS_DIR / cliente
+        if client_dir.exists():
+            for f in sorted(client_dir.iterdir()):
+                if f.suffix in (".txt", ".md"):
+                    try:
+                        docs_text += f"\n\n--- {f.name} ---\n{f.read_text(encoding='utf-8', errors='ignore')}"
+                    except Exception:
+                        pass
+
+    user_prompt = f"Tipo de apresentação: {tipo}\n"
+    if cliente:
+        user_prompt += f"Cliente: {cliente}\n"
+    if periodo:
+        user_prompt += f"Período: {periodo}\n"
+    if contexto:
+        user_prompt += f"Informações adicionais: {contexto}\n"
+    if docs_text:
+        user_prompt += f"\nDocumentos disponíveis:{docs_text[:8000]}\n"
+    user_prompt += "\nGere o JSON da apresentação agora."
+
+    try:
+        resp = client.messages.create(
+            model="claude-opus-4-6",
+            max_tokens=4000,
+            system=APRESENTACAO_SYSTEM,
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+        raw = resp.content[0].text.strip()
+        # Extrai JSON mesmo que venha com ```json
+        if "```" in raw:
+            raw = re.sub(r"```(?:json)?", "", raw).strip().rstrip("`").strip()
+        slides = json.loads(raw)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao gerar slides: {e}")
+
+    try:
+        pptx_bytes = generate_pptx(slides)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao montar PPTX: {e}")
+
+    nome_arquivo = f"apresentacao_{cliente or tipo}_{datetime.now().strftime('%Y%m%d_%H%M')}.pptx"
+    return StreamingResponse(
+        io.BytesIO(pptx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        headers={"Content-Disposition": f'attachment; filename="{nome_arquivo}"'},
+    )

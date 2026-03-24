@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sinapse — Apresentações</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="conversar-body">
+  <div class="conversar-container">
+    <div class="conversar-header">
+      <a href="/" class="back-btn">←</a>
+      <div class="conversar-title">
+        <span class="conversar-icon">📊</span>
+        Gerar apresentação
+      </div>
+    </div>
+
+    <form id="form-apres" class="apres-form">
+      <div class="apres-row">
+        <label class="apres-label">Tipo</label>
+        <div class="apres-radio-group">
+          <label class="apres-radio">
+            <input type="radio" name="tipo" value="debriefing" checked>
+            <span>Debriefing de resultado</span>
+          </label>
+          <label class="apres-radio">
+            <input type="radio" name="tipo" value="comercial">
+            <span>Apresentação comercial</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="apres-row">
+        <label class="apres-label" for="cliente">Cliente</label>
+        <input id="cliente" name="cliente" type="text"
+               placeholder="Ex: PV, CC, NF…" class="apres-input" autocomplete="off">
+      </div>
+
+      <div class="apres-row">
+        <label class="apres-label" for="periodo">Período</label>
+        <input id="periodo" name="periodo" type="text"
+               placeholder="Ex: Janeiro 2025, Q1 2025…" class="apres-input" autocomplete="off">
+      </div>
+
+      <div class="apres-row">
+        <label class="apres-label" for="contexto">Contexto / destaques</label>
+        <textarea id="contexto" name="contexto" rows="5"
+                  placeholder="Cole aqui métricas, resultados, ou qualquer informação extra que queira incluir na apresentação."
+                  class="apres-textarea"></textarea>
+      </div>
+
+      <button type="submit" class="apres-btn" id="btn-gerar">
+        <span id="btn-text">Gerar PPTX</span>
+        <span id="btn-loader" style="display:none">Gerando…</span>
+      </button>
+    </form>
+
+    <div id="apres-erro" class="apres-erro" style="display:none"></div>
+  </div>
+
+  <script>
+    document.getElementById("form-apres").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById("btn-gerar");
+      document.getElementById("btn-text").style.display = "none";
+      document.getElementById("btn-loader").style.display = "inline";
+      document.getElementById("apres-erro").style.display = "none";
+      btn.disabled = true;
+
+      const data = {
+        tipo: document.querySelector('input[name="tipo"]:checked').value,
+        cliente: document.getElementById("cliente").value.trim(),
+        periodo: document.getElementById("periodo").value.trim(),
+        contexto: document.getElementById("contexto").value.trim(),
+      };
+
+      try {
+        const resp = await fetch("/api/apresentacao/gerar", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(data),
+        });
+
+        if (!resp.ok) {
+          const err = await resp.json();
+          throw new Error(err.detail || "Erro desconhecido");
+        }
+
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        const cd = resp.headers.get("Content-Disposition") || "";
+        const match = cd.match(/filename="(.+?)"/);
+        a.download = match ? match[1] : "apresentacao.pptx";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        const el = document.getElementById("apres-erro");
+        el.textContent = "Erro: " + err.message;
+        el.style.display = "block";
+      } finally {
+        document.getElementById("btn-text").style.display = "inline";
+        document.getElementById("btn-loader").style.display = "none";
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
