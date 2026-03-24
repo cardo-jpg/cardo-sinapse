@@ -221,6 +221,8 @@ body { background: var(--bg); color: var(--text); font-family: -apple-system, Bl
 
 .home-footer-link { margin-top: 28px; color: var(--muted); font-size: 0.85rem; text-decoration: none; }
 .home-footer-link:hover { color: var(--text); }
+.home-logout { margin-top: 8px; opacity: 0.5; }
+.home-logout:hover { color: #ff6b6b; opacity: 1; }
 
 /* ── ATA ─────────────────────────────────────────────────────────────────── */
 .ata-layout { display: flex; height: 100vh; }

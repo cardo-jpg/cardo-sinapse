@@ -478,6 +478,12 @@ async def login(password: str = Form(...)):
         return response
     return RedirectResponse("/login?error=1", status_code=303)
 
+@app.get("/logout")
+async def logout():
+    response = RedirectResponse("/login", status_code=303)
+    response.delete_cookie("session")
+    return response
+
 @app.get("/api/conversations")
 async def get_conversations(request: Request):
     if not verify_session(request):
