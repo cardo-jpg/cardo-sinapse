@@ -34,16 +34,23 @@
 
       <div style="display:flex; flex-direction:column; gap:8px;">
         <label class="ata-label" for="cliente">Cliente</label>
-        <input id="cliente" name="cliente" type="text"
-               placeholder="Ex: PV, CC, NF…"
-               class="ata-input" autocomplete="off">
+        <select id="cliente" name="cliente" class="ata-input">
+          <option value="">— Selecione —</option>
+          <option value="CC">CC — Clube do Contador</option>
+          <option value="NF">NF — Nutrição Funcional</option>
+          <option value="PV">PV — Patricia Voggt</option>
+          <option value="HIRE">HIRE — C.Up Hire</option>
+          <option value="SRW">SRW — Sorriso</option>
+          <option value="SCALE">SCALE — Scale</option>
+          <option value="HDLT">HDLT — HDLT</option>
+        </select>
       </div>
 
       <div style="display:flex; flex-direction:column; gap:8px;">
         <label class="ata-label" for="periodo">Período</label>
-        <input id="periodo" name="periodo" type="text"
-               placeholder="Ex: Janeiro 2025, Q1 2025…"
-               class="ata-input" autocomplete="off">
+        <select id="periodo" name="periodo" class="ata-input">
+          <option value="">— Selecione —</option>
+        </select>
       </div>
 
       <div style="display:flex; flex-direction:column; gap:8px;">
@@ -63,6 +70,22 @@
   </div>
 
   <script>
+    // Preenche os últimos 18 meses no select de período
+    (function() {
+      const sel = document.getElementById("periodo");
+      const meses = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+                     "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+      const now = new Date();
+      for (let i = 0; i < 18; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const label = meses[d.getMonth()] + " " + d.getFullYear();
+        const opt = document.createElement("option");
+        opt.value = label;
+        opt.textContent = label;
+        sel.appendChild(opt);
+      }
+    })();
+
     document.getElementById("form-apres").addEventListener("submit", async (e) => {
       e.preventDefault();
       const btn = document.getElementById("btn-gerar");
