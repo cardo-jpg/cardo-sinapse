@@ -52,6 +52,17 @@
                style="color-scheme:dark;">
       </div>
 
+      <div id="datas-row" style="display:none; gap:12px;">
+        <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
+          <label class="ata-label" for="data-inicio">De</label>
+          <input type="date" id="data-inicio" class="ata-input" style="color-scheme:dark;">
+        </div>
+        <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
+          <label class="ata-label" for="data-fim">Até</label>
+          <input type="date" id="data-fim" class="ata-input" style="color-scheme:dark;">
+        </div>
+      </div>
+
       <div style="display:flex; flex-direction:column; gap:8px;">
         <label class="ata-label" for="contexto">Contexto / destaques</label>
         <textarea id="contexto" name="contexto" rows="5"
@@ -69,21 +80,48 @@
   </div>
 
   <script>
-    // Define o mês atual como padrão no input de período
+    const MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+                   "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+
+    function preencheDatasMes(val) {
+      if (!val) return;
+      const [y, m] = val.split("-").map(Number);
+      const ultimo = new Date(y, m, 0).getDate();
+      const pad = n => String(n).padStart(2, "0");
+      document.getElementById("data-inicio").value = `${y}-${pad(m)}-01`;
+      document.getElementById("data-fim").value    = `${y}-${pad(m)}-${ultimo}`;
+      document.getElementById("datas-row").style.display = "flex";
+    }
+
+    function periodoFinal() {
+      const inicio = document.getElementById("data-inicio").value;
+      const fim    = document.getElementById("data-fim").value;
+      const mes    = document.getElementById("periodo").value;
+      if (inicio && fim) {
+        const di = new Date(inicio + "T00:00:00");
+        const df = new Date(fim    + "T00:00:00");
+        const fmt = d => `${d.getDate()} de ${MESES[d.getMonth()]}`;
+        if (inicio === fim) return `${fmt(di)} de ${di.getFullYear()}`;
+        if (di.getMonth() === df.getMonth())
+          return `${di.getDate()} a ${df.getDate()} de ${MESES[di.getMonth()]} de ${di.getFullYear()}`;
+        return `${fmt(di)} a ${fmt(df)} de ${df.getFullYear()}`;
+      }
+      if (!mes) return "";
+      const [y, m] = mes.split("-");
+      return MESES[parseInt(m) - 1] + " " + y;
+    }
+
+    // Mês atual como padrão
     (function() {
       const now = new Date();
-      const y = now.getFullYear();
-      const m = String(now.getMonth() + 1).padStart(2, "0");
-      document.getElementById("periodo").value = `${y}-${m}`;
+      const val = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      document.getElementById("periodo").value = val;
+      preencheDatasMes(val);
     })();
 
-    function periodoLabel(val) {
-      if (!val) return "";
-      const meses = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho",
-                     "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-      const [y, m] = val.split("-");
-      return meses[parseInt(m) - 1] + " " + y;
-    }
+    document.getElementById("periodo").addEventListener("change", function() {
+      preencheDatasMes(this.value);
+    });
 
     document.getElementById("form-apres").addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -96,7 +134,7 @@
       const data = {
         tipo: document.querySelector('input[name="tipo"]:checked').value,
         cliente: document.getElementById("cliente").value.trim(),
-        periodo: periodoLabel(document.getElementById("periodo").value),
+        periodo: periodoFinal(),
         contexto: document.getElementById("contexto").value.trim(),
       };
 
