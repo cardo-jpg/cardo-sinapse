@@ -163,6 +163,40 @@ async def granola_post(endpoint: str, payload: dict = None):
             pass
     return None
 
+async def granola_get_transcript(document_id: str) -> str:
+    """Busca transcript via get-document-transcript (retorna gzip). Retorna texto formatado."""
+    import gzip as _gzip
+    token = get_granola_token()
+    if not token:
+        return ""
+    async with httpx.AsyncClient() as c:
+        try:
+            r = await c.post(
+                f"{GRANOLA_API_BASE}/get-document-transcript",
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                json={"document_id": document_id},
+                timeout=20,
+            )
+            if r.status_code != 200:
+                return ""
+            raw = r.content
+            try:
+                segments = json.loads(_gzip.decompress(raw))
+            except Exception:
+                segments = json.loads(raw)
+            if not isinstance(segments, list):
+                return ""
+            lines = []
+            for s in segments:
+                text = s.get("text", "").strip()
+                source = s.get("source", "")
+                if text:
+                    speaker = "Sistema" if source == "system" else "Microfone"
+                    lines.append(f"[{speaker}]: {text}")
+            return "\n".join(lines)
+        except Exception:
+            return ""
+
 def sanitize_ata_content(text: str) -> str:
     """Remove linhas que contêm apenas 'null' (com pontuação opcional)."""
     lines = text.splitlines()
@@ -629,7 +663,7 @@ async def get_granola_meetings(request: Request):
             "id": doc.get("id"),
             "title": title,
             "date": date,
-            "has_content": bool(doc.get("notes_plain") or doc.get("notes_markdown")),
+            "has_content": bool(doc.get("notes_plain") or doc.get("notes_markdown") or doc.get("valid_meeting")),
             "has_summary": bool(doc.get("summary")),
         })
     meetings.sort(key=lambda x: x["date"], reverse=True)
@@ -657,11 +691,14 @@ async def generate_ata(request: Request):
     doc_title = doc.get("title") or ""
     date = date_override or extract_date_from_title(doc_title) or (doc.get("created_at") or "")[:10]
 
-    # Conteúdo: markdown tem formatação, plain é texto corrido — preferir markdown
+    # Conteúdo: preferir notas com template; fallback para transcript bruto
     ata_text = sanitize_ata_content(doc.get("notes_markdown") or doc.get("notes_plain") or "")
 
     if not ata_text:
-        raise HTTPException(status_code=422, detail="Esta reunião não tem notas. Aplique o template no Granola antes de gerar a ata.")
+        ata_text = await granola_get_transcript(meeting_id)
+
+    if not ata_text:
+        raise HTTPException(status_code=422, detail="Esta reunião não tem notas nem transcript disponível.")
 
     title = f"{client_name or doc_title or 'Reunião'} — Ata — {date}"
     return JSONResponse({"ata": ata_text, "title": title, "date": date})
