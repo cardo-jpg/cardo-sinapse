@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sinapse</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+</head>
+<body>
+
+  <!-- CLIENT SELECTION SCREEN -->
+  <div id="clientScreen" class="client-screen" style="display:none;">
+    <div class="client-screen-inner">
+      <div class="client-screen-header">
+        <img src="/static/logo.png" alt="Cardô Marketing" class="client-logo-img">
+        <div class="client-logo-sub">Sinapse</div>
+        <p class="client-screen-sub">Selecione o cliente para começar</p>
+      </div>
+      <div class="client-grid" id="clientGrid"></div>
+      <div class="client-screen-user">
+        <label>Seu nome</label>
+        <input type="text" id="userNameClient" placeholder="Ex: Ana">
+        <button onclick="enterChat()">Entrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <div class="app" id="appScreen" style="display:none;">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <img src="/static/logo.png" alt="Cardô Marketing" class="sidebar-logo-img">
+        <span class="sidebar-logo-sub">Sinapse</span>
+      </div>
+      <div class="sidebar-client-badge" id="sidebarClientBadge"></div>
+      <div class="sidebar-info">
+        <label>Seu nome</label>
+        <input type="text" id="userName" placeholder="Ex: Ana">
+      </div>
+      <button class="new-chat-btn" onclick="newChat()">+ Nova conversa</button>
+      <button class="change-client-btn" onclick="showClientScreen()">Trocar cliente</button>
+      <div class="conv-list" id="convList"></div>
+      <a href="/" class="logs-link">← Início</a>
+      <a href="/logs" class="logs-link">Ver histórico completo</a>
+    </aside>
+
+    <main class="chat-area">
+      <div class="messages" id="messages">
+        <div class="welcome">
+          <h3>Olá! Sou o assistente da Cardô.</h3>
+          <p>Pode me perguntar sobre processos, clientes, campanhas ou qualquer dúvida do dia a dia.</p>
+        </div>
+      </div>
+      <div class="input-area">
+        <textarea id="userInput" placeholder="Digite sua pergunta..." rows="1" onkeydown="handleKey(event)"></textarea>
+        <button onclick="sendMessage()" id="sendBtn">Enviar</button>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const CLIENTS = [
+      { sigla: 'SRW',   nome: 'SpeedRack West',    emoji: '🏭' },
+      { sigla: 'HDLT',  nome: 'Headlight Co',       emoji: '💡' },
+      { sigla: 'HIRE',  nome: 'Hire Brazil',        emoji: '🤝' },
+      { sigla: 'SCALE', nome: 'Scale Army',         emoji: '⚡' },
+      { sigla: 'CC',    nome: 'Conexão Cirúrgica',  emoji: '🏥' },
+      { sigla: 'NF',    nome: 'Gráfica NF',         emoji: '🖨️' },
+      { sigla: 'PV',    nome: 'Patrícia Voggt',     emoji: '💄' },
+    ];
+
+    let messages = [];
+    let currentConvId = null;
+    let selectedClient = null;
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+
+    function init() {
+      const params = new URLSearchParams(window.location.search);
+      const savedName = localStorage.getItem('cardoBrainUser');
+      if (savedName) {
+        document.getElementById('userName').value = savedName;
+        document.getElementById('userNameClient').value = savedName;
+      }
+      if (params.get('modo') === 'processos') {
+        // Modo processos: entra direto sem cliente
+        selectedClient = null;
+        localStorage.removeItem('cardoBrainClient');
+        showAppScreen();
+        return;
+      }
+      const saved = localStorage.getItem('cardoBrainClient');
+      if (saved) {
+        selectedClient = JSON.parse(saved);
+        showAppScreen();
+      } else {
+        showClientScreen();
+      }
+    }
+
+    // ── Client selection ──────────────────────────────────────────────────────
+
+    function showClientScreen() {
+      document.getElementById('clientScreen').style.display = 'flex';
+      document.getElementById('appScreen').style.display = 'none';
+      renderClientGrid();
+    }
+
+    function renderClientGrid() {
+      const grid = document.getElementById('clientGrid');
+      grid.innerHTML = '';
+      CLIENTS.forEach(c => {
+        const card = document.createElement('div');
+        card.className = 'client-card' + (selectedClient && selectedClient.sigla === c.sigla ? ' selected' : '');
+        card.innerHTML = `<span class="client-card-emoji">${c.emoji}</span><span class="client-card-sigla">${c.sigla}</span><span class="client-card-nome">${c.nome}</span>`;
+        card.onclick = () => selectClient(c, card);
+        grid.appendChild(card);
+      });
+    }
+
+    function selectClient(c, card) {
+      document.querySelectorAll('.client-card').forEach(el => el.classList.remove('selected'));
+      card.classList.add('selected');
+      selectedClient = c;
+    }
+
+    function enterChat() {
+      if (!selectedClient) { alert('Selecione um cliente para continuar.'); return; }
+      const name = document.getElementById('userNameClient').value.trim();
+      if (name) {
+        document.getElementById('userName').value = name;
+        localStorage.setItem('cardoBrainUser', name);
+      }
+      localStorage.setItem('cardoBrainClient', JSON.stringify(selectedClient));
+      showAppScreen();
+    }
+
+    function showAppScreen() {
+      document.getElementById('clientScreen').style.display = 'none';
+      document.getElementById('appScreen').style.display = 'flex';
+      updateClientBadge();
+      loadConversationList().then(() => {
+        const params = new URLSearchParams(window.location.search);
+        const convId = params.get('conv');
+        if (convId) loadConversation(convId);
+      });
+    }
+
+    function updateClientBadge() {
+      if (!selectedClient) return;
+      const badge = document.getElementById('sidebarClientBadge');
+      badge.innerHTML = `<span class="badge-emoji">${selectedClient.emoji}</span><span class="badge-text">${selectedClient.nome}</span>`;
+    }
+
+    // ── Conversation list ─────────────────────────────────────────────────────
+
+    async function loadConversationList() {
+      const res = await fetch('/api/conversations');
+      const convs = await res.json();
+      const list = document.getElementById('convList');
+      list.innerHTML = '';
+
+      const filtered = selectedClient
+        ? convs.filter(c => c.client === selectedClient.sigla)
+        : convs;
+
+      if (filtered.length === 0) {
+        list.innerHTML = '<p class="conv-empty">Nenhuma conversa ainda.</p>';
+        return;
+      }
+
+      filtered.forEach(c => {
+        const div = document.createElement('div');
+        div.className = 'conv-item' + (c.id === currentConvId ? ' active' : '');
+        div.dataset.id = c.id;
+        div.innerHTML = `
+          <span class="conv-title">${escapeHtml(c.title)}</span>
+          <span class="conv-user">${escapeHtml(c.user)}</span>
+          <button class="conv-delete" title="Excluir conversa">×</button>`;
+        div.onclick = () => loadConversation(c.id);
+        div.querySelector('.conv-delete').onclick = (e) => {
+          e.stopPropagation();
+          deleteConversation(c.id, div);
+        };
+        list.appendChild(div);
+      });
+    }
+
+    async function loadConversation(id) {
+      const res = await fetch(`/api/conversations/${id}`);
+      if (!res.ok) return;
+      const data = await res.json();
+
+      currentConvId = data.id;
+      messages = data.messages;
+
+      const container = document.getElementById('messages');
+      container.innerHTML = '';
+      data.messages.forEach(m => {
+        if (typeof m.content === 'string') appendMessage(m.role, m.content, false);
+      });
+      container.scrollTop = container.scrollHeight;
+
+      if (data.user) document.getElementById('userName').value = data.user;
+
+      document.querySelectorAll('.conv-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.id === id);
+      });
+    }
+
+    function newChat() {
+      messages = [];
+      currentConvId = null;
+      document.getElementById('messages').innerHTML = `
+        <div class="welcome">
+          <h3>Olá! Sou o assistente da Cardô.</h3>
+          <p>Pode me perguntar sobre processos, clientes, campanhas ou qualquer dúvida do dia a dia.</p>
+        </div>`;
+      document.querySelectorAll('.conv-item').forEach(el => el.classList.remove('active'));
+    }
+
+    // ── Messaging ─────────────────────────────────────────────────────────────
+
+    function handleKey(e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('userInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const userName = document.getElementById('userName').value || 'colaborador';
+      localStorage.setItem('cardoBrainUser', userName);
+      input.value = '';
+      input.style.height = 'auto';
+
+      appendMessage('user', text);
+      messages.push({ role: 'user', content: text });
+
+      const sendBtn = document.getElementById('sendBtn');
+      sendBtn.disabled = true;
+      sendBtn.textContent = '...';
+      appendThinking();
+
+      try {
+        const res = await fetch('/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages,
+            user: userName,
+            conv_id: currentConvId,
+            client: selectedClient ? selectedClient.sigla : null,
+            client_name: selectedClient ? selectedClient.nome : null,
+          })
+        });
+        const data = await res.json();
+        removeThinking();
+        if (data.specialist) showSpecialistBadge(data.specialist);
+        appendMessage('assistant', data.reply);
+        messages.push({ role: 'assistant', content: data.reply });
+        currentConvId = data.conv_id;
+        if (data.task_created && data.task_created.ok) appendTaskCard(data.task_created);
+        loadConversationList();
+      } catch (e) {
+        removeThinking();
+        appendMessage('assistant', 'Erro ao conectar. Tente novamente.');
+      }
+
+      sendBtn.disabled = false;
+      sendBtn.textContent = 'Enviar';
+    }
+
+    // ── Render helpers ────────────────────────────────────────────────────────
+
+    function appendMessage(role, text, scroll = true) {
+      const div = document.createElement('div');
+      div.className = `message ${role}`;
+      div.innerHTML = `<div class="bubble">${formatText(text)}</div>`;
+      const container = document.getElementById('messages');
+      const welcome = container.querySelector('.welcome');
+      if (welcome) welcome.remove();
+      container.appendChild(div);
+      if (scroll) container.scrollTop = container.scrollHeight;
+    }
+
+    function appendThinking() {
+      const div = document.createElement('div');
+      div.className = 'message assistant thinking';
+      div.id = 'thinking';
+      div.innerHTML = '<div class="bubble"><span class="typing-dots"><span></span><span></span><span></span></span></div>';
+      document.getElementById('messages').appendChild(div);
+      document.getElementById('messages').scrollTop = 9999;
+    }
+
+    function appendTaskCard(task) {
+      const div = document.createElement('div');
+      div.className = 'task-card';
+      div.innerHTML = `
+        <span class="task-icon">✅</span>
+        <div class="task-info">
+          <span class="task-label">Tarefa criada no ClickUp</span>
+          <span class="task-name">${escapeHtml(task.name)}</span>
+        </div>
+        <a href="${task.url}" target="_blank" class="task-link">Abrir →</a>`;
+      document.getElementById('messages').appendChild(div);
+      document.getElementById('messages').scrollTop = 9999;
+    }
+
+    const SPECIALIST_LABELS = {
+      google_ads:  { label: 'Google Ads',  icon: '🎯' },
+      meta_ads:    { label: 'Meta Ads',    icon: '📘' },
+      criativo:    { label: 'Criativo',    icon: '🎨' },
+      atendimento: { label: 'Atendimento', icon: '🤝' },
+    };
+
+    function showSpecialistBadge(specialist) {
+      const info = SPECIALIST_LABELS[specialist];
+      if (!info) return;
+      const old = document.getElementById('specialistBadge');
+      if (old) old.remove();
+      const badge = document.createElement('div');
+      badge.id = 'specialistBadge';
+      badge.className = 'specialist-badge';
+      badge.textContent = `${info.icon} Especialista em ${info.label}`;
+      document.getElementById('messages').appendChild(badge);
+      setTimeout(() => badge.classList.add('fade-out'), 3000);
+      setTimeout(() => badge.remove(), 3600);
+    }
+
+    async function deleteConversation(id, el) {
+      await fetch(`/api/conversations/${id}`, { method: 'DELETE' });
+      el.remove();
+      if (id === currentConvId) newChat();
+    }
+
+    function removeThinking() {
+      const el = document.getElementById('thinking');
+      if (el) el.remove();
+    }
+
+    marked.setOptions({ breaks: true, gfm: true });
+
+    function formatText(text) {
+      const html = marked.parse(text);
+      return colorizeAlerts(html);
+    }
+
+    function colorizeAlerts(html) {
+      // Cards coloridos baseados no emoji inicial do parágrafo
+      return html
+        .replace(/<p>⚠️/g,  '<p class="alert alert-warning">⚠️')
+        .replace(/<p>🚨/g,  '<p class="alert alert-danger">🚨')
+        .replace(/<p>⚡/g,  '<p class="alert alert-caution">⚡')
+        .replace(/<p>🔴/g,  '<p class="alert alert-danger">🔴')
+        .replace(/<p>✓/g,   '<p class="alert alert-success">✓')
+        .replace(/<p>✅/g,  '<p class="alert alert-success">✅')
+        .replace(/<p>💡/g,  '<p class="alert alert-info">💡')
+        .replace(/<p>🔵/g,  '<p class="alert alert-info">🔵')
+        .replace(/<blockquote>\s*<p>⚠️/g,  '<blockquote class="alert-warning"><p>⚠️')
+        .replace(/<blockquote>\s*<p>⚡/g,   '<blockquote class="alert-caution"><p>⚡')
+        .replace(/<blockquote>\s*<p>✓/g,    '<blockquote class="alert-success"><p>✓')
+        .replace(/<blockquote>\s*<p>✅/g,   '<blockquote class="alert-success"><p>✅')
+        .replace(/<blockquote>\s*<p>💡/g,   '<blockquote class="alert-info"><p>💡');
+    }
+
+    function escapeHtml(text) {
+      return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ── Textarea auto-resize ──────────────────────────────────────────────────
+
+    const textarea = document.getElementById('userInput');
+    textarea.addEventListener('input', () => {
+      textarea.style.height = 'auto';
+      textarea.style.height = textarea.scrollHeight + 'px';
+    });
+
+    // ── Start ─────────────────────────────────────────────────────────────────
+    init();
+  </script>
+</body>
+</html>

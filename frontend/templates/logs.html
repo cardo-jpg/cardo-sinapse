@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Cardô Brain — Histórico</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="logs-page">
+    <div class="logs-header">
+      <h2>Cardô<span>Brain</span> — Histórico</h2>
+      <a href="/">Voltar ao chat</a>
+    </div>
+    <div class="logs-list">
+      {% if not convs %}
+        <p class="empty">Nenhuma conversa registrada ainda.</p>
+      {% else %}
+        {% for c in convs %}
+        <div class="log-entry" onclick="window.location='/?conv={{ c.id }}'" style="cursor:pointer">
+          <div class="log-meta">
+            <span class="log-user">{{ c.user }}</span>
+            <span class="log-time">{{ c.updated_at[:16].replace('T', ' às ') }}</span>
+          </div>
+          <div class="log-q">{{ c.title }}</div>
+        </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+  </div>
+</body>
+</html>

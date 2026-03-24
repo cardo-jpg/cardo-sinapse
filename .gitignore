@@ -1,0 +1,14 @@
+.env
+logs/
+__pycache__/
+*.pyc
+.DS_Store
+venv/
+Marca Cardō/
+documents/**/*.xlsx
+documents/**/*.pdf
+documents/**/*.png
+documents/**/*.jpg
+documents/**/*.PNG
+documents/**/*.JPG
+documents/**/Google Chat/

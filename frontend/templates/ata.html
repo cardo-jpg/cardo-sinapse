@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Criar Ata — Sinapse</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+</head>
+<body>
+  <div class="ata-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="ata-sidebar">
+      <div class="sidebar-logo">
+        <img src="/static/logo.png" alt="Cardô Marketing" class="sidebar-logo-img">
+        <span class="sidebar-logo-sub">Sinapse</span>
+      </div>
+      <a href="/" class="ata-back-btn">← Início</a>
+      <div class="ata-sidebar-title">Reuniões no Granola</div>
+      <div class="ata-meeting-list" id="meetingList">
+        <div class="ata-loading">Buscando reuniões...</div>
+      </div>
+      <button class="ata-refresh-btn" onclick="loadMeetings()">↻ Atualizar</button>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="ata-main">
+
+      <!-- Estado inicial -->
+      <div id="stateEmpty" class="ata-state">
+        <div class="ata-state-icon">📝</div>
+        <div class="ata-state-title">Selecione uma reunião</div>
+        <div class="ata-state-desc">Escolha uma reunião na lista ao lado para gerar a ata.</div>
+      </div>
+
+      <!-- Configuração (cliente + gerar) -->
+      <div id="stateConfig" class="ata-state" style="display:none;">
+        <div class="ata-config-header">
+          <div class="ata-config-meeting" id="configMeetingTitle"></div>
+          <div class="ata-config-date" id="configMeetingDate"></div>
+        </div>
+        <div class="ata-config-form">
+          <label class="ata-label">Cliente desta reunião</label>
+          <div class="ata-client-grid" id="configClientGrid"></div>
+          <div class="ata-client-custom">
+            <input type="text" id="customClientName" placeholder="Ou digite o nome do cliente..." class="ata-input">
+          </div>
+          <button class="ata-generate-btn" id="generateBtn" onclick="generateAta()">
+            Gerar ata
+          </button>
+        </div>
+      </div>
+
+      <!-- Gerando -->
+      <div id="stateGenerating" class="ata-state" style="display:none;">
+        <div class="ata-state-icon ata-spin">⏳</div>
+        <div class="ata-state-title">Gerando ata...</div>
+        <div class="ata-state-desc">O Brain está lendo a reunião e formatando a ata.</div>
+      </div>
+
+      <!-- Preview da ata -->
+      <div id="stateResult" style="display:none;" class="ata-result-wrapper">
+        <div class="ata-result-toolbar">
+          <div class="ata-result-title" id="resultTitle"></div>
+          <div class="ata-result-actions">
+            <button class="ata-btn-secondary" onclick="resetToConfig()">← Refazer</button>
+            <div class="ata-clickup-group">
+              <div class="ata-clickup-group-label">Enviar para o ClickUp</div>
+              <div class="ata-clickup-group-btns">
+                <button class="ata-btn-tasks" id="extractTasksBtn" onclick="extractTasks()">Criar tarefas</button>
+                <button class="ata-btn-publish" id="publishBtn" onclick="publishAta()">Publicar ata</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="ata-result-content" id="resultContent"></div>
+      </div>
+
+      <!-- Modal de tarefas -->
+      <div id="tasksModal" class="tasks-modal" style="display:none;">
+        <div class="tasks-modal-inner">
+          <div class="tasks-modal-header">
+            <div class="tasks-modal-title">Tarefas extraídas da ata</div>
+            <button class="tasks-modal-close" onclick="closeTasksModal()">×</button>
+          </div>
+          <div class="tasks-modal-body" id="tasksModalBody"></div>
+          <div class="tasks-modal-footer">
+            <button class="ata-btn-secondary" onclick="closeTasksModal()">Cancelar</button>
+            <button class="ata-btn-publish" id="createTasksBtn" onclick="createTasks()">Criar tarefas selecionadas</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Publicado -->
+      <div id="statePublished" class="ata-state" style="display:none;">
+        <div class="ata-state-icon">✅</div>
+        <div class="ata-state-title">Ata publicada no ClickUp!</div>
+        <div class="ata-state-desc">
+          <a id="publishedUrl" href="#" target="_blank" class="ata-clickup-link">Abrir no ClickUp →</a>
+        </div>
+        <button class="ata-btn-secondary" style="margin-top:24px;" onclick="resetFull()">Criar outra ata</button>
+      </div>
+
+    </main>
+  </div>
+
+  <script>
+    const CLIENTS = [
+      { sigla: 'SRW',   nome: 'SpeedRack West',   emoji: '🏭' },
+      { sigla: 'HDLT',  nome: 'Headlight Co',      emoji: '💡' },
+      { sigla: 'HIRE',  nome: 'Hire Brazil',       emoji: '🤝' },
+      { sigla: 'SCALE', nome: 'Scale Army',        emoji: '⚡' },
+      { sigla: 'CC',    nome: 'Conexão Cirúrgica', emoji: '🏥' },
+      { sigla: 'NF',    nome: 'Gráfica NF',        emoji: '🖨️' },
+      { sigla: 'PV',    nome: 'Patrícia Voggt',    emoji: '💄' },
+    ];
+
+    let selectedMeeting = null;
+    let selectedClient = null;
+    let generatedAta = null;
+    let generatedTitle = null;
+    let generatedDate = null;
+    let selectedClientSigla = null;
+
+    // ── Meetings ──────────────────────────────────────────────────────────────
+
+    async function loadMeetings() {
+      const list = document.getElementById('meetingList');
+      list.innerHTML = '<div class="ata-loading">Buscando reuniões...</div>';
+      try {
+        const res = await fetch('/api/granola/meetings');
+        if (!res.ok) throw new Error('Erro');
+        const meetings = await res.json();
+        if (meetings.error) throw new Error(meetings.error);
+        renderMeetings(meetings);
+      } catch (e) {
+        list.innerHTML = '<div class="ata-error">Não foi possível conectar ao Granola.</div>';
+      }
+    }
+
+    function renderMeetings(meetings) {
+      const list = document.getElementById('meetingList');
+      if (!meetings.length) {
+        list.innerHTML = '<div class="ata-empty">Nenhuma reunião encontrada.</div>';
+        return;
+      }
+      list.innerHTML = '';
+      meetings.forEach(m => {
+        const el = document.createElement('div');
+        el.className = 'ata-meeting-item';
+        el.dataset.id = m.id;
+        const dateStr = formatDate(m.date);
+        const badges = [];
+        if (m.has_content) badges.push('<span class="ata-badge ata-badge-notes">notas</span>');
+        if (m.has_summary) badges.push('<span class="ata-badge ata-badge-summary">resumo</span>');
+        el.innerHTML = `
+          <div class="ata-meeting-title">${escapeHtml(m.title)}</div>
+          <div class="ata-meeting-meta">
+            <span class="ata-meeting-date">${dateStr}</span>
+            ${badges.join('')}
+          </div>`;
+        el.onclick = () => selectMeeting(m, el);
+        list.appendChild(el);
+      });
+    }
+
+    function selectMeeting(m, el) {
+      document.querySelectorAll('.ata-meeting-item').forEach(i => i.classList.remove('active'));
+      el.classList.add('active');
+      selectedMeeting = m;
+      selectedClient = null;
+      generatedAta = null;
+      showConfig(m);
+    }
+
+    // ── Config ────────────────────────────────────────────────────────────────
+
+    function showConfig(m) {
+      showState('stateConfig');
+      document.getElementById('configMeetingTitle').textContent = m.title;
+      document.getElementById('configMeetingDate').textContent = formatDate(m.date);
+      renderClientGrid();
+      document.getElementById('customClientName').value = '';
+    }
+
+    function renderClientGrid() {
+      const grid = document.getElementById('configClientGrid');
+      grid.innerHTML = '';
+      CLIENTS.forEach(c => {
+        const el = document.createElement('div');
+        el.className = 'ata-client-card';
+        el.innerHTML = `<span>${c.emoji}</span><span class="ata-client-sigla">${c.sigla}</span><span class="ata-client-nome">${c.nome}</span>`;
+        el.onclick = () => {
+          document.querySelectorAll('.ata-client-card').forEach(x => x.classList.remove('selected'));
+          el.classList.add('selected');
+          selectedClient = c;
+          selectedClientSigla = c.sigla;
+          document.getElementById('customClientName').value = '';
+        };
+        grid.appendChild(el);
+      });
+    }
+
+    // ── Generate ──────────────────────────────────────────────────────────────
+
+    async function generateAta() {
+      const customName = document.getElementById('customClientName').value.trim();
+      const clientName = customName || (selectedClient ? selectedClient.nome : '');
+
+      if (!clientName) {
+        alert('Selecione ou digite o nome do cliente.');
+        return;
+      }
+      if (!selectedMeeting) return;
+
+      showState('stateGenerating');
+
+      try {
+        const res = await fetch('/api/ata/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            meeting_id: selectedMeeting.id,
+            client_name: clientName,
+            date: selectedMeeting.date,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Erro ao gerar ata.');
+        generatedAta = data.ata;
+        generatedTitle = data.title;
+        generatedDate = data.date || (selectedMeeting ? selectedMeeting.date : '');
+        showResult(data.ata, data.title);
+      } catch (e) {
+        showState('stateConfig');
+        alert(e.message);
+      }
+    }
+
+    function showResult(ata, title) {
+      showState('stateResult');
+      document.getElementById('resultTitle').textContent = title;
+      marked.setOptions({ breaks: true, gfm: true });
+      document.getElementById('resultContent').innerHTML = marked.parse(ata);
+    }
+
+    // ── Publish ───────────────────────────────────────────────────────────────
+
+    async function publishAta() {
+      const btn = document.getElementById('publishBtn');
+      btn.disabled = true;
+      btn.textContent = 'Publicando...';
+      try {
+        const res = await fetch('/api/ata/publish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content: generatedAta,
+            client_sigla: selectedClientSigla || '',
+            date: generatedDate || (selectedMeeting ? selectedMeeting.date : ''),
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Erro ao publicar.');
+        document.getElementById('publishedUrl').href = data.url;
+        document.getElementById('publishedUrl').textContent = 'Abrir no ClickUp →';
+        showState('statePublished');
+      } catch (e) {
+        alert(e.message);
+        btn.disabled = false;
+        btn.textContent = 'Publicar no ClickUp';
+      }
+    }
+
+    // ── Tasks ─────────────────────────────────────────────────────────────────
+
+    let extractedTasks = [];
+
+    async function extractTasks() {
+      const btn = document.getElementById('extractTasksBtn');
+      btn.disabled = true;
+      btn.textContent = 'Analisando...';
+
+      const customName = document.getElementById('customClientName').value.trim();
+      const clientName = customName || (selectedClient ? selectedClient.nome : '');
+
+      try {
+        const res = await fetch('/api/ata/extract-tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content: generatedAta,
+            client_sigla: selectedClientSigla || '',
+            client_name: clientName,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Erro ao extrair tarefas.');
+        extractedTasks = data.tasks || [];
+        if (!extractedTasks.length) { alert('Nenhuma tarefa encontrada na ata.'); return; }
+        showTasksModal(extractedTasks);
+      } catch (e) {
+        alert(e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '✅ Criar tarefas';
+      }
+    }
+
+    const AREA_LABELS = {
+      atendimento: 'Atendimento & CS',
+      trafego:     'Gestão de Tráfego',
+      redacao:     'Redação',
+      automacao:   'Automações',
+      conteudo:    'Conteúdo',
+    };
+
+    function showTasksModal(tasks) {
+      const body = document.getElementById('tasksModalBody');
+      body.innerHTML = '';
+      tasks.forEach((t, i) => {
+        const div = document.createElement('div');
+        div.className = 'task-item';
+        const areaLabel = AREA_LABELS[t.area] || t.area || '';
+        div.innerHTML = `
+          <label class="task-item-check">
+            <input type="checkbox" checked data-idx="${i}">
+            <div class="task-item-info">
+              <div class="task-item-name">${escapeHtml(t.name)}</div>
+              <div class="task-item-meta">
+                ${areaLabel ? `<span class="task-meta-tag task-meta-area">📁 ${escapeHtml(areaLabel)}</span>` : ''}
+                ${t.assignee ? `<span class="task-meta-tag">👤 ${escapeHtml(t.assignee)}</span>` : ''}
+                ${t.due_date ? `<span class="task-meta-tag">📅 ${formatDate(t.due_date)}</span>` : ''}
+                ${t.is_client ? `<span class="task-meta-tag task-meta-client">cliente</span>` : '<span class="task-meta-tag task-meta-cardo">cardô</span>'}
+              </div>
+            </div>
+          </label>`;
+        body.appendChild(div);
+      });
+      document.getElementById('tasksModal').style.display = 'flex';
+    }
+
+    function closeTasksModal() {
+      document.getElementById('tasksModal').style.display = 'none';
+    }
+
+    async function createTasks() {
+      const checkboxes = document.querySelectorAll('#tasksModalBody input[type=checkbox]');
+      const selected = [];
+      checkboxes.forEach(cb => {
+        if (cb.checked) selected.push(extractedTasks[parseInt(cb.dataset.idx)]);
+      });
+      if (!selected.length) { alert('Selecione ao menos uma tarefa.'); return; }
+
+      const btn = document.getElementById('createTasksBtn');
+      btn.disabled = true;
+      btn.textContent = 'Criando...';
+
+      try {
+        const res = await fetch('/api/ata/create-tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tasks: selected, client_sigla: selectedClientSigla || '' }),
+        });
+        const data = await res.json();
+        closeTasksModal();
+        const n = data.created?.length || 0;
+        const errs = data.errors?.length || 0;
+        let msg = `✅ ${n} tarefa${n !== 1 ? 's' : ''} criada${n !== 1 ? 's' : ''} no ClickUp.`;
+        if (errs) msg += `\n⚠️ ${errs} com erro.`;
+        alert(msg);
+      } catch(e) {
+        alert('Erro ao criar tarefas: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Criar tarefas selecionadas';
+      }
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    function showState(id) {
+      ['stateEmpty', 'stateConfig', 'stateGenerating', 'stateResult', 'statePublished'].forEach(s => {
+        const el = document.getElementById(s);
+        if (el) el.style.display = s === id ? (s === 'stateResult' ? 'flex' : 'flex') : 'none';
+      });
+    }
+
+    function resetToConfig() {
+      if (selectedMeeting) showConfig(selectedMeeting);
+    }
+
+    function resetFull() {
+      selectedMeeting = null;
+      selectedClient = null;
+      generatedAta = null;
+      document.querySelectorAll('.ata-meeting-item').forEach(i => i.classList.remove('active'));
+      showState('stateEmpty');
+    }
+
+    function formatDate(iso) {
+      if (!iso) return '';
+      const [y, m, d] = iso.split('-');
+      return `${d}/${m}/${y}`;
+    }
+
+    function escapeHtml(t) {
+      return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+    loadMeetings();
+  </script>
+</body>
+</html>

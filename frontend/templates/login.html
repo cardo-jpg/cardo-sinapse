@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cardô Brain — Entrar</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="login-body">
+  <div class="login-container">
+    <div class="login-logo">
+      <img src="/static/logo.png" alt="Cardô Marketing" class="login-logo-img">
+      <div class="login-logo-sub">🧠 Brain</div>
+      <p>Seu segundo cérebro interno</p>
+    </div>
+    {% if request.query_params.get('error') %}
+    <div class="error-msg">Senha incorreta. Tente novamente.</div>
+    {% endif %}
+    <form method="post" action="/login">
+      <input type="password" name="password" placeholder="Senha de acesso" autofocus required>
+      <button type="submit">Entrar</button>
+    </form>
+  </div>
+</body>
+</html>
