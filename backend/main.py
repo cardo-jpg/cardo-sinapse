@@ -691,14 +691,37 @@ async def generate_ata(request: Request):
     doc_title = doc.get("title") or ""
     date = date_override or extract_date_from_title(doc_title) or (doc.get("created_at") or "")[:10]
 
-    # Conteúdo: preferir notas com template; fallback para transcript bruto
+    # Conteúdo: preferir notas com template; fallback para transcript processado pelo Claude
     ata_text = sanitize_ata_content(doc.get("notes_markdown") or doc.get("notes_plain") or "")
+    used_transcript = False
 
     if not ata_text:
-        ata_text = await granola_get_transcript(meeting_id)
+        transcript = await granola_get_transcript(meeting_id)
+        if not transcript:
+            raise HTTPException(status_code=422, detail="Esta reunião não tem notas nem transcript disponível.")
+        ata_text = transcript
+        used_transcript = True
 
-    if not ata_text:
-        raise HTTPException(status_code=422, detail="Esta reunião não tem notas nem transcript disponível.")
+    # Se veio do transcript bruto, passa pelo Claude para formatar como ata
+    if used_transcript:
+        prompt = f"""Você é um assistente de uma agência de marketing digital chamada Cardô.
+Abaixo está a transcrição bruta de uma reunião com o cliente "{client_name or doc_title}".
+Gere uma ata de reunião profissional em Markdown com as seguintes seções:
+- **Data:** {date}
+- **Participantes e Contexto**
+- **Decisões Tomadas**
+- **Próximos Passos** (separado em Ações da Agência e Ações do Cliente)
+
+Seja objetivo. Ignore conversas paralelas e ruídos. Use apenas o que é relevante para a ata.
+
+TRANSCRIÇÃO:
+{ata_text[:12000]}"""
+        resp = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=2000,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        ata_text = next((b.text for b in resp.content if hasattr(b, "text")), ata_text)
 
     title = f"{client_name or doc_title or 'Reunião'} — Ata — {date}"
     return JSONResponse({"ata": ata_text, "title": title, "date": date})
