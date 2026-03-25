@@ -950,7 +950,6 @@ async def create_tasks_from_ata(request: Request):
         is_client = task.get("is_client", False)
 
         list_id = CLICKUP_AREA_LISTS.get(area, CLICKUP_DEFAULT_LIST_ID)
-        status = "solicitado" if is_client else "a fazer"
 
         # Usa due_date da tarefa se fornecido (YYYY-MM-DD), senão amanhã
         task_due = task.get("due_date")
@@ -966,7 +965,6 @@ async def create_tasks_from_ata(request: Request):
 
         payload = {
             "name": name,
-            "status": status,
             "due_date": task_due_ms,
             "due_date_time": False,
         }
