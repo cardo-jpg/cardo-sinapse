@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tráfego — Sinapse</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    .trafego-page { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+    .trafego-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 12px; }
+    .trafego-title { display: flex; align-items: center; gap: 12px; }
+    .trafego-title h1 { font-size: 1.4rem; }
+    .trafego-title a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
+    .trafego-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .trafego-select { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 8px 12px; font-size: 0.9rem; cursor: pointer; }
+    .period-tabs { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .period-tab { padding: 8px 14px; font-size: 0.85rem; cursor: pointer; color: var(--muted); border: none; background: none; transition: background 0.15s, color 0.15s; }
+    .period-tab.active { background: var(--accent); color: white; }
+    .period-tab:hover:not(.active) { background: var(--border); color: var(--text); }
+
+    .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 28px; }
+    .metric-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 16px; }
+    .metric-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+    .metric-value { font-size: 1.5rem; font-weight: 700; color: var(--text); }
+    .metric-value.accent { color: var(--accent); }
+    .metric-sub { font-size: 0.75rem; color: var(--muted); margin-top: 3px; }
+
+    .section-title { font-size: 1rem; font-weight: 600; margin-bottom: 14px; color: var(--text); }
+    .campaigns-table { width: 100%; border-collapse: collapse; }
+    .campaigns-table th { text-align: left; font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+    .campaigns-table td { padding: 12px 12px; border-bottom: 1px solid var(--border); font-size: 0.88rem; vertical-align: middle; }
+    .campaigns-table tr:last-child td { border-bottom: none; }
+    .campaigns-table tr:hover td { background: #ffffff05; }
+    .camp-name { font-weight: 500; max-width: 280px; }
+    .camp-name-text { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
+    .risk-tag { display: inline-block; font-size: 0.7rem; padding: 2px 7px; border-radius: 20px; background: #3a2000; color: #ffaa44; margin-left: 6px; white-space: nowrap; }
+    .num { color: var(--text); }
+    .num.muted { color: var(--muted); }
+    .num.warn { color: #ffaa44; }
+
+    .loading { text-align: center; color: var(--muted); padding: 48px; }
+    .error-banner { background: #3a1a1a; color: #ff8080; padding: 14px 18px; border-radius: 10px; margin-bottom: 20px; font-size: 0.9rem; }
+    .empty-state { text-align: center; color: var(--muted); padding: 48px; }
+
+    .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; overflow-x: auto; }
+  </style>
+</head>
+<body>
+<div class="trafego-page">
+  <div class="trafego-header">
+    <div class="trafego-title">
+      <a href="/">← Início</a>
+      <h1>📊 Tráfego — Meta Ads</h1>
+    </div>
+    <div class="trafego-controls">
+      <select id="clientSelect" class="trafego-select" onchange="load()">
+        {% for sigla in configured_clients %}
+        <option value="{{ sigla }}">{{ sigla }}</option>
+        {% endfor %}
+      </select>
+      <div class="period-tabs">
+        <button class="period-tab" data-preset="today" onclick="setPeriod(this)">Hoje</button>
+        <button class="period-tab active" data-preset="last_7_d" onclick="setPeriod(this)">7 dias</button>
+        <button class="period-tab" data-preset="last_30_d" onclick="setPeriod(this)">30 dias</button>
+        <button class="period-tab" data-preset="this_month" onclick="setPeriod(this)">Este mês</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="errorBanner" class="error-banner" style="display:none;"></div>
+  <div id="loading" class="loading">Carregando métricas...</div>
+  <div id="content" style="display:none;">
+    <div class="metrics-grid" id="metricsGrid"></div>
+    <div class="section-title">Campanhas</div>
+    <div class="table-wrap">
+      <table class="campaigns-table">
+        <thead>
+          <tr>
+            <th>Campanha</th>
+            <th>Investimento</th>
+            <th>Alcance</th>
+            <th>Cliques</th>
+            <th>CTR</th>
+            <th>CPM</th>
+            <th>Leads</th>
+            <th>CPL</th>
+          </tr>
+        </thead>
+        <tbody id="campaignsBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentPreset = 'last_7_d';
+
+  function setPeriod(btn) {
+    document.querySelectorAll('.period-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentPreset = btn.dataset.preset;
+    load();
+  }
+
+  function fmt(v, prefix='R$') {
+    if (v == null) return '<span class="num muted">—</span>';
+    return `<span class="num">${prefix}${Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2,maximumFractionDigits:2})}</span>`;
+  }
+  function fmtN(v) {
+    if (v == null) return '<span class="num muted">—</span>';
+    return `<span class="num">${Number(v).toLocaleString('pt-BR')}</span>`;
+  }
+  function fmtPct(v) {
+    if (v == null) return '<span class="num muted">—</span>';
+    const cls = v < 0.5 ? 'warn' : '';
+    return `<span class="num ${cls}">${Number(v).toFixed(2)}%</span>`;
+  }
+
+  async function load() {
+    const sigla = document.getElementById('clientSelect').value;
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('content').style.display = 'none';
+    document.getElementById('errorBanner').style.display = 'none';
+
+    try {
+      const res = await fetch(`/api/trafego/metrics?client_sigla=${sigla}&date_preset=${currentPreset}`);
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Erro ao carregar métricas');
+      }
+      const data = await res.json();
+      renderMetrics(data.summary);
+      renderCampaigns(data.campaigns);
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('content').style.display = 'block';
+    } catch(e) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('errorBanner').textContent = e.message;
+      document.getElementById('errorBanner').style.display = 'block';
+    }
+  }
+
+  function renderMetrics(s) {
+    const grid = document.getElementById('metricsGrid');
+    const cards = [
+      { label: 'Investimento',  value: fmt(s.spend),          sub: null },
+      { label: 'Alcance',       value: fmtN(s.reach),          sub: null },
+      { label: 'Impressões',    value: fmtN(s.impressions),    sub: null },
+      { label: 'Cliques',       value: fmtN(s.clicks),         sub: null },
+      { label: 'CTR',           value: fmtPct(s.ctr),          sub: null },
+      { label: 'CPM',           value: fmt(s.cpm),             sub: null },
+      { label: 'CPC',           value: fmt(s.cpc),             sub: null },
+      { label: 'Leads',         value: fmtN(s.leads),          sub: null },
+      { label: 'CPL',           value: fmt(s.cpl),             sub: null },
+    ];
+    grid.innerHTML = cards.map(c => `
+      <div class="metric-card">
+        <div class="metric-label">${c.label}</div>
+        <div class="metric-value">${c.value}</div>
+        ${c.sub ? `<div class="metric-sub">${c.sub}</div>` : ''}
+      </div>`).join('');
+  }
+
+  function renderCampaigns(campaigns) {
+    const tbody = document.getElementById('campaignsBody');
+    if (!campaigns.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Nenhuma campanha no período</td></tr>';
+      return;
+    }
+    tbody.innerHTML = campaigns.map(c => {
+      const risks = c.risks.map(r => `<span class="risk-tag">⚠ ${r}</span>`).join('');
+      return `<tr>
+        <td class="camp-name"><span class="camp-name-text" title="${c.name}">${c.name}</span>${risks}</td>
+        <td>${fmt(c.spend)}</td>
+        <td>${fmtN(c.impressions)}</td>
+        <td>${fmtN(c.clicks)}</td>
+        <td>${fmtPct(c.ctr)}</td>
+        <td>${fmt(c.cpm)}</td>
+        <td>${fmtN(c.leads)}</td>
+        <td>${fmt(c.cpl)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  load();
+</script>
+</body>
+</html>

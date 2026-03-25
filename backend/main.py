@@ -77,6 +77,18 @@ CLICKUP_CLIENTE_OPTIONS = {
 GRANOLA_SUPABASE_PATH = Path.home() / "Library" / "Application Support" / "Granola" / "supabase.json"
 GRANOLA_API_BASE = "https://api.granola.ai/v1"
 
+# ── Meta Ads ──────────────────────────────────────────────────────────────────
+META_GRAPH_BASE = "https://graph.facebook.com/v21.0"
+META_CLIENTS = {
+    "HIRE":  {"name": "Hire Brazil",          "token": lambda: os.getenv("META_TOKEN_HIRE"),  "accounts": ["act_729365124577217", "act_2110912885722512"]},
+    "CC":    {"name": "Conexão Cirúrgica",     "token": lambda: os.getenv("META_TOKEN_CC"),    "accounts": []},
+    "NF":    {"name": "Grupo NF",              "token": lambda: os.getenv("META_TOKEN_NF"),    "accounts": []},
+    "PV":    {"name": "Patricia Voggt",        "token": lambda: os.getenv("META_TOKEN_PV"),    "accounts": []},
+    "SRW":   {"name": "SpeedRack West",        "token": lambda: os.getenv("META_TOKEN_SRW"),   "accounts": []},
+    "SCALE": {"name": "Scale Army",            "token": lambda: os.getenv("META_TOKEN_SCALE"), "accounts": []},
+    "HDLT":  {"name": "Headlight Co",          "token": lambda: os.getenv("META_TOKEN_HDLT"),  "accounts": []},
+}
+
 # Doc ID da Documentação no ClickUp + ID das páginas "Atas de Reunião" por cliente
 CLICKUP_DOC_ID = "1391ah-49691"
 CLICKUP_ATAS_PAGES = {
@@ -1088,6 +1100,122 @@ Regras:
             raise HTTPException(status_code=500, detail="Não foi possível extrair tarefas.")
         tasks_data = json.loads(m.group())
     return JSONResponse(tasks_data)
+
+# ── Meta Ads endpoints ────────────────────────────────────────────────────────
+
+async def _meta_get(path: str, token: str, params: dict = None):
+    async with httpx.AsyncClient() as c:
+        try:
+            r = await c.get(
+                f"{META_GRAPH_BASE}/{path}",
+                params={"access_token": token, **(params or {})},
+                timeout=20,
+            )
+            if r.status_code == 200:
+                return r.json()
+            print(f"[meta] {r.status_code}: {r.text[:200]}")
+        except Exception as e:
+            print(f"[meta] Erro: {e}")
+    return None
+
+def _extract_action(actions: list, types: list) -> int:
+    return sum(int(a.get("value", 0)) for a in (actions or []) if a.get("action_type") in types)
+
+async def _account_insights(account_id: str, token: str, date_preset: str) -> dict:
+    data = await _meta_get(f"{account_id}/insights", token, {
+        "fields": "spend,impressions,clicks,ctr,cpm,cpc,reach,actions",
+        "date_preset": date_preset, "level": "account",
+    })
+    return (data or {}).get("data", [{}])[0] if data else {}
+
+async def _campaign_insights(account_id: str, token: str, date_preset: str) -> list:
+    data = await _meta_get(f"{account_id}/insights", token, {
+        "fields": "campaign_name,spend,impressions,clicks,ctr,cpm,cpc,reach,actions",
+        "date_preset": date_preset, "level": "campaign", "limit": 50,
+    })
+    return (data or {}).get("data", [])
+
+@app.get("/trafego", response_class=HTMLResponse)
+async def trafego_page(request: Request):
+    if not verify_session(request):
+        return RedirectResponse("/login")
+    configured = [s for s, cfg in META_CLIENTS.items() if cfg["token"]()]
+    return templates.TemplateResponse("trafego.html", {"request": request, "configured_clients": configured})
+
+@app.get("/api/trafego/metrics")
+async def get_trafego_metrics(request: Request, client_sigla: str = "HIRE", date_preset: str = "last_7_d"):
+    if not verify_session(request):
+        raise HTTPException(status_code=401)
+    cfg = META_CLIENTS.get(client_sigla.upper())
+    if not cfg or not cfg["accounts"]:
+        raise HTTPException(status_code=404, detail="Cliente não configurado para Meta Ads.")
+    token = cfg["token"]()
+    if not token:
+        raise HTTPException(status_code=503, detail=f"Token Meta não configurado para {client_sigla}.")
+
+    LEAD_TYPES = ("lead", "onsite_conversion.lead_grouped", "onsite_conversion.messaging_first_reply")
+    PURCHASE_TYPES = ("purchase", "omni_purchase", "offsite_conversion.fb_pixel_purchase")
+
+    total = {"spend": 0.0, "impressions": 0, "clicks": 0, "reach": 0, "leads": 0, "purchases": 0}
+    all_campaigns = []
+
+    for account_id in cfg["accounts"]:
+        ins = await _account_insights(account_id, token, date_preset)
+        if ins:
+            total["spend"]       += float(ins.get("spend", 0))
+            total["impressions"] += int(ins.get("impressions", 0))
+            total["clicks"]      += int(ins.get("clicks", 0))
+            total["reach"]       += int(ins.get("reach", 0))
+            total["leads"]       += _extract_action(ins.get("actions"), LEAD_TYPES)
+            total["purchases"]   += _extract_action(ins.get("actions"), PURCHASE_TYPES)
+        camps = await _campaign_insights(account_id, token, date_preset)
+        all_campaigns.extend(camps)
+
+    spend = total["spend"]
+    imp   = total["impressions"]
+    clk   = total["clicks"]
+    leads = total["leads"]
+    ctr   = clk / imp * 100 if imp else 0
+    cpm   = spend / imp * 1000 if imp else 0
+    cpc   = spend / clk if clk else 0
+    cpl   = spend / leads if leads else None
+
+    processed = []
+    for c in all_campaigns:
+        c_spend = float(c.get("spend", 0))
+        c_imp   = int(c.get("impressions", 0))
+        c_clk   = int(c.get("clicks", 0))
+        c_ctr   = float(c.get("ctr", 0)) * 100
+        c_cpm   = float(c.get("cpm", 0))
+        c_cpc   = float(c.get("cpc", 0))
+        c_leads = _extract_action(c.get("actions"), LEAD_TYPES)
+        c_cpl   = c_spend / c_leads if c_leads else None
+        risks = []
+        if c_ctr < 0.5 and c_imp > 1000:            risks.append("CTR baixo")
+        if c_cpl and cpl and c_cpl > cpl * 2:       risks.append("CPL alto")
+        if c_spend > 30 and c_leads == 0 and leads:  risks.append("Sem conversões")
+        processed.append({
+            "name": c.get("campaign_name", ""),
+            "spend": round(c_spend, 2),
+            "impressions": c_imp, "clicks": c_clk,
+            "ctr": round(c_ctr, 2), "cpm": round(c_cpm, 2), "cpc": round(c_cpc, 2),
+            "leads": c_leads,
+            "cpl": round(c_cpl, 2) if c_cpl else None,
+            "risks": risks,
+        })
+    processed.sort(key=lambda x: x["spend"], reverse=True)
+
+    return JSONResponse({
+        "client": cfg["name"], "date_preset": date_preset,
+        "summary": {
+            "spend": round(spend, 2), "impressions": imp, "clicks": clk,
+            "reach": total["reach"], "leads": leads, "purchases": total["purchases"],
+            "ctr": round(ctr, 2), "cpm": round(cpm, 2), "cpc": round(cpc, 2),
+            "cpl": round(cpl, 2) if cpl else None,
+        },
+        "campaigns": processed,
+    })
+
 @app.get("/logs", response_class=HTMLResponse)
 async def view_logs(request: Request):
     if not verify_session(request):
