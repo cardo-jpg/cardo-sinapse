@@ -976,12 +976,8 @@ async def create_tasks_from_ata(request: Request):
             payload["custom_fields"] = [
                 {"id": CLICKUP_CLIENTE_FIELD_ID, "value": cliente_option_id}
             ]
-        # Assignee: client tasks → Cliente Cardô; tráfego → José; outros → Victor
-        CLIENTE_CARDO_ID = 81548089
-        if is_client:
-            payload["assignees"] = [CLIENTE_CARDO_ID]
-        else:
-            payload["assignees"] = [JOSE_ID if area == "trafego" else VICTOR_ID]
+        # Assignee: tráfego → José; outros → Victor
+        payload["assignees"] = [JOSE_ID if area == "trafego" else VICTOR_ID]
 
         r = httpx.post(
             f"https://api.clickup.com/api/v2/list/{list_id}/task",
