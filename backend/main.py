@@ -1045,6 +1045,7 @@ Retorne JSON:
 
 Regras:
 - Extraia APENAS ações concretas, não discussões
+- O título deve descrever a ação de forma literal, sem adicionar contexto inferido. Use exatamente o que foi pedido, sem completar com suposições como "nas campanhas", "nas automações", "no site", etc.
 - Google Ads, Meta Ads, tráfego → "trafego"
 - Copy, texto, script → "redacao"
 - Automação, planilha, integração → "automacao"
