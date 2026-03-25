@@ -965,6 +965,7 @@ async def create_tasks_from_ata(request: Request):
 
         payload = {
             "name": name,
+            "status": "a fazer",
             "due_date": task_due_ms,
             "due_date_time": False,
         }
