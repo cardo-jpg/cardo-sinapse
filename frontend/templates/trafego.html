@@ -182,7 +182,13 @@
     }).join('');
   }
 
-  load();
+  if (document.getElementById('clientSelect').options.length > 0) {
+    load();
+  } else {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('errorBanner').textContent = 'Nenhum cliente com Meta Ads configurado.';
+    document.getElementById('errorBanner').style.display = 'block';
+  }
 </script>
 </body>
 </html>
