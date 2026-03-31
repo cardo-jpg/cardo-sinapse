@@ -80,9 +80,9 @@ SOURCES = [
             "Ficha - HIRE - Hire Brazil":                       "1391ah-49031",
             "Ficha - PV - Patrícia Voggt":                       "1391ah-49051",
             "Ficha - PRO - Subido PRO":                         "1391ah-48891",
-            "Ficha - SRW - SpeedRack West":                     "1391ah-48911",
+            "Ficha - SRW - Speedrack West":                     "1391ah-48911",
             "Ficha - HDLT - Headlight Co":                      "1391ah-48931",
-            "Ficha - SCALE - Scale Army":                       "1391ah-48951",
+            "Ficha - SCALE - Scale Army":                       "1391ah-49731",
         }
     }
 ]

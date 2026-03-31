@@ -3,20 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Criar Ata — Sinapse</title>
+  <title>Atas — Sinapse</title>
   <link rel="stylesheet" href="/static/style.css">
   <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
 </head>
 <body>
+<div class="sinapse-shell">
+  {% include "_sidebar.html" %}
+  <main class="sinapse-main" style="padding:0; overflow:hidden;">
   <div class="ata-layout">
 
     <!-- SIDEBAR -->
     <aside class="ata-sidebar">
-      <div class="sidebar-logo">
-        <img src="/static/logo.png" alt="Cardô Marketing" class="sidebar-logo-img">
-        <span class="sidebar-logo-sub">Sinapse</span>
-      </div>
-      <a href="/" class="ata-back-btn">← Início</a>
       <div class="ata-sidebar-title">Reuniões no Granola</div>
       <div class="ata-meeting-list" id="meetingList">
         <div class="ata-loading">Buscando reuniões...</div>
@@ -31,45 +29,34 @@
       <div id="stateEmpty" class="ata-state">
         <div class="ata-state-icon">📝</div>
         <div class="ata-state-title">Selecione uma reunião</div>
-        <div class="ata-state-desc">Escolha uma reunião na lista ao lado para gerar a ata.</div>
+        <div class="ata-state-desc">Escolha uma reunião na lista ao lado para visualizar a ata.</div>
       </div>
 
-      <!-- Configuração (cliente + gerar) -->
-      <div id="stateConfig" class="ata-state" style="display:none;">
-        <div class="ata-config-header">
-          <div class="ata-config-meeting" id="configMeetingTitle"></div>
-          <div class="ata-config-date" id="configMeetingDate"></div>
-        </div>
-        <div class="ata-config-form">
-          <label class="ata-label">Cliente desta reunião</label>
-          <div class="ata-client-grid" id="configClientGrid"></div>
-          <div class="ata-client-custom">
-            <input type="text" id="customClientName" placeholder="Ou digite o nome do cliente..." class="ata-input">
-          </div>
-          <button class="ata-generate-btn" id="generateBtn" onclick="generateAta()">
-            Gerar ata
-          </button>
-        </div>
-      </div>
-
-      <!-- Gerando -->
-      <div id="stateGenerating" class="ata-state" style="display:none;">
+      <!-- Carregando -->
+      <div id="stateLoading" class="ata-state" style="display:none;">
         <div class="ata-state-icon ata-spin">⏳</div>
-        <div class="ata-state-title">Gerando ata...</div>
-        <div class="ata-state-desc">O Brain está lendo a reunião e formatando a ata.</div>
+        <div class="ata-state-title">Carregando ata...</div>
+        <div class="ata-state-desc">Buscando reunião no Granola.</div>
       </div>
 
       <!-- Preview da ata -->
       <div id="stateResult" style="display:none;" class="ata-result-wrapper">
         <div class="ata-result-toolbar">
-          <div class="ata-result-title" id="resultTitle"></div>
+          <div class="ata-result-title-block">
+            <div class="ata-result-title" id="resultTitle"></div>
+            <div class="ata-result-date" id="resultDate"></div>
+          </div>
           <div class="ata-result-actions">
-            <button class="ata-btn-secondary" onclick="resetToConfig()">← Refazer</button>
             <div class="ata-clickup-group">
               <div class="ata-clickup-group-label">Enviar para o ClickUp</div>
-              <div class="ata-clickup-group-btns">
-                <button class="ata-btn-tasks" id="extractTasksBtn" onclick="extractTasks()">Criar tarefas</button>
-                <button class="ata-btn-publish" id="publishBtn" onclick="publishAta()">Publicar ata</button>
+              <div class="ata-clickup-group-row">
+                <select class="ata-client-select" id="resultClientSelect">
+                  <option value="">Selecione o cliente...</option>
+                </select>
+                <div class="ata-clickup-group-btns">
+                  <button class="ata-btn-tasks" id="extractTasksBtn" onclick="extractTasks()">Criar tarefas</button>
+                  <button class="ata-btn-publish" id="publishBtn" onclick="publishAta()">Publicar ata</button>
+                </div>
               </div>
             </div>
           </div>
@@ -99,7 +86,7 @@
         <div class="ata-state-desc">
           <a id="publishedUrl" href="#" target="_blank" class="ata-clickup-link">Abrir no ClickUp →</a>
         </div>
-        <button class="ata-btn-secondary" style="margin-top:24px;" onclick="resetFull()">Criar outra ata</button>
+        <button class="ata-btn-secondary" style="margin-top:24px;" onclick="resetFull()">Ver outra ata</button>
       </div>
 
     </main>
@@ -107,7 +94,7 @@
 
   <script>
     const CLIENTS = [
-      { sigla: 'SRW',   nome: 'SpeedRack West',   emoji: '🏭' },
+      { sigla: 'SRW',   nome: 'Speedrack West',   emoji: '🏭' },
       { sigla: 'HDLT',  nome: 'Headlight Co',      emoji: '💡' },
       { sigla: 'HIRE',  nome: 'Hire Brazil',       emoji: '🤝' },
       { sigla: 'SCALE', nome: 'Scale Army',        emoji: '⚡' },
@@ -117,11 +104,8 @@
     ];
 
     let selectedMeeting = null;
-    let selectedClient = null;
     let generatedAta = null;
-    let generatedTitle = null;
     let generatedDate = null;
-    let selectedClientSigla = null;
 
     // ── Meetings ──────────────────────────────────────────────────────────────
 
@@ -169,78 +153,53 @@
       document.querySelectorAll('.ata-meeting-item').forEach(i => i.classList.remove('active'));
       el.classList.add('active');
       selectedMeeting = m;
-      selectedClient = null;
       generatedAta = null;
-      showConfig(m);
+      fetchMeetingContent(m);
     }
 
-    // ── Config ────────────────────────────────────────────────────────────────
+    // ── Fetch content ─────────────────────────────────────────────────────────
 
-    function showConfig(m) {
-      showState('stateConfig');
-      document.getElementById('configMeetingTitle').textContent = m.title;
-      document.getElementById('configMeetingDate').textContent = formatDate(m.date);
-      renderClientGrid();
-      document.getElementById('customClientName').value = '';
-    }
-
-    function renderClientGrid() {
-      const grid = document.getElementById('configClientGrid');
-      grid.innerHTML = '';
-      CLIENTS.forEach(c => {
-        const el = document.createElement('div');
-        el.className = 'ata-client-card';
-        el.innerHTML = `<span>${c.emoji}</span><span class="ata-client-sigla">${c.sigla}</span><span class="ata-client-nome">${c.nome}</span>`;
-        el.onclick = () => {
-          document.querySelectorAll('.ata-client-card').forEach(x => x.classList.remove('selected'));
-          el.classList.add('selected');
-          selectedClient = c;
-          selectedClientSigla = c.sigla;
-          document.getElementById('customClientName').value = '';
-        };
-        grid.appendChild(el);
-      });
-    }
-
-    // ── Generate ──────────────────────────────────────────────────────────────
-
-    async function generateAta() {
-      const customName = document.getElementById('customClientName').value.trim();
-      const clientName = customName || (selectedClient ? selectedClient.nome : '');
-
-      if (!clientName) {
-        alert('Selecione ou digite o nome do cliente.');
-        return;
-      }
-      if (!selectedMeeting) return;
-
-      showState('stateGenerating');
-
+    async function fetchMeetingContent(meeting) {
+      showState('stateLoading');
       try {
         const res = await fetch('/api/ata/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            meeting_id: selectedMeeting.id,
-            client_name: clientName,
-            date: selectedMeeting.date,
-          }),
+          body: JSON.stringify({ meeting_id: meeting.id }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'Erro ao gerar ata.');
+        if (!res.ok) throw new Error(data.detail || 'Erro ao buscar ata.');
         generatedAta = data.ata;
-        generatedTitle = data.title;
-        generatedDate = data.date || (selectedMeeting ? selectedMeeting.date : '');
-        showResult(data.ata, data.title);
+        generatedDate = data.date || meeting.date;
+        showResult(data.ata, data.title, data.date || meeting.date);
       } catch (e) {
-        showState('stateConfig');
+        showState('stateEmpty');
         alert(e.message);
       }
     }
 
-    function showResult(ata, title) {
+    function showResult(ata, title, date) {
       showState('stateResult');
       document.getElementById('resultTitle').textContent = title;
+      document.getElementById('resultDate').textContent = date ? formatDate(date) : '';
+
+      const sel = document.getElementById('resultClientSelect');
+      sel.innerHTML = '<option value="">Selecione o cliente...</option>';
+      CLIENTS.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.sigla;
+        opt.textContent = `${c.emoji} ${c.nome}`;
+        sel.appendChild(opt);
+      });
+
+      const publishBtn = document.getElementById('publishBtn');
+      publishBtn.disabled = false;
+      publishBtn.textContent = 'Publicar ata';
+
+      const tasksBtn = document.getElementById('extractTasksBtn');
+      tasksBtn.disabled = false;
+      tasksBtn.textContent = 'Criar tarefas';
+
       marked.setOptions({ breaks: true, gfm: true });
       document.getElementById('resultContent').innerHTML = marked.parse(ata);
     }
@@ -248,6 +207,12 @@
     // ── Publish ───────────────────────────────────────────────────────────────
 
     async function publishAta() {
+      const clientSigla = document.getElementById('resultClientSelect').value;
+      if (!clientSigla) {
+        alert('Selecione o cliente antes de publicar.');
+        return;
+      }
+
       const btn = document.getElementById('publishBtn');
       btn.disabled = true;
       btn.textContent = 'Publicando...';
@@ -257,8 +222,9 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             content: generatedAta,
-            client_sigla: selectedClientSigla || '',
+            client_sigla: clientSigla,
             date: generatedDate || (selectedMeeting ? selectedMeeting.date : ''),
+            meeting_title: selectedMeeting ? selectedMeeting.title : '',
           }),
         });
         const data = await res.json();
@@ -269,7 +235,7 @@
       } catch (e) {
         alert(e.message);
         btn.disabled = false;
-        btn.textContent = 'Publicar no ClickUp';
+        btn.textContent = 'Publicar ata';
       }
     }
 
@@ -278,12 +244,16 @@
     let extractedTasks = [];
 
     async function extractTasks() {
+      const clientSigla = document.getElementById('resultClientSelect').value;
+      if (!clientSigla) {
+        alert('Selecione o cliente antes de criar tarefas.');
+        return;
+      }
+      const clientNome = CLIENTS.find(c => c.sigla === clientSigla)?.nome || '';
+
       const btn = document.getElementById('extractTasksBtn');
       btn.disabled = true;
       btn.textContent = 'Analisando...';
-
-      const customName = document.getElementById('customClientName').value.trim();
-      const clientName = customName || (selectedClient ? selectedClient.nome : '');
 
       try {
         const res = await fetch('/api/ata/extract-tasks', {
@@ -291,8 +261,8 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             content: generatedAta,
-            client_sigla: selectedClientSigla || '',
-            client_name: clientName,
+            client_sigla: clientSigla,
+            client_name: clientNome,
           }),
         });
         const data = await res.json();
@@ -304,7 +274,7 @@
         alert(e.message);
       } finally {
         btn.disabled = false;
-        btn.textContent = '✅ Criar tarefas';
+        btn.textContent = 'Criar tarefas';
       }
     }
 
@@ -346,6 +316,7 @@
     }
 
     async function createTasks() {
+      const clientSigla = document.getElementById('resultClientSelect').value;
       const checkboxes = document.querySelectorAll('#tasksModalBody input[type=checkbox]');
       const selected = [];
       checkboxes.forEach(cb => {
@@ -361,7 +332,7 @@
         const res = await fetch('/api/ata/create-tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tasks: selected, client_sigla: selectedClientSigla || '' }),
+          body: JSON.stringify({ tasks: selected, client_sigla: clientSigla }),
         });
         const data = await res.json();
         closeTasksModal();
@@ -381,19 +352,14 @@
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     function showState(id) {
-      ['stateEmpty', 'stateConfig', 'stateGenerating', 'stateResult', 'statePublished'].forEach(s => {
+      ['stateEmpty', 'stateLoading', 'stateResult', 'statePublished'].forEach(s => {
         const el = document.getElementById(s);
-        if (el) el.style.display = s === id ? (s === 'stateResult' ? 'flex' : 'flex') : 'none';
+        if (el) el.style.display = s === id ? 'flex' : 'none';
       });
-    }
-
-    function resetToConfig() {
-      if (selectedMeeting) showConfig(selectedMeeting);
     }
 
     function resetFull() {
       selectedMeeting = null;
-      selectedClient = null;
       generatedAta = null;
       document.querySelectorAll('.ata-meeting-item').forEach(i => i.classList.remove('active'));
       showState('stateEmpty');
@@ -412,5 +378,8 @@
     // ── Init ──────────────────────────────────────────────────────────────────
     loadMeetings();
   </script>
+  </div>
+  </main>
+</div>
 </body>
 </html>

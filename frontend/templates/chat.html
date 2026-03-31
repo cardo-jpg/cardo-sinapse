@@ -3,26 +3,57 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sinapse</title>
+  <title>Cérebro — Sinapse</title>
   <link rel="stylesheet" href="/static/style.css">
   <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
 </head>
 <body>
+<div class="sinapse-shell">
+  {% include "_sidebar.html" %}
+  <main class="sinapse-main" style="padding:0; overflow:hidden; position:relative;">
 
-  <!-- CLIENT SELECTION SCREEN -->
+  <!-- CLIENT SELECTION SCREEN (overlay fixo) -->
   <div id="clientScreen" class="client-screen" style="display:none;">
     <div class="client-screen-inner">
       <div class="client-screen-header">
         <img src="/static/logo.png" alt="Cardô Marketing" class="client-logo-img">
-        <div class="client-logo-sub">Sinapse</div>
-        <p class="client-screen-sub">Selecione o cliente para começar</p>
+        <div class="client-logo-sub" style="color:#fff;">Cérebro</div>
+        <p class="client-screen-sub">Quero que o Cérebro me ajude com:</p>
       </div>
+
+      <!-- Seção: Clientes -->
+      <div class="cs-section-label">Clientes</div>
       <div class="client-grid" id="clientGrid"></div>
-      <div class="client-screen-user">
-        <label>Seu nome</label>
-        <input type="text" id="userNameClient" placeholder="Ex: Ana">
-        <button onclick="enterChat()">Entrar</button>
+
+      <!-- Seção: Processos -->
+      <div class="cs-section-label" style="margin-top:20px;">Processos da agência</div>
+      <div class="cs-processos-grid" id="processosGrid">
+        <div class="cs-processo-card" onclick="enterProcessos('gestao_trafego')">
+          <span class="cs-processo-icon">📊</span>
+          <span class="cs-processo-nome">Gestão de Tráfego</span>
+        </div>
+        <div class="cs-processo-card" onclick="enterProcessos('criacao_conteudo')">
+          <span class="cs-processo-icon">✍️</span>
+          <span class="cs-processo-nome">Criação de Conteúdo</span>
+        </div>
+        <div class="cs-processo-card" onclick="enterProcessos('onboarding')">
+          <span class="cs-processo-icon">🤝</span>
+          <span class="cs-processo-nome">Onboarding de Clientes</span>
+        </div>
+        <div class="cs-processo-card" onclick="enterProcessos('relatorios')">
+          <span class="cs-processo-icon">📈</span>
+          <span class="cs-processo-nome">Relatórios</span>
+        </div>
+        <div class="cs-processo-card" onclick="enterProcessos('reunioes')">
+          <span class="cs-processo-icon">🗓️</span>
+          <span class="cs-processo-nome">Reuniões</span>
+        </div>
+        <div class="cs-processo-card" onclick="enterProcessos('geral')">
+          <span class="cs-processo-icon">📚</span>
+          <span class="cs-processo-nome">Geral</span>
+        </div>
       </div>
+
     </div>
   </div>
 
@@ -34,21 +65,21 @@
         <span class="sidebar-logo-sub">Sinapse</span>
       </div>
       <div class="sidebar-client-badge" id="sidebarClientBadge"></div>
-      <div class="sidebar-info">
-        <label>Seu nome</label>
-        <input type="text" id="userName" placeholder="Ex: Ana">
-      </div>
+      <input type="hidden" id="userName" value="{{ nav_username }}">
       <button class="new-chat-btn" onclick="newChat()">+ Nova conversa</button>
       <button class="change-client-btn" onclick="showClientScreen()">Trocar cliente</button>
       <div class="conv-list" id="convList"></div>
-      <a href="/" class="logs-link">← Início</a>
+      <div class="sidebar-topics">
+        <span class="sidebar-topics-label">Tópicos</span>
+        <button class="topic-btn" onclick="switchToProcessos()">📚 Processos da agência</button>
+      </div>
       <a href="/logs" class="logs-link">Ver histórico completo</a>
     </aside>
 
     <main class="chat-area">
       <div class="messages" id="messages">
         <div class="welcome">
-          <h3>Olá! Sou o assistente da Cardô.</h3>
+          <h3>Olá! Sou o Cérebro da Cardô.</h3>
           <p>Pode me perguntar sobre processos, clientes, campanhas ou qualquer dúvida do dia a dia.</p>
         </div>
       </div>
@@ -59,15 +90,18 @@
     </main>
   </div>
 
+  </main>
+</div>
+
   <script>
     const CLIENTS = [
-      { sigla: 'SRW',   nome: 'SpeedRack West',    emoji: '🏭' },
-      { sigla: 'HDLT',  nome: 'Headlight Co',       emoji: '💡' },
-      { sigla: 'HIRE',  nome: 'Hire Brazil',        emoji: '🤝' },
-      { sigla: 'SCALE', nome: 'Scale Army',         emoji: '⚡' },
-      { sigla: 'CC',    nome: 'Conexão Cirúrgica',  emoji: '🏥' },
-      { sigla: 'NF',    nome: 'Gráfica NF',         emoji: '🖨️' },
-      { sigla: 'PV',    nome: 'Patrícia Voggt',     emoji: '💄' },
+      { sigla: 'SRW',   nome: 'Speedrack West'   },
+      { sigla: 'HDLT',  nome: 'Headlight Co'      },
+      { sigla: 'HIRE',  nome: 'Hire Brazil'       },
+      { sigla: 'SCALE', nome: 'Scale Army'        },
+      { sigla: 'CC',    nome: 'Conexão Cirúrgica' },
+      { sigla: 'NF',    nome: 'Gráfica NF'        },
+      { sigla: 'PV',    nome: 'Patrícia Voggt'    },
     ];
 
     let messages = [];
@@ -78,11 +112,6 @@
 
     function init() {
       const params = new URLSearchParams(window.location.search);
-      const savedName = localStorage.getItem('cardoBrainUser');
-      if (savedName) {
-        document.getElementById('userName').value = savedName;
-        document.getElementById('userNameClient').value = savedName;
-      }
       if (params.get('modo') === 'processos') {
         // Modo processos: entra direto sem cliente
         selectedClient = null;
@@ -112,26 +141,15 @@
       grid.innerHTML = '';
       CLIENTS.forEach(c => {
         const card = document.createElement('div');
-        card.className = 'client-card' + (selectedClient && selectedClient.sigla === c.sigla ? ' selected' : '');
-        card.innerHTML = `<span class="client-card-emoji">${c.emoji}</span><span class="client-card-sigla">${c.sigla}</span><span class="client-card-nome">${c.nome}</span>`;
-        card.onclick = () => selectClient(c, card);
+        card.className = 'client-card';
+        card.innerHTML = `<span class="client-card-sigla">${c.sigla}</span><span class="client-card-nome">${c.nome}</span>`;
+        card.onclick = () => enterChat(c);
         grid.appendChild(card);
       });
     }
 
-    function selectClient(c, card) {
-      document.querySelectorAll('.client-card').forEach(el => el.classList.remove('selected'));
-      card.classList.add('selected');
+    function enterChat(c) {
       selectedClient = c;
-    }
-
-    function enterChat() {
-      if (!selectedClient) { alert('Selecione um cliente para continuar.'); return; }
-      const name = document.getElementById('userNameClient').value.trim();
-      if (name) {
-        document.getElementById('userName').value = name;
-        localStorage.setItem('cardoBrainUser', name);
-      }
       localStorage.setItem('cardoBrainClient', JSON.stringify(selectedClient));
       showAppScreen();
     }
@@ -209,12 +227,51 @@
       });
     }
 
+    const PROCESSO_LABELS = {
+      gestao_trafego:   'Gestão de Tráfego',
+      criacao_conteudo: 'Criação de Conteúdo',
+      onboarding:       'Onboarding de Clientes',
+      relatorios:       'Relatórios',
+      reunioes:         'Reuniões',
+      geral:            'Processos Gerais',
+    };
+
+    function enterProcessos(topico) {
+      selectedClient = null;
+      localStorage.removeItem('cardoBrainClient');
+      document.getElementById('sidebarClientBadge').innerHTML = '';
+      showAppScreen();
+      messages = [];
+      currentConvId = null;
+      const label = PROCESSO_LABELS[topico] || 'Processos da agência';
+      document.getElementById('messages').innerHTML = `
+        <div class="welcome">
+          <h3>📚 ${label}</h3>
+          <p>Consulte processos, boas práticas e documentação interna da Cardô.</p>
+        </div>`;
+      loadConversationList();
+    }
+
+    function switchToProcessos() {
+      selectedClient = null;
+      localStorage.removeItem('cardoBrainClient');
+      document.getElementById('sidebarClientBadge').innerHTML = '';
+      messages = [];
+      currentConvId = null;
+      document.getElementById('messages').innerHTML = `
+        <div class="welcome">
+          <h3>📚 Processos da Cardô</h3>
+          <p>Consulte a CardôPédia, processos internos e boas práticas da agência.</p>
+        </div>`;
+      loadConversationList();
+    }
+
     function newChat() {
       messages = [];
       currentConvId = null;
       document.getElementById('messages').innerHTML = `
         <div class="welcome">
-          <h3>Olá! Sou o assistente da Cardô.</h3>
+          <h3>Olá! Sou o Cérebro da Cardô.</h3>
           <p>Pode me perguntar sobre processos, clientes, campanhas ou qualquer dúvida do dia a dia.</p>
         </div>`;
       document.querySelectorAll('.conv-item').forEach(el => el.classList.remove('active'));
@@ -232,7 +289,6 @@
       if (!text) return;
 
       const userName = document.getElementById('userName').value || 'colaborador';
-      localStorage.setItem('cardoBrainUser', userName);
       input.value = '';
       input.style.height = 'auto';
 

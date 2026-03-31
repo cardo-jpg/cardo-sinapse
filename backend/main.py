@@ -4,6 +4,7 @@ import json
 import uuid
 import hmac
 import hashlib
+import asyncio
 import httpx
 import threading
 import subprocess
@@ -32,6 +33,10 @@ SECRET_KEY = os.getenv("SECRET_KEY", "sinapse-secret-2026")
 USERS = {
     "victor": os.getenv("USER_VICTOR_PASSWORD", "C@rdobrain2026"),
     "jose":   os.getenv("USER_JOSE_PASSWORD",   "C@rdosinapse2026"),
+}
+USER_DISPLAY = {
+    "victor": "Victor",
+    "jose":   "José",
 }
 
 CLICKUP_API_KEY = os.getenv("CLICKUP_API_KEY")
@@ -77,6 +82,11 @@ CLICKUP_CLIENTE_OPTIONS = {
 GRANOLA_SUPABASE_PATH = Path.home() / "Library" / "Application Support" / "Granola" / "supabase.json"
 GRANOLA_API_BASE = "https://api.granola.ai/v1"
 
+# ── Google Ads Clients ───────────────────────────────────────────────────────
+GOOGLE_ADS_CLIENTS = {
+    "SRW": {"nome": "Speedrack West", "windsor_url": os.getenv("WINDSOR_SRW_URL", "")},
+}
+
 # ── Meta Ads ──────────────────────────────────────────────────────────────────
 META_GRAPH_BASE = "https://graph.facebook.com/v21.0"
 META_CLIENTS = {
@@ -84,7 +94,7 @@ META_CLIENTS = {
     "CC":    {"name": "Conexão Cirúrgica",     "token": lambda: os.getenv("META_TOKEN_CC"),    "accounts": []},
     "NF":    {"name": "Grupo NF",              "token": lambda: os.getenv("META_TOKEN_NF"),    "accounts": []},
     "PV":    {"name": "Patricia Voggt",        "token": lambda: os.getenv("META_TOKEN_PV"),    "accounts": []},
-    "SRW":   {"name": "SpeedRack West",        "token": lambda: os.getenv("META_TOKEN_SRW"),   "accounts": []},
+    "SRW":   {"name": "Speedrack West",        "token": lambda: os.getenv("META_TOKEN_SRW"),   "accounts": []},
     "SCALE": {"name": "Scale Army",            "token": lambda: os.getenv("META_TOKEN_SCALE"), "accounts": []},
     "HDLT":  {"name": "Headlight Co",          "token": lambda: os.getenv("META_TOKEN_HDLT"),  "accounts": []},
 }
@@ -97,8 +107,8 @@ CLICKUP_ATAS_PAGES = {
     "NF":    "1391ah-33711",
     "PV":    "1391ah-49491",
     "SRW":   "1391ah-49551",
-    "HDLT":  "1391ah-49231",  # sem sub-página Atas ainda — cria direto no cliente
-    "SCALE": "1391ah-49251",  # idem
+    "HDLT":  "1391ah-49811",
+    "SCALE": "1391ah-49751",
 }
 
 # Lista padrão para novas tarefas: Pendências Clientes (Atendimento & CS)
@@ -222,23 +232,52 @@ def get_granola_token() -> str:
     except Exception:
         return ""
 
+async def _granola_request(token: str, endpoint: str, payload: dict):
+    """Faz uma requisição POST ao Granola e retorna (status_code, json_or_none)."""
+    async with httpx.AsyncClient() as c:
+        r = await c.post(
+            f"{GRANOLA_API_BASE}/{endpoint}",
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json",
+                     "x-granola-client-id": "granola-desktop", "x-granola-version": "2.0.0"},
+            json=payload or {},
+            timeout=20,
+        )
+        return r.status_code, r.json() if r.status_code == 200 else None
+
 async def granola_post(endpoint: str, payload: dict = None):
+    global _granola_token_cache
     token = get_granola_token()
     if not token:
         return None
-    async with httpx.AsyncClient() as c:
-        try:
-            r = await c.post(
-                f"{GRANOLA_API_BASE}/{endpoint}",
-                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json",
-                         "x-granola-client-id": "granola-desktop", "x-granola-version": "2.0.0"},
-                json=payload or {},
-                timeout=20,
-            )
-            if r.status_code == 200:
-                return r.json()
-        except Exception:
-            pass
+    try:
+        status, data = await _granola_request(token, endpoint, payload or {})
+        if status == 200:
+            return data
+        if status == 401:
+            print(f"[granola] 401 em {endpoint}, forçando refresh de token...")
+            refresh_token = None
+            env_refresh = os.getenv("GRANOLA_REFRESH_TOKEN")
+            if env_refresh:
+                refresh_token = _granola_token_cache.get("refresh_token") or env_refresh
+            else:
+                try:
+                    raw = json.loads(GRANOLA_SUPABASE_PATH.read_text())
+                    wt = raw.get("workos_tokens", {})
+                    if isinstance(wt, str):
+                        wt = json.loads(wt)
+                    refresh_token = wt.get("refresh_token")
+                except Exception:
+                    pass
+            if refresh_token:
+                new = _do_refresh(refresh_token)
+                if new.get("access_token"):
+                    _granola_token_cache = new
+                    status2, data2 = await _granola_request(new["access_token"], endpoint, payload or {})
+                    if status2 == 200:
+                        return data2
+        print(f"[granola] Erro {status} em {endpoint}")
+    except Exception as e:
+        print(f"[granola] Exceção em {endpoint}: {e}")
     return None
 
 async def granola_get_transcript(document_id: str) -> str:
@@ -281,6 +320,131 @@ def sanitize_ata_content(text: str) -> str:
     lines = text.splitlines()
     cleaned = [l for l in lines if not re.match(r'^\s*null[.,;]?\s*$', l, re.IGNORECASE)]
     return "\n".join(cleaned)
+
+
+def prosemirror_to_markdown(node: dict, depth: int = 0) -> str:
+    """Converte um nó ProseMirror JSON para Markdown."""
+    ntype = node.get("type", "")
+    content = node.get("content", [])
+
+    if ntype == "doc":
+        return "\n\n".join(prosemirror_to_markdown(c, depth) for c in content).strip()
+
+    if ntype == "heading":
+        level = node.get("attrs", {}).get("level", 1)
+        text = "".join(prosemirror_node_text(c) for c in content)
+        return "#" * level + " " + text
+
+    if ntype == "paragraph":
+        text = "".join(prosemirror_node_text(c) for c in content)
+        return text
+
+    if ntype == "bulletList":
+        items = []
+        for item in content:
+            item_md = prosemirror_to_markdown(item, depth)
+            # indenta sub-níveis
+            lines = item_md.splitlines()
+            if lines:
+                items.append("  " * depth + "- " + lines[0])
+                for l in lines[1:]:
+                    items.append("  " * (depth + 1) + l)
+        return "\n".join(items)
+
+    if ntype == "orderedList":
+        items = []
+        for i, item in enumerate(content, 1):
+            item_md = prosemirror_to_markdown(item, depth)
+            lines = item_md.splitlines()
+            if lines:
+                items.append("  " * depth + f"{i}. " + lines[0])
+                for l in lines[1:]:
+                    items.append("  " * (depth + 1) + l)
+        return "\n".join(items)
+
+    if ntype == "listItem":
+        parts = []
+        for c in content:
+            if c.get("type") in ("bulletList", "orderedList"):
+                parts.append(prosemirror_to_markdown(c, depth + 1))
+            else:
+                parts.append(prosemirror_to_markdown(c, depth))
+        return "\n".join(p for p in parts if p)
+
+    if ntype == "hardBreak":
+        return "\n"
+
+    if ntype == "text":
+        return prosemirror_node_text(node)
+
+    # fallback: processa filhos
+    return "\n".join(prosemirror_to_markdown(c, depth) for c in content)
+
+
+def prosemirror_node_text(node: dict) -> str:
+    """Extrai texto de um nó folha, aplicando marks (bold, italic, code)."""
+    if node.get("type") != "text":
+        return prosemirror_to_markdown(node)
+    text = node.get("text", "")
+    marks = node.get("marks", [])
+    for mark in marks:
+        mt = mark.get("type", "")
+        if mt == "bold":
+            text = f"**{text}**"
+        elif mt == "italic":
+            text = f"*{text}*"
+        elif mt == "code":
+            text = f"`{text}`"
+        elif mt == "strike":
+            text = f"~~{text}~~"
+    return text
+
+
+async def granola_get_panels_markdown(document_id: str) -> str:
+    """Busca os painéis do documento e converte para Markdown."""
+    token = get_granola_token()
+    if not token:
+        return ""
+    async with httpx.AsyncClient() as c:
+        try:
+            r = await c.post(
+                f"{GRANOLA_API_BASE}/get-document-panels",
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json",
+                         "x-granola-client-id": "granola-desktop", "x-granola-version": "2.0.0"},
+                json={"document_id": document_id},
+                timeout=15,
+            )
+            if r.status_code != 200:
+                return ""
+            panels = r.json()
+            if not isinstance(panels, list) or not panels:
+                return ""
+            parts = []
+            for panel in panels:
+                content = panel.get("content")
+                if content:
+                    md = prosemirror_to_markdown(content)
+                    if md.strip():
+                        parts.append(md.strip())
+            return "\n\n".join(parts)
+        except Exception as e:
+            print(f"[granola] Erro ao buscar painéis: {e}")
+            return ""
+
+
+def extract_meeting_topic(title: str) -> str:
+    """Extrai o tema da reunião do título do Granola, removendo prefixos e datas."""
+    import re as _re
+    t = title.strip()
+    # Remove conteúdo entre colchetes: [Scale Army], [PRO], etc.
+    t = _re.sub(r'\[.*?\]', '', t).strip()
+    # Remove "Ata de Reunião" (template padrão do Granola)
+    t = _re.sub(r'ata de reuni[aã]o', '', t, flags=_re.IGNORECASE).strip()
+    # Remove padrões de data: DD/MM/YYYY, DD/MM, YYYY-MM-DD
+    t = _re.sub(r'\b\d{1,2}[\/\-]\d{1,2}([\/\-]\d{2,4})?\b', '', t).strip()
+    # Remove separadores sobressalentes no início/fim
+    t = _re.sub(r'^[\s\-–|]+|[\s\-–|]+$', '', t).strip()
+    return t
 
 def extract_date_from_title(title: str) -> str:
     """Extrai data no formato YYYY-MM-DD do título. Ex: '18/02/2026' → '2026-02-18'"""
@@ -580,23 +744,28 @@ def verify_session(request: Request) -> Optional[str]:
 
 # ── Rotas ─────────────────────────────────────────────────────────────────────
 
+def _nav_base(request: Request, active_page: str = "") -> dict:
+    username = verify_session(request) or ""
+    display = USER_DISPLAY.get(username, username.capitalize()) if username else ""
+    return {"nav_username": display, "active_page": active_page, "nav_clients": None, "nav_current_client": None}
+
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     if not verify_session(request):
         return RedirectResponse("/login")
-    return templates.TemplateResponse("home.html", {"request": request})
+    return templates.TemplateResponse("home.html", {"request": request, **_nav_base(request, "home")})
 
 @app.get("/conversar", response_class=HTMLResponse)
 async def conversar(request: Request):
     if not verify_session(request):
         return RedirectResponse("/login")
-    return templates.TemplateResponse("chat.html", {"request": request})
+    return templates.TemplateResponse("chat.html", {"request": request, **_nav_base(request, "conversar")})
 
 @app.get("/ata", response_class=HTMLResponse)
 async def ata_page(request: Request):
     if not verify_session(request):
         return RedirectResponse("/login")
-    return templates.TemplateResponse("ata.html", {"request": request})
+    return templates.TemplateResponse("ata.html", {"request": request, **_nav_base(request, "ata")})
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
@@ -757,8 +926,6 @@ async def generate_ata(request: Request):
         raise HTTPException(status_code=401)
     body = await request.json()
     meeting_id = body.get("meeting_id")
-    client_name = body.get("client_name", "")
-    date_override = body.get("date", "")
 
     docs = await granola_post("get-documents")
     if not isinstance(docs, list):
@@ -768,44 +935,21 @@ async def generate_ata(request: Request):
     if not doc:
         raise HTTPException(status_code=404, detail="Reunião não encontrada.")
 
-    # Data real: extrair do título, senão usar created_at
     doc_title = doc.get("title") or ""
-    date = date_override or extract_date_from_title(doc_title) or (doc.get("created_at") or "")[:10]
+    date = extract_date_from_title(doc_title) or (doc.get("created_at") or "")[:10]
 
-    # Conteúdo: preferir notas com template; fallback para transcript processado pelo Claude
     ata_text = sanitize_ata_content(doc.get("notes_markdown") or doc.get("notes_plain") or "")
-    used_transcript = False
+
+    if not ata_text:
+        ata_text = await granola_get_panels_markdown(meeting_id)
 
     if not ata_text:
         transcript = await granola_get_transcript(meeting_id)
         if not transcript:
             raise HTTPException(status_code=422, detail="Esta reunião não tem notas nem transcript disponível.")
         ata_text = transcript
-        used_transcript = True
 
-    # Se veio do transcript bruto, passa pelo Claude para formatar como ata
-    if used_transcript:
-        prompt = f"""Você é um assistente de uma agência de marketing digital chamada Cardô.
-Abaixo está a transcrição bruta de uma reunião com o cliente "{client_name or doc_title}".
-Gere uma ata de reunião profissional em Markdown com as seguintes seções:
-- **Data:** {date}
-- **Participantes e Contexto**
-- **Decisões Tomadas**
-- **Próximos Passos** (separado em Ações da Agência e Ações do Cliente)
-
-Seja objetivo. Ignore conversas paralelas e ruídos. Use apenas o que é relevante para a ata.
-
-TRANSCRIÇÃO:
-{ata_text[:12000]}"""
-        resp = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=2000,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        ata_text = next((b.text for b in resp.content if hasattr(b, "text")), ata_text)
-
-    title = f"{client_name or doc_title or 'Reunião'} — Ata — {date}"
-    return JSONResponse({"ata": ata_text, "title": title, "date": date})
+    return JSONResponse({"ata": ata_text, "title": doc_title, "date": date})
 
 
 @app.post("/api/ata/publish")
@@ -816,13 +960,17 @@ async def publish_ata(request: Request):
     content = body.get("content", "")
     client_sigla = body.get("client_sigla", "").upper()
     date_iso = body.get("date", "")  # formato YYYY-MM-DD
+    meeting_title = body.get("meeting_title", "").strip()
 
     # Converter data para DD/MM/AAAA (padrão do ClickUp)
     try:
         y, m, d = date_iso.split("-")
-        page_title = f"{d}/{m}/{y}"
+        date_str = f"{d}/{m}/{y}"
     except Exception:
-        page_title = date_iso
+        date_str = date_iso
+
+    topic = extract_meeting_topic(meeting_title) if meeting_title else ""
+    page_title = f"{date_str} - {topic}" if topic else date_str
 
     parent_page_id = CLICKUP_ATAS_PAGES.get(client_sigla)
     if not parent_page_id:
@@ -845,7 +993,10 @@ async def publish_ata(request: Request):
     if r.status_code not in (200, 201):
         raise HTTPException(status_code=500, detail=f"Erro ao criar página no ClickUp: {r.text}")
 
-    page_id = r.json().get("id")
+    resp = r.json()
+    page_id = resp.get("id")
+    actual_parent = resp.get("parent_page_id")
+    print(f"[ATA] Página criada: {page_id} | parent_page_id enviado={parent_page_id} | retornado={actual_parent}")
     page_url = f"https://app.clickup.com/{CLICKUP_WORKSPACE_ID}/v/dc/{CLICKUP_DOC_ID}/{page_id}"
     return JSONResponse({"ok": True, "url": page_url})
 
@@ -1010,7 +1161,7 @@ async def create_tasks_from_ata(request: Request):
 async def tarefas_page(request: Request):
     if not verify_session(request):
         return RedirectResponse("/login")
-    return templates.TemplateResponse("tarefas.html", {"request": request})
+    return templates.TemplateResponse("tarefas.html", {"request": request, **_nav_base(request, "tarefas")})
 
 
 @app.post("/api/tarefas/extrair")
@@ -1101,51 +1252,206 @@ Regras:
         tasks_data = json.loads(m.group())
     return JSONResponse(tasks_data)
 
-# ── Meta Ads endpoints ────────────────────────────────────────────────────────
+# ── Meta Ads ──────────────────────────────────────────────────────────────────
 
-async def _meta_get(path: str, token: str, params: dict = None):
+from datetime import date as _date
+
+def _compute_period(preset: str, since: str, until: str):
+    """Return (since, until, prev_since, prev_until) as YYYY-MM-DD strings."""
+    today = _date.today()
+    if since and until:
+        ds = _date.fromisoformat(since)
+        du = _date.fromisoformat(until)
+        delta = (du - ds).days + 1
+        pu = ds - timedelta(days=1)
+        ps = pu - timedelta(days=delta - 1)
+        return since, until, ps.isoformat(), pu.isoformat()
+    p = preset or "last_7d"
+    if p == "today":
+        s, u = today, today
+        ps2, pu2 = today - timedelta(days=1), today - timedelta(days=1)
+    elif p == "yesterday":
+        s = u = today - timedelta(days=1)
+        ps2 = pu2 = today - timedelta(days=2)
+    elif p == "last_7d":
+        s, u = today - timedelta(days=6), today
+        ps2, pu2 = today - timedelta(days=13), today - timedelta(days=7)
+    elif p == "last_30d":
+        s, u = today - timedelta(days=29), today
+        ps2, pu2 = today - timedelta(days=59), today - timedelta(days=30)
+    elif p == "this_month":
+        s = today.replace(day=1); u = today
+        delta = (u - s).days + 1
+        pu2 = s - timedelta(days=1); ps2 = pu2 - timedelta(days=delta - 1)
+    elif p == "last_month":
+        first_this = today.replace(day=1)
+        u = first_this - timedelta(days=1); s = u.replace(day=1)
+        pu2 = s - timedelta(days=1); ps2 = pu2.replace(day=1)
+    else:
+        s, u = today - timedelta(days=6), today
+        ps2, pu2 = today - timedelta(days=13), today - timedelta(days=7)
+    return s.isoformat(), u.isoformat(), ps2.isoformat(), pu2.isoformat()
+
+_LEAD_TYPES = (
+    "lead", "onsite_conversion.lead_grouped",
+    "onsite_conversion.messaging_first_reply", "contact_total",
+)
+_PURCHASE_TYPES = ("purchase", "omni_purchase", "offsite_conversion.fb_pixel_purchase")
+_INS_FIELDS = "spend,impressions,clicks,reach,actions,video_play_actions"
+
+def _extract_action(actions: list, types: tuple) -> int:
+    return sum(int(float(a.get("value", 0))) for a in (actions or []) if a.get("action_type") in types)
+
+async def _meta_paginate(path: str, token: str, params: dict) -> list:
+    """Generic paginated fetch for any Meta API path."""
+    items = []
+    async with httpx.AsyncClient() as c:
+        url = f"{META_GRAPH_BASE}/{path}"
+        qp = {"access_token": token, "limit": 100, **params}
+        while url:
+            try:
+                r = await c.get(url, params=qp, timeout=25)
+                if r.status_code != 200:
+                    print(f"[meta] {r.status_code}: {r.text[:200]}")
+                    break
+                body = r.json()
+                items.extend(body.get("data", []))
+                url = body.get("paging", {}).get("next")
+                qp = {}
+            except Exception as e:
+                print(f"[meta] paginate err: {e}"); break
+    return items
+
+async def _meta_get_all(account_id: str, token: str, params: dict) -> list:
+    items = []
+    async with httpx.AsyncClient() as c:
+        url = f"{META_GRAPH_BASE}/{account_id}/insights"
+        qp = {"access_token": token, "limit": 100, **params}
+        while url:
+            try:
+                r = await c.get(url, params=qp, timeout=25)
+                if r.status_code != 200:
+                    print(f"[meta] {r.status_code}: {r.text[:200]}")
+                    break
+                body = r.json()
+                items.extend(body.get("data", []))
+                url = body.get("paging", {}).get("next")
+                qp = {}
+            except Exception as e:
+                print(f"[meta] erro: {e}"); break
+    return items
+
+async def _get_insights(account_id: str, token: str, since: str, until: str, level: str) -> list:
+    name_f = {"campaign": "campaign_name", "adset": "adset_name"}.get(level, "")
+    extra  = ",campaign_name" if level == "adset" else ""
+    fields = f"{name_f}{extra},{_INS_FIELDS}" if name_f else _INS_FIELDS
+    return await _meta_get_all(account_id, token, {
+        "fields": fields,
+        "time_range": json.dumps({"since": since, "until": until}),
+        "level": level,
+    })
+
+async def _get_daily_insights(account_id: str, token: str, since: str, until: str) -> list:
+    return await _meta_get_all(account_id, token, {
+        "fields": _INS_FIELDS,
+        "time_range": json.dumps({"since": since, "until": until}),
+        "time_increment": 1, "level": "account",
+    })
+
+def _row_metrics(row: dict) -> dict:
+    spend = float(row.get("spend", 0))
+    imp   = int(row.get("impressions", 0))
+    clk   = int(row.get("clicks", 0))
+    reach = int(row.get("reach", 0))
+    acts  = row.get("actions", [])
+    vpa   = row.get("video_play_actions", [])
+    leads = _extract_action(acts, _LEAD_TYPES)
+    purch = _extract_action(acts, _PURCHASE_TYPES)
+    video_views = _extract_action(vpa, ("video_view",))
+    thruplays   = _extract_action(acts, ("video_thruplay_watched",))
+    return {
+        "spend": spend, "impressions": imp, "clicks": clk, "reach": reach,
+        "leads": leads, "purchases": purch,
+        "video_views": video_views, "thruplays": thruplays,
+        "ctr":  clk / imp * 100 if imp else 0,
+        "cpm":  spend / imp * 1000 if imp else 0,
+        "cpc":  spend / clk if clk else 0,
+        "cpl":  spend / leads if leads else None,
+    }
+
+def _merge_totals(rows: list) -> dict:
+    t = {"spend": 0.0, "impressions": 0, "clicks": 0, "reach": 0,
+         "leads": 0, "purchases": 0, "video_views": 0, "thruplays": 0}
+    for r in rows:
+        for k in t: t[k] += r.get(k, 0)
+    sp, im, cl, ld = t["spend"], t["impressions"], t["clicks"], t["leads"]
+    return {
+        **t,
+        "ctr": round(cl / im * 100 if im else 0, 2),
+        "cpm": round(sp / im * 1000 if im else 0, 2),
+        "cpc": round(sp / cl if cl else 0, 2),
+        "cpl": round(sp / ld if ld else 0, 2) or None,
+        "spend": round(sp, 2),
+    }
+
+def _pct(curr, prev):
+    if not prev or prev == 0 or curr is None: return None
+    return round((curr - prev) / abs(prev) * 100, 1)
+
+async def _fetch_account_name(account_id: str, token: str) -> str:
     async with httpx.AsyncClient() as c:
         try:
-            r = await c.get(
-                f"{META_GRAPH_BASE}/{path}",
-                params={"access_token": token, **(params or {})},
-                timeout=20,
-            )
+            r = await c.get(f"{META_GRAPH_BASE}/{account_id}",
+                params={"fields": "name", "access_token": token}, timeout=8)
             if r.status_code == 200:
-                return r.json()
-            print(f"[meta] {r.status_code}: {r.text[:200]}")
-        except Exception as e:
-            print(f"[meta] Erro: {e}")
-    return None
-
-def _extract_action(actions: list, types: list) -> int:
-    return sum(int(a.get("value", 0)) for a in (actions or []) if a.get("action_type") in types)
-
-async def _account_insights(account_id: str, token: str, date_preset: str) -> dict:
-    data = await _meta_get(f"{account_id}/insights", token, {
-        "fields": "spend,impressions,clicks,ctr,cpm,cpc,reach,actions",
-        "date_preset": date_preset, "level": "account",
-    })
-    return (data or {}).get("data", [{}])[0] if data else {}
-
-async def _campaign_insights(account_id: str, token: str, date_preset: str) -> list:
-    data = await _meta_get(f"{account_id}/insights", token, {
-        "fields": "campaign_name,spend,impressions,clicks,ctr,cpm,cpc,reach,actions",
-        "date_preset": date_preset, "level": "campaign", "limit": 50,
-    })
-    return (data or {}).get("data", [])
+                return r.json().get("name", account_id)
+        except Exception:
+            pass
+    return account_id
 
 @app.get("/trafego", response_class=HTMLResponse)
-async def trafego_page(request: Request):
-    if not verify_session(request):
+async def trafego_page(request: Request, client: str = None):
+    username = verify_session(request)
+    if not username:
         return RedirectResponse("/login")
     configured = [s for s, cfg in META_CLIENTS.items() if cfg["token"]()]
-    return templates.TemplateResponse("trafego.html", {"request": request, "configured_clients": configured})
+    clients_info = {}
+    for s in configured:
+        cfg = META_CLIENTS[s]
+        token = cfg["token"]()
+        acc_list = []
+        for acc_id in cfg["accounts"]:
+            name = await _fetch_account_name(acc_id, token) if token else acc_id
+            acc_list.append({"id": acc_id, "name": name})
+        clients_info[s] = {"name": cfg["name"], "accounts": acc_list}
+    selected_client = client if client and client in clients_info else (configured[0] if configured else "")
+    # Build nav_clients with display names for sidebar
+    nav_clients = {s: {"display_name": cfg["name"]} for s, cfg in META_CLIENTS.items() if cfg["token"]()} if configured else None
+    gads_configured = {s: cfg["nome"] for s, cfg in GOOGLE_ADS_CLIENTS.items() if cfg.get("windsor_url")}
+    meta_configured = {s: cfg["name"] for s, cfg in META_CLIENTS.items() if cfg["token"]() and cfg["accounts"]}
+    return templates.TemplateResponse("trafego.html", {
+        "request": request,
+        "configured_clients": configured,
+        "clients_info": json.dumps(clients_info),
+        "selected_client": selected_client,
+        "nav_username": USER_DISPLAY.get(username, username.capitalize() if username else ""),
+        "active_page": "trafego",
+        "nav_clients": nav_clients,
+        "nav_current_client": selected_client,
+        "gads_clients": json.dumps(gads_configured),
+    })
 
 @app.get("/api/trafego/metrics")
-async def get_trafego_metrics(request: Request, client_sigla: str = "HIRE", date_preset: str = "last_7_d"):
-    if not verify_session(request):
-        raise HTTPException(status_code=401)
+async def get_trafego_metrics(
+    request: Request,
+    client_sigla: str = "HIRE",
+    preset: str = "last_7d",
+    since: str = None,
+    until: str = None,
+    account_id: str = None,
+    level: str = "campaign",
+):
+    if not verify_session(request): raise HTTPException(status_code=401)
     cfg = META_CLIENTS.get(client_sigla.upper())
     if not cfg or not cfg["accounts"]:
         raise HTTPException(status_code=404, detail="Cliente não configurado para Meta Ads.")
@@ -1153,71 +1459,332 @@ async def get_trafego_metrics(request: Request, client_sigla: str = "HIRE", date
     if not token:
         raise HTTPException(status_code=503, detail=f"Token Meta não configurado para {client_sigla}.")
 
-    LEAD_TYPES = ("lead", "onsite_conversion.lead_grouped", "onsite_conversion.messaging_first_reply")
-    PURCHASE_TYPES = ("purchase", "omni_purchase", "offsite_conversion.fb_pixel_purchase")
+    d_since, d_until, p_since, p_until = _compute_period(
+        preset if not (since and until) else None, since, until
+    )
+    accounts = ([account_id] if account_id and account_id in cfg["accounts"] else cfg["accounts"])
+    name_key = "campaign_name" if level == "campaign" else "adset_name"
 
-    total = {"spend": 0.0, "impressions": 0, "clicks": 0, "reach": 0, "leads": 0, "purchases": 0}
-    all_campaigns = []
+    curr_acc_rows, prev_acc_rows, merged = [], [], {}
 
-    for account_id in cfg["accounts"]:
-        ins = await _account_insights(account_id, token, date_preset)
-        if ins:
-            total["spend"]       += float(ins.get("spend", 0))
-            total["impressions"] += int(ins.get("impressions", 0))
-            total["clicks"]      += int(ins.get("clicks", 0))
-            total["reach"]       += int(ins.get("reach", 0))
-            total["leads"]       += _extract_action(ins.get("actions"), LEAD_TYPES)
-            total["purchases"]   += _extract_action(ins.get("actions"), PURCHASE_TYPES)
-        camps = await _campaign_insights(account_id, token, date_preset)
-        all_campaigns.extend(camps)
+    for acc in accounts:
+        for row in await _get_insights(acc, token, d_since, d_until, "account"):
+            curr_acc_rows.append(_row_metrics(row))
+        for row in await _get_insights(acc, token, p_since, p_until, "account"):
+            prev_acc_rows.append(_row_metrics(row))
+        for row in await _get_insights(acc, token, d_since, d_until, level):
+            name = row.get(name_key, "")
+            m = _row_metrics(row)
+            if name in merged:
+                for k in ("spend","impressions","clicks","reach","leads","purchases"):
+                    merged[name][k] += m[k]
+            else:
+                merged[name] = {**m, "name": name}
+                if level == "adset":
+                    merged[name]["campaign_name"] = row.get("campaign_name", "")
 
-    spend = total["spend"]
-    imp   = total["impressions"]
-    clk   = total["clicks"]
-    leads = total["leads"]
-    ctr   = clk / imp * 100 if imp else 0
-    cpm   = spend / imp * 1000 if imp else 0
-    cpc   = spend / clk if clk else 0
-    cpl   = spend / leads if leads else None
+    summary_curr = _merge_totals(curr_acc_rows)
+    summary_prev = _merge_totals(prev_acc_rows)
+    summary = {k: v for k, v in summary_curr.items()}
+    for k in ("spend","impressions","clicks","reach","leads","ctr","cpm","cpc","cpl"):
+        summary[f"{k}_delta"] = _pct(summary_curr.get(k), summary_prev.get(k))
 
-    processed = []
-    for c in all_campaigns:
-        c_spend = float(c.get("spend", 0))
-        c_imp   = int(c.get("impressions", 0))
-        c_clk   = int(c.get("clicks", 0))
-        c_ctr   = float(c.get("ctr", 0)) * 100
-        c_cpm   = float(c.get("cpm", 0))
-        c_cpc   = float(c.get("cpc", 0))
-        c_leads = _extract_action(c.get("actions"), LEAD_TYPES)
-        c_cpl   = c_spend / c_leads if c_leads else None
+    avg_cpl = summary_curr.get("cpl")
+    items = []
+    for row in merged.values():
+        sp, im, cl, ld = row["spend"], row["impressions"], row["clicks"], row["leads"]
+        row["ctr"] = round(cl / im * 100 if im else 0, 2)
+        row["cpm"] = round(sp / im * 1000 if im else 0, 2)
+        row["cpc"] = round(sp / cl if cl else 0, 2)
+        row["cpl"] = round(sp / ld if ld else 0, 2) or None
+        row["spend"] = round(sp, 2)
         risks = []
-        if c_ctr < 0.5 and c_imp > 1000:            risks.append("CTR baixo")
-        if c_cpl and cpl and c_cpl > cpl * 2:       risks.append("CPL alto")
-        if c_spend > 30 and c_leads == 0 and leads:  risks.append("Sem conversões")
-        processed.append({
-            "name": c.get("campaign_name", ""),
-            "spend": round(c_spend, 2),
-            "impressions": c_imp, "clicks": c_clk,
-            "ctr": round(c_ctr, 2), "cpm": round(c_cpm, 2), "cpc": round(c_cpc, 2),
-            "leads": c_leads,
-            "cpl": round(c_cpl, 2) if c_cpl else None,
-            "risks": risks,
-        })
-    processed.sort(key=lambda x: x["spend"], reverse=True)
+        if row["ctr"] < 0.5 and im > 1000:        risks.append("CTR baixo")
+        if row["cpl"] and avg_cpl and row["cpl"] > avg_cpl * 2: risks.append("CPL alto")
+        if sp > 30 and ld == 0 and im > 500:       risks.append("Sem conversões")
+        row["risks"] = risks
+        items.append(row)
+    items.sort(key=lambda x: x["spend"], reverse=True)
 
     return JSONResponse({
-        "client": cfg["name"], "date_preset": date_preset,
-        "summary": {
-            "spend": round(spend, 2), "impressions": imp, "clicks": clk,
-            "reach": total["reach"], "leads": leads, "purchases": total["purchases"],
-            "ctr": round(ctr, 2), "cpm": round(cpm, 2), "cpc": round(cpc, 2),
-            "cpl": round(cpl, 2) if cpl else None,
-        },
-        "campaigns": processed,
+        "client": cfg["name"],
+        "since": d_since, "until": d_until,
+        "prev_since": p_since, "prev_until": p_until,
+        "accounts": accounts, "level": level,
+        "summary": summary, "items": items,
     })
+
+@app.get("/api/trafego/daily")
+async def get_trafego_daily(
+    request: Request,
+    client_sigla: str = "HIRE",
+    preset: str = "last_7d",
+    since: str = None,
+    until: str = None,
+    account_id: str = None,
+):
+    if not verify_session(request): raise HTTPException(status_code=401)
+    cfg = META_CLIENTS.get(client_sigla.upper())
+    if not cfg or not cfg["accounts"]:
+        raise HTTPException(status_code=404, detail="Cliente não configurado.")
+    token = cfg["token"]()
+    if not token:
+        raise HTTPException(status_code=503, detail="Token não configurado.")
+
+    d_since, d_until, _, _ = _compute_period(
+        preset if not (since and until) else None, since, until
+    )
+    accounts = ([account_id] if account_id and account_id in cfg["accounts"] else cfg["accounts"])
+
+    by_date: dict = {}
+    for acc in accounts:
+        for row in await _get_daily_insights(acc, token, d_since, d_until):
+            day = row.get("date_start", "")
+            if day not in by_date:
+                by_date[day] = {"date": day, "spend": 0.0, "impressions": 0, "clicks": 0, "leads": 0}
+            by_date[day]["spend"]       += float(row.get("spend", 0))
+            by_date[day]["impressions"] += int(row.get("impressions", 0))
+            by_date[day]["clicks"]      += int(row.get("clicks", 0))
+            by_date[day]["leads"]       += _extract_action(row.get("actions", []), _LEAD_TYPES)
+
+    days = sorted(by_date.values(), key=lambda x: x["date"])
+    for d in days:
+        d["spend"] = round(d["spend"], 2)
+    return JSONResponse({"days": days})
+
+async def _fetch_one_ad_creative(c: httpx.AsyncClient, ad_id: str, token: str) -> tuple:
+    """Fetch creative info for a single ad."""
+    try:
+        r = await c.get(f"{META_GRAPH_BASE}/{ad_id}", params={
+            "fields": "effective_status,creative{thumbnail_url,image_url,instagram_permalink_url,effective_object_story_id}",
+            "access_token": token,
+        }, timeout=15)
+        if r.status_code != 200:
+            return ad_id, {}
+        data = r.json()
+        creative = data.get("creative", {})
+        thumbnail = creative.get("image_url") or creative.get("thumbnail_url", "")
+        link = creative.get("instagram_permalink_url", "")
+        if not link:
+            story_id = creative.get("effective_object_story_id", "")
+            if story_id:
+                link = f"https://www.facebook.com/{story_id}"
+        effective_status = data.get("effective_status", "UNKNOWN")
+        return ad_id, {"thumbnail": thumbnail, "link": link, "effective_status": effective_status}
+    except Exception as e:
+        print(f"[meta creative {ad_id}] {e}")
+        return ad_id, {}
+
+async def _fetch_ad_creatives_by_ids(ad_ids: list, token: str) -> dict:
+    """Fetch creative info for each ad concurrently (batches of 20)."""
+    result = {}
+    async with httpx.AsyncClient() as c:
+        for i in range(0, len(ad_ids), 20):
+            batch = ad_ids[i:i+20]
+            tasks = [_fetch_one_ad_creative(c, ad_id, token) for ad_id in batch]
+            pairs = await asyncio.gather(*tasks)
+            for ad_id, info in pairs:
+                if info:
+                    result[ad_id] = info
+    return result
+
+@app.get("/api/trafego/creatives")
+async def get_trafego_creatives(
+    request: Request,
+    client_sigla: str = "HIRE",
+    preset: str = "last_7d",
+    since: str = None,
+    until: str = None,
+    account_id: str = None,
+):
+    if not verify_session(request): raise HTTPException(status_code=401)
+    cfg = META_CLIENTS.get(client_sigla.upper())
+    if not cfg or not cfg["accounts"]:
+        raise HTTPException(status_code=404, detail="Cliente não configurado.")
+    token = cfg["token"]()
+    if not token:
+        raise HTTPException(status_code=503, detail="Token não configurado.")
+
+    d_since, d_until, _, _ = _compute_period(
+        preset if not (since and until) else None, since, until
+    )
+    accounts = ([account_id] if account_id and account_id in cfg["accounts"] else cfg["accounts"])
+
+    all_ads = []
+    for acc in accounts:
+        rows = await _meta_get_all(acc, token, {
+            "fields": f"ad_id,ad_name,campaign_id,campaign_name,{_INS_FIELDS}",
+            "time_range": json.dumps({"since": d_since, "until": d_until}),
+            "level": "ad",
+        })
+        ad_ids = [r.get("ad_id", "") for r in rows if r.get("ad_id")]
+        creatives = await _fetch_ad_creatives_by_ids(ad_ids, token)
+        for row in rows:
+            ad_id = row.get("ad_id", "")
+            m = _row_metrics(row)
+            cinfo = creatives.get(ad_id, {})
+            sp = m["spend"]; ld = m["leads"]; im = m["impressions"]; cl = m["clicks"]
+            vv = m["video_views"]
+            all_ads.append({
+                "id": ad_id,
+                "name": row.get("ad_name", ""),
+                "campaign_id": row.get("campaign_id", ""),
+                "campaign_name": row.get("campaign_name", ""),
+                "thumbnail": cinfo.get("thumbnail", ""),
+                "link": cinfo.get("link", ""),
+                "effective_status": cinfo.get("effective_status", "UNKNOWN"),
+                "spend": round(sp, 2),
+                "impressions": im, "clicks": cl, "reach": m["reach"],
+                "leads": ld, "video_views": vv, "thruplays": m["thruplays"],
+                "ctr":  round(cl / im * 100 if im else 0, 2),
+                "cpm":  round(sp / im * 1000 if im else 0, 2),
+                "cpc":  round(sp / cl if cl else 0, 2),
+                "cpl":  round(sp / ld if ld else 0, 2) or None,
+                "hook_rate": round(vv / im * 100 if im and vv else 0, 2),
+            })
+
+    all_ads.sort(key=lambda x: x["spend"], reverse=True)
+    return JSONResponse({"ads": all_ads, "since": d_since, "until": d_until})
+
+
+# ── Google Ads Dashboard ─────────────────────────────────────────────────────
+
+def _windsor_fetch(windsor_url: str, fields: str, preset: str) -> list:
+    from urllib.parse import urlparse, parse_qs, urlencode
+    parsed = urlparse(windsor_url)
+    api_key = parse_qs(parsed.query).get("api_key", [""])[0]
+    base = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+    url = f"{base}?{urlencode({'api_key': api_key, 'date_preset': preset, 'fields': fields})}"
+    with httpx.Client(timeout=30) as c:
+        r = c.get(url)
+        r.raise_for_status()
+    return r.json().get("data", [])
+
+@app.get("/gads", response_class=HTMLResponse)
+async def gads_page(request: Request, client: str = "SRW"):
+    username = verify_session(request)
+    if not username:
+        return RedirectResponse("/login")
+    configured = [s for s, cfg in GOOGLE_ADS_CLIENTS.items() if cfg.get("windsor_url")]
+    selected = client if client in configured else (configured[0] if configured else "")
+    gads_names = {s: cfg["nome"] for s, cfg in GOOGLE_ADS_CLIENTS.items() if cfg.get("windsor_url")}
+    meta_names  = {s: cfg["name"] for s, cfg in META_CLIENTS.items() if cfg["token"]() and cfg["accounts"]}
+    has_meta = selected in meta_names
+    return templates.TemplateResponse("gads.html", {
+        "request": request,
+        "configured_clients": configured,
+        "selected_client": selected,
+        "gads_clients": json.dumps(gads_names),
+        "meta_clients": json.dumps(meta_names),
+        "has_meta": has_meta,
+        "nav_username": USER_DISPLAY.get(username, username.capitalize()),
+        "active_page": "gads",
+    })
+
+@app.get("/api/gads/metrics")
+async def get_gads_metrics(request: Request, client_sigla: str = "SRW", preset: str = "last_30d"):
+    if not verify_session(request): raise HTTPException(status_code=401)
+    cfg = GOOGLE_ADS_CLIENTS.get(client_sigla.upper())
+    if not cfg or not cfg.get("windsor_url"):
+        raise HTTPException(status_code=404, detail="Cliente não configurado para Google Ads.")
+    rows = await asyncio.to_thread(
+        _windsor_fetch, cfg["windsor_url"],
+        "campaign,clicks,conversions,impressions,spend", preset
+    )
+    campaigns: dict = {}
+    for row in rows:
+        name = row.get("campaign", "")
+        if not name: continue
+        if name not in campaigns:
+            campaigns[name] = {"clicks": 0, "conversions": 0.0, "impressions": 0, "spend": 0.0}
+        campaigns[name]["clicks"]      += int(row.get("clicks", 0) or 0)
+        campaigns[name]["conversions"] += float(row.get("conversions", 0) or 0)
+        campaigns[name]["impressions"] += int(row.get("impressions", 0) or 0)
+        campaigns[name]["spend"]       += float(row.get("spend", 0) or 0)
+    items = []
+    for name, d in sorted(campaigns.items(), key=lambda x: -x[1]["spend"]):
+        cl, cv, im, sp = d["clicks"], d["conversions"], d["impressions"], d["spend"]
+        items.append({
+            "name": name,
+            "clicks": cl, "conversions": round(cv, 1),
+            "impressions": im, "spend": round(sp, 2),
+            "cpc": round(sp / cl, 2) if cl else 0,
+            "cpa": round(sp / cv, 2) if cv else 0,
+            "ctr": round(cl / im * 100, 2) if im else 0,
+        })
+    total_sp = sum(i["spend"] for i in items)
+    total_cl = sum(i["clicks"] for i in items)
+    total_cv = sum(i["conversions"] for i in items)
+    total_im = sum(i["impressions"] for i in items)
+    summary = {
+        "spend": round(total_sp, 2),
+        "clicks": total_cl,
+        "conversions": round(total_cv, 1),
+        "impressions": total_im,
+        "cpc": round(total_sp / total_cl, 2) if total_cl else 0,
+        "cpa": round(total_sp / total_cv, 2) if total_cv else 0,
+        "ctr": round(total_cl / total_im * 100, 2) if total_im else 0,
+    }
+    return JSONResponse({"client": cfg["nome"], "preset": preset, "summary": summary, "items": items})
+
+@app.get("/api/gads/daily")
+async def get_gads_daily(request: Request, client_sigla: str = "SRW", preset: str = "last_30d"):
+    if not verify_session(request): raise HTTPException(status_code=401)
+    cfg = GOOGLE_ADS_CLIENTS.get(client_sigla.upper())
+    if not cfg or not cfg.get("windsor_url"):
+        raise HTTPException(status_code=404, detail="Cliente não configurado.")
+    rows = await asyncio.to_thread(
+        _windsor_fetch, cfg["windsor_url"],
+        "clicks,conversions,spend,date", preset
+    )
+    by_date: dict = {}
+    for row in rows:
+        day = (row.get("date", "") or "")[:10]
+        if not day: continue
+        if day not in by_date:
+            by_date[day] = {"date": day, "spend": 0.0, "clicks": 0, "conversions": 0.0}
+        by_date[day]["spend"]       += float(row.get("spend", 0) or 0)
+        by_date[day]["clicks"]      += int(row.get("clicks", 0) or 0)
+        by_date[day]["conversions"] += float(row.get("conversions", 0) or 0)
+    days = sorted(by_date.values(), key=lambda x: x["date"])
+    for d in days:
+        d["spend"] = round(d["spend"], 2)
+        d["conversions"] = round(d["conversions"], 1)
+    return JSONResponse({"days": days})
+
+@app.get("/api/gads/keywords")
+async def get_gads_keywords(request: Request, client_sigla: str = "SRW", preset: str = "last_30d"):
+    if not verify_session(request): raise HTTPException(status_code=401)
+    cfg = GOOGLE_ADS_CLIENTS.get(client_sigla.upper())
+    if not cfg or not cfg.get("windsor_url"):
+        raise HTTPException(status_code=404, detail="Cliente não configurado.")
+    rows = await asyncio.to_thread(
+        _windsor_fetch, cfg["windsor_url"],
+        "campaign,keyword_text,clicks,conversions,spend", preset
+    )
+    by_campaign: dict = {}
+    for row in rows:
+        camp = row.get("campaign", "")
+        kw   = row.get("keyword_text", "")
+        if not camp or not kw: continue
+        if camp not in by_campaign:
+            by_campaign[camp] = {}
+        if kw not in by_campaign[camp]:
+            by_campaign[camp][kw] = {"clicks": 0, "conversions": 0.0, "spend": 0.0}
+        by_campaign[camp][kw]["clicks"]      += int(row.get("clicks", 0) or 0)
+        by_campaign[camp][kw]["conversions"] += float(row.get("conversions", 0) or 0)
+        by_campaign[camp][kw]["spend"]       += float(row.get("spend", 0) or 0)
+    result = {}
+    for camp, kws in by_campaign.items():
+        result[camp] = sorted(
+            [{"kw": k, "clicks": v["clicks"], "conversions": round(v["conversions"],1), "spend": round(v["spend"],2)}
+             for k, v in kws.items()],
+            key=lambda x: -x["spend"]
+        )
+    return JSONResponse(result)
 
 @app.get("/logs", response_class=HTMLResponse)
 async def view_logs(request: Request):
     if not verify_session(request):
         return RedirectResponse("/login")
-    return templates.TemplateResponse("logs.html", {"request": request, "convs": list_conversations()})
+    return templates.TemplateResponse("logs.html", {"request": request, "convs": list_conversations(), **_nav_base(request, "logs")})

@@ -5,190 +5,2132 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tráfego — Sinapse</title>
   <link rel="stylesheet" href="/static/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
-    .trafego-page { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
-    .trafego-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 12px; }
-    .trafego-title { display: flex; align-items: center; gap: 12px; }
-    .trafego-title h1 { font-size: 1.4rem; }
-    .trafego-title a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
-    .trafego-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-    .trafego-select { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 8px 12px; font-size: 0.9rem; cursor: pointer; }
-    .period-tabs { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-    .period-tab { padding: 8px 14px; font-size: 0.85rem; cursor: pointer; color: var(--muted); border: none; background: none; transition: background 0.15s, color 0.15s; }
-    .period-tab.active { background: var(--accent); color: white; }
-    .period-tab:hover:not(.active) { background: var(--border); color: var(--text); }
+    :root { --green:#22c55e; --red:#ef4444; }
+    .page { max-width:1280px; margin:0 auto; padding:28px 20px; }
 
-    .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 28px; }
-    .metric-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 16px; }
-    .metric-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
-    .metric-value { font-size: 1.5rem; font-weight: 700; color: var(--text); }
-    .metric-value.accent { color: var(--accent); }
-    .metric-sub { font-size: 0.75rem; color: var(--muted); margin-top: 3px; }
+    /* ── Header ── */
+    .top-bar { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:24px; }
+    .top-title { display:flex; flex-direction:column; gap:2px; }
+    .top-title h1 { font-size:1.3rem; white-space:nowrap; cursor:default; }
+    .top-title h1[contenteditable="true"] { outline:none; border-bottom:2px solid var(--accent); cursor:text; padding-bottom:1px; }
+    .controls { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .ctrl-select { background:var(--surface); border:1px solid var(--border); border-radius:8px; color:var(--text); padding:7px 11px; font-size:.85rem; cursor:pointer; }
+    .tabs { display:flex; background:var(--surface); border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+    .tab { padding:7px 10px; font-size:.8rem; cursor:pointer; color:var(--muted); border:none; background:none; transition:background .15s,color .15s; white-space:nowrap; }
+    .tab.active { background:var(--accent); color:#fff; }
+    .tab:hover:not(.active) { background:var(--border); color:var(--text); }
+    /* ── Date range picker ── */
+    .dr-wrap { position:relative; }
+    .dr-display {
+      display:flex; align-items:center; gap:8px;
+      background:var(--surface); border:1px solid var(--border); border-radius:8px;
+      color:var(--text); padding:7px 14px; font-size:.82rem; cursor:pointer;
+      white-space:nowrap; transition:border-color .15s;
+    }
+    .dr-display:hover, .dr-display.open { border-color:var(--accent); }
+    .dr-arrow { color:var(--muted); font-size:.7rem; margin-left:2px; }
+    .dr-picker {
+      display:none; position:absolute; top:calc(100% + 8px); right:0; z-index:60;
+      background:var(--bg); border:1px solid var(--border); border-radius:12px;
+      box-shadow:0 8px 32px #00000077; padding:20px;
+      flex-direction:column; gap:16px; min-width:540px;
+    }
+    .dr-picker.open { display:flex; }
+    .dr-calendars { display:flex; gap:28px; }
+    .dr-cal { flex:1; }
+    .dr-cal-label { display:block; font-size:.68rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:10px; font-weight:600; }
+    .dr-cal-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+    .dr-cal-nav-label { font-size:.78rem; font-weight:700; letter-spacing:.04em; }
+    .dr-nav-btn { background:none; border:none; color:var(--muted); cursor:pointer; font-size:1.1rem; padding:2px 8px; border-radius:4px; line-height:1; }
+    .dr-nav-btn:hover { color:var(--text); background:#ffffff10; }
+    .dr-weekdays { display:grid; grid-template-columns:repeat(7,1fr); text-align:center; margin-bottom:4px; }
+    .dr-weekdays span { font-size:.65rem; color:var(--muted); padding:4px 0; }
+    .dr-days { display:grid; grid-template-columns:repeat(7,1fr); gap:1px; }
+    .dr-day {
+      aspect-ratio:1; display:flex; align-items:center; justify-content:center;
+      font-size:.78rem; cursor:pointer; transition:background .1s, color .1s;
+      border:none; background:none; color:var(--text); border-radius:4px;
+    }
+    .dr-day:hover:not(.dr-empty):not(.dr-sel-start):not(.dr-sel-end) { background:#ffffff14; }
+    .dr-empty { cursor:default; pointer-events:none; }
+    .dr-today { box-shadow:inset 0 0 0 1px #ffffff40; }
+    .dr-sel-start { background:var(--accent); color:#fff; font-weight:700; border-radius:4px 0 0 4px; }
+    .dr-sel-end   { background:var(--accent); color:#fff; font-weight:700; border-radius:0 4px 4px 0; }
+    .dr-sel-start.dr-sel-end { border-radius:4px; }
+    .dr-in-range  { background:rgba(255,77,0,.18); border-radius:0; }
+    .dr-actions { display:flex; justify-content:flex-end; gap:10px; border-top:1px solid var(--border); padding-top:14px; }
+    .dr-btn-cancel { background:none; border:1px solid var(--border); color:var(--muted); border-radius:8px; padding:7px 16px; font-size:.83rem; cursor:pointer; }
+    .dr-btn-cancel:hover { color:var(--text); border-color:var(--muted); }
+    .dr-btn-apply  { background:var(--accent); color:#fff; border:none; border-radius:8px; padding:7px 18px; font-size:.83rem; font-weight:600; cursor:pointer; }
+    .dr-btn-apply:hover { opacity:.88; }
+    .btn-settings { background:var(--surface); border:1px solid var(--border); border-radius:8px; color:var(--muted); padding:7px 12px; font-size:.85rem; cursor:pointer; transition:all .15s; }
+    .btn-settings:hover { color:var(--text); border-color:var(--accent); }
 
-    .section-title { font-size: 1rem; font-weight: 600; margin-bottom: 14px; color: var(--text); }
-    .campaigns-table { width: 100%; border-collapse: collapse; }
-    .campaigns-table th { text-align: left; font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; padding: 8px 12px; border-bottom: 1px solid var(--border); }
-    .campaigns-table td { padding: 12px 12px; border-bottom: 1px solid var(--border); font-size: 0.88rem; vertical-align: middle; }
-    .campaigns-table tr:last-child td { border-bottom: none; }
-    .campaigns-table tr:hover td { background: #ffffff05; }
-    .camp-name { font-weight: 500; max-width: 280px; }
-    .camp-name-text { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
-    .risk-tag { display: inline-block; font-size: 0.7rem; padding: 2px 7px; border-radius: 20px; background: #3a2000; color: #ffaa44; margin-left: 6px; white-space: nowrap; }
-    .num { color: var(--text); }
-    .num.muted { color: var(--muted); }
-    .num.warn { color: #ffaa44; }
+    /* ── Platform tabs ── */
+    .platform-tabs { display:flex; gap:6px; margin-top:6px; }
+    .platform-tab {
+      display:flex; align-items:center; gap:5px;
+      padding:3px 10px; border-radius:20px; font-size:.75rem; cursor:pointer;
+      border:1px solid var(--border); background:none; color:var(--muted);
+      text-decoration:none; transition:all .15s;
+    }
+    .platform-tab:hover { border-color:var(--muted); color:var(--text); }
+    .platform-tab.active { background:var(--accent); border-color:var(--accent); color:#fff; }
 
-    .loading { text-align: center; color: var(--muted); padding: 48px; }
-    .error-banner { background: #3a1a1a; color: #ff8080; padding: 14px 18px; border-radius: 10px; margin-bottom: 20px; font-size: 0.9rem; }
-    .empty-state { text-align: center; color: var(--muted); padding: 48px; }
+    /* ── Client switcher ── */
+    .client-switcher-wrap { position:relative; display:inline-block; }
+    .client-switcher-btn {
+      display:flex; align-items:center; gap:6px;
+      background:none; border:none; padding:0; cursor:pointer;
+      color:var(--muted); font-size:.82rem; margin-top:2px;
+      transition:color .15s;
+    }
+    .client-switcher-btn:hover { color:var(--text); }
+    .client-switcher-btn::after { content:'▾'; font-size:.7rem; color:var(--muted); }
+    .client-switcher-dropdown {
+      display:none; position:absolute; top:calc(100% + 6px); left:0; z-index:60;
+      background:var(--bg); border:1px solid var(--border); border-radius:10px;
+      box-shadow:0 8px 24px #00000066; min-width:180px; overflow:hidden;
+    }
+    .client-switcher-dropdown.open { display:block; }
+    .cs-client-item {
+      display:flex; align-items:center; gap:10px;
+      padding:9px 14px; font-size:.83rem; cursor:pointer;
+      transition:background .1s; text-decoration:none; color:var(--text);
+    }
+    .cs-client-item:hover { background:#ffffff09; }
+    .cs-client-item.active { color:var(--accent); }
+    .cs-client-badge {
+      font-size:.6rem; background:var(--accent); color:#fff;
+      padding:2px 6px; border-radius:4px; font-weight:700; letter-spacing:.04em; flex-shrink:0;
+    }
 
-    .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; overflow-x: auto; }
+    /* ── Account tabs ── */
+    .acc-tabs { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
+    .acc-tab { background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:5px 14px; font-size:.8rem; color:var(--muted); cursor:pointer; transition:all .15s; white-space:nowrap; }
+    .acc-tab.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+
+    /* ── Metric cards (draggable) ── */
+    .metrics-grid { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:24px; }
+    .m-card {
+      background:var(--surface); border:1px solid var(--border); border-radius:12px;
+      padding:16px 14px; min-width:120px; flex:1; cursor:grab; position:relative;
+      transition:opacity .15s, transform .15s;
+      user-select:none;
+    }
+    .m-card.dragging { opacity:.4; transform:scale(.97); }
+    .m-card.drag-over { border-color:var(--accent); }
+    .m-label { font-size:.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:5px; }
+    .m-value { font-size:1.35rem; font-weight:700; color:var(--text); line-height:1.1; }
+    .m-delta { font-size:.72rem; margin-top:4px; font-weight:600; }
+    .m-delta.pos { color:var(--green); }
+    .m-delta.neg { color:var(--red); }
+    .m-delta.neu { color:var(--muted); }
+
+    /* ── Chart ── */
+    .chart-wrap { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:24px; }
+    .chart-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap; gap:8px; }
+    .chart-title { font-size:.9rem; font-weight:600; }
+    .chart-metric-tabs { display:flex; gap:6px; flex-wrap:wrap; }
+    .cmt { font-size:.75rem; padding:4px 10px; border-radius:6px; cursor:pointer; border:1px solid var(--border); background:none; color:var(--muted); transition:all .15s; }
+    .cmt.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+    canvas#dailyChart { max-height:200px; }
+
+    /* ── Table section ── */
+    .section-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:10px; }
+    .section-title { font-size:.95rem; font-weight:600; }
+    .search-inp { background:var(--surface); border:1px solid var(--border); border-radius:8px; color:var(--text); padding:6px 12px; font-size:.82rem; width:200px; }
+
+    /* ── Multi-select filter ── */
+    .ms-wrap { position:relative; }
+    .ms-btn {
+      display:flex; align-items:center; gap:6px;
+      background:var(--surface); border:1px solid var(--border); border-radius:8px;
+      color:var(--text); padding:6px 12px; font-size:.82rem; cursor:pointer;
+      white-space:nowrap; user-select:none; transition:border-color .15s;
+    }
+    .ms-btn:hover { border-color:var(--accent); }
+    .ms-btn.has-filter { border-color:var(--accent); color:var(--accent); }
+    .ms-badge { background:var(--accent); color:#fff; border-radius:20px; padding:1px 6px; font-size:.72rem; }
+    .ms-dropdown {
+      display:none; position:absolute; top:calc(100% + 6px); right:0; z-index:50;
+      background:var(--bg); border:1px solid var(--border); border-radius:10px;
+      width:360px; box-shadow:0 8px 24px #00000055; overflow:hidden;
+    }
+    .ms-dropdown.open { display:block; }
+    .ms-search-wrap { padding:10px; border-bottom:1px solid var(--border); }
+    .ms-search { width:100%; background:var(--surface); border:1px solid var(--border); border-radius:6px; color:var(--text); padding:6px 10px; font-size:.82rem; box-sizing:border-box; }
+    .ms-search:focus { outline:none; border-color:var(--accent); }
+    .ms-actions { display:flex; gap:8px; padding:6px 10px; border-bottom:1px solid var(--border); }
+    .ms-act-btn { background:none; border:none; color:var(--accent); font-size:.78rem; cursor:pointer; padding:0; }
+    .ms-act-btn:hover { text-decoration:underline; }
+    .ms-list { max-height:240px; overflow-y:auto; }
+    .ms-item { display:flex; align-items:center; gap:8px; padding:7px 12px; cursor:pointer; font-size:.83rem; transition:background .1s; }
+    .ms-item:hover { background:#ffffff08; }
+    .ms-item input[type=checkbox] { accent-color:var(--accent); width:14px; height:14px; flex-shrink:0; cursor:pointer; }
+    .ms-item-label { flex:1; word-break:break-word; line-height:1.3; }
+    .ms-item-count { color:var(--muted); font-size:.75rem; flex-shrink:0; }
+    .ms-empty { padding:16px; text-align:center; color:var(--muted); font-size:.82rem; }
+    .level-tabs { display:flex; background:var(--surface); border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+    .table-wrap { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; overflow-x:auto; }
+    .data-table { border-collapse:collapse; table-layout:fixed; }
+    .data-table th {
+      position:relative; text-align:left; font-size:.7rem; color:var(--muted);
+      text-transform:uppercase; letter-spacing:.05em; padding:8px 12px;
+      border-bottom:1px solid var(--border); white-space:nowrap; overflow:hidden; user-select:none;
+    }
+    .data-table td { padding:10px 12px; border-bottom:1px solid var(--border); font-size:.85rem; vertical-align:middle; overflow:hidden; white-space:nowrap; }
+    .data-table tr:last-child td { border-bottom:none; }
+    .data-table tr:hover td { background:#ffffff05; }
+    .name-text { display:block; overflow:hidden; text-overflow:ellipsis; }
+    .risk-tag { display:inline-block; font-size:.68rem; padding:2px 6px; border-radius:20px; background:#3a2000; color:#ffaa44; margin-left:5px; }
+    .num { color:var(--text); }
+    .num.warn { color:#f59e0b; }
+    .num.muted { color:var(--muted); }
+    .col-resize { position:absolute; right:0; top:0; bottom:0; width:6px; cursor:col-resize; z-index:1; border-radius:3px; }
+    .col-resize:hover, .col-resize.active { background:var(--accent); opacity:.6; }
+    .total-row td { font-weight:700; border-top:2px solid var(--border) !important; background:#ffffff07; }
+    .total-row td:first-child { color:var(--muted); font-size:.8rem; letter-spacing:.04em; text-transform:uppercase; }
+
+    /* ── Creative grid ── */
+    .creative-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:14px; }
+    .cr-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+    .cr-card.cr-inactive { opacity:.55; }
+    .cr-thumb { position:relative; width:100%; aspect-ratio:1; background:#111; overflow:hidden; }
+    .cr-thumb img { width:100%; height:100%; object-fit:cover; display:block; image-rendering:auto; }
+    .cr-thumb-placeholder { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:2rem; color:var(--muted); }
+    .cr-status-badge {
+      position:absolute; top:8px; left:8px;
+      font-size:.65rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+      padding:3px 7px; border-radius:20px; backdrop-filter:blur(4px);
+    }
+    .cr-status-badge.active    { background:#16a34a99; color:#bbf7d0; border:1px solid #22c55e55; }
+    .cr-status-badge.paused    { background:#92400e99; color:#fde68a; border:1px solid #f59e0b55; }
+    .cr-status-badge.inactive  { background:#1e1e1e99; color:#888;    border:1px solid #ffffff22; }
+    .cr-link-btn {
+      position:absolute; bottom:8px; right:8px; background:#000000bb;
+      border:1px solid #ffffff33; border-radius:6px; color:#fff;
+      font-size:.72rem; padding:4px 8px; text-decoration:none;
+      backdrop-filter:blur(4px); transition:background .15s;
+    }
+    .cr-link-btn:hover { background:#000000ee; }
+    .cr-body { padding:10px 12px; }
+    .cr-name { font-size:.8rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:8px; }
+    .cr-metrics { display:grid; grid-template-columns:1fr 1fr; gap:4px 8px; }
+    .cr-m { display:flex; flex-direction:column; }
+    .cr-m-label { font-size:.62rem; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+    .cr-m-value { font-size:.82rem; font-weight:600; }
+
+    /* ── Settings panel ── */
+    .settings-overlay { display:none; position:fixed; inset:0; background:#00000066; z-index:100; }
+    .settings-overlay.open { display:block; }
+    .settings-panel {
+      position:fixed; right:0; top:0; bottom:0; width:340px;
+      background:var(--bg); border-left:1px solid var(--border);
+      padding:20px; overflow-y:auto; z-index:101;
+      transform:translateX(100%); transition:transform .2s;
+    }
+    .settings-overlay.open .settings-panel { transform:translateX(0); }
+    .settings-panel h2 { font-size:1rem; margin-bottom:4px; }
+    .settings-panel > p { font-size:.78rem; color:var(--muted); margin-bottom:18px; }
+    .s-section { margin-bottom:22px; }
+    .s-section h3 { font-size:.72rem; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; }
+    .toggle-row { display:flex; align-items:center; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border); }
+    .toggle-row:last-child { border-bottom:none; }
+    .toggle-label { font-size:.84rem; flex:1; margin-right:8px; word-break:break-word; }
+    .toggle { position:relative; width:36px; height:20px; flex-shrink:0; }
+    .toggle input { opacity:0; width:0; height:0; }
+    .toggle-slider { position:absolute; cursor:pointer; inset:0; background:var(--border); border-radius:20px; transition:.2s; }
+    .toggle-slider:before { content:''; position:absolute; height:14px; width:14px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:.2s; }
+    .toggle input:checked + .toggle-slider { background:var(--accent); }
+    .toggle input:checked + .toggle-slider:before { transform:translateX(16px); }
+    .s-btn { width:100%; margin-top:8px; padding:8px; border-radius:8px; cursor:pointer; font-size:.84rem; }
+    .s-btn-primary { background:var(--accent); color:#fff; border:none; }
+    .s-btn-outline { background:none; border:1px solid var(--border); color:var(--muted); }
+
+    /* Custom metric form */
+    .cm-form { background:#ffffff08; border:1px solid var(--border); border-radius:10px; padding:14px; margin-top:10px; display:none; }
+    .cm-form.open { display:block; }
+    .cm-inp { width:100%; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text); padding:7px 10px; font-size:.83rem; margin-bottom:8px; box-sizing:border-box; }
+    .cm-inp:focus { outline:none; border-color:var(--accent); }
+    .cm-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px; }
+    .cm-select { background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text); padding:7px 8px; font-size:.83rem; width:100%; }
+    .cm-vars { font-size:.72rem; color:var(--muted); margin-bottom:10px; }
+    .cm-vars p { margin-bottom:6px; }
+    .var-chip {
+      display:inline-block; background:#ffffff12; border:1px solid var(--border);
+      border-radius:4px; padding:2px 8px; font-size:.75rem; font-family:monospace;
+      cursor:pointer; margin:2px 2px 2px 0; transition:background .12s, border-color .12s;
+    }
+    .var-chip:hover { background:var(--accent); border-color:var(--accent); color:#fff; }
+    .cm-actions { display:flex; gap:6px; }
+    .cm-save { flex:1; padding:7px; background:var(--accent); color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:.83rem; }
+    .cm-cancel { padding:7px 12px; background:none; border:1px solid var(--border); color:var(--muted); border-radius:6px; cursor:pointer; font-size:.83rem; }
+    .custom-metric-item { display:flex; align-items:center; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border); font-size:.83rem; }
+    .custom-metric-item:last-child { border-bottom:none; }
+    .cm-del { background:none; border:none; color:var(--muted); cursor:pointer; font-size:.85rem; padding:2px 6px; }
+    .cm-del:hover { color:var(--red); }
+
+    /* ── Sort ── */
+    .data-table th { cursor:pointer; user-select:none; }
+    .data-table th:hover { color:var(--text); }
+    .th-sort-icon { margin-left:4px; font-size:.65rem; color:var(--muted); }
+    .data-table th.sort-asc .th-sort-icon::after  { content:'▲'; color:var(--accent); }
+    .data-table th.sort-desc .th-sort-icon::after { content:'▼'; color:var(--accent); }
+    .data-table th:not(.sort-asc):not(.sort-desc) .th-sort-icon::after { content:'↕'; }
+
+    /* ── Page tabs ── */
+    .dash-pages-bar {
+      display:flex; align-items:stretch; gap:0;
+      border-bottom:1px solid var(--border);
+      margin:0 -20px 20px; padding:0 20px;
+      overflow-x:auto; flex-shrink:0;
+    }
+    .dash-pages-bar::-webkit-scrollbar { height:3px; }
+    .dash-pages-bar::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+    .dash-page-tab {
+      display:flex; align-items:center; gap:5px; position:relative;
+      padding:0 12px; height:36px; cursor:pointer; flex-shrink:0;
+      border-bottom:2px solid transparent; color:var(--muted);
+      font-size:.8rem; white-space:nowrap; transition:color .15s; user-select:none;
+    }
+    .dash-page-tab:hover { color:var(--text); }
+    .dash-page-tab.active { color:var(--accent); border-bottom-color:var(--accent); font-weight:600; }
+    .dash-page-tab-name {
+      background:none; border:none; color:inherit; font:inherit;
+      cursor:pointer; outline:none; padding:0; min-width:24px; max-width:160px;
+    }
+    .dash-page-tab.editing .dash-page-tab-name { cursor:text; }
+    .dash-page-del {
+      display:none; background:none; border:none; color:var(--muted);
+      cursor:pointer; font-size:.65rem; padding:1px 3px; border-radius:3px; line-height:1;
+    }
+    .dash-page-tab:hover .dash-page-del { display:inline; }
+    .dash-page-del:hover { color:#ef4444; background:#ef444418; }
+    .dash-add-page {
+      display:flex; align-items:center; padding:0 8px; height:36px;
+      color:var(--muted); cursor:pointer; font-size:1rem; flex-shrink:0;
+      transition:color .15s;
+    }
+    .dash-add-page:hover { color:var(--accent); }
+
+    /* ── States ── */
+    .loading { text-align:center; color:var(--muted); padding:48px; }
+    .error-box { background:#3a1a1a; color:#f87171; padding:14px 18px; border-radius:10px; margin-bottom:18px; font-size:.88rem; }
+    .empty { text-align:center; color:var(--muted); padding:40px; }
+
+    /* ── Widget right panel ── */
+    .wgt-panel {
+      position:fixed; right:0; top:0; bottom:0; width:300px;
+      background:var(--bg); border-left:1px solid var(--border);
+      transform:translateX(100%); transition:transform .22s;
+      z-index:80; display:flex; flex-direction:column; overflow:hidden;
+    }
+    .wgt-panel.open { transform:translateX(0); }
+    .wgt-panel-hd {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:14px 14px 14px 16px; border-bottom:1px solid var(--border);
+      font-size:.88rem; font-weight:600; flex-shrink:0;
+    }
+    .wgt-panel-add {
+      background:var(--accent); color:#fff; border:none; border-radius:8px;
+      padding:5px 11px; font-size:.88rem; cursor:pointer; line-height:1.4;
+      transition:opacity .15s;
+    }
+    .wgt-panel-add:hover { opacity:.85; }
+    .wgt-panel-body {
+      flex:1; overflow-y:auto; padding:10px;
+      display:flex; flex-direction:column; gap:10px;
+    }
+    .wgt-panel-empty { padding:28px 16px; text-align:center; color:var(--muted); font-size:.8rem; line-height:1.6; }
+    .wgt-panel-item { display:flex; align-items:center; gap:6px; padding:8px 10px; border-radius:8px; background:var(--surface); border:1px solid var(--border); font-size:.82rem; }
+    .wgt-panel-item-label { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); }
+    .wgt-panel-item-sub { font-size:.68rem; color:var(--muted); margin-top:1px; }
+    /* Main content widget grid */
+    .widget-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+    @media(max-width:1100px){ .widget-grid { grid-template-columns:repeat(2,1fr); } }
+    @media(max-width:700px) { .widget-grid { grid-template-columns:1fr; } }
+    .widget-card[data-size="md"] { grid-column:span 2; }
+    .widget-card[data-size="lg"] { grid-column:1/-1; }
+    .widget-card[data-h="md"]   { min-height:260px; }
+    .widget-card[data-h="lg"]   { min-height:360px; }
+    /* size picker in config */
+    .wgt-size-row { display:flex; gap:6px; }
+    .wgt-size-btn {
+      flex:1; padding:6px 4px; text-align:center; font-size:.78rem; cursor:pointer;
+      background:var(--surface); border:1px solid var(--border); border-radius:6px;
+      color:var(--muted); transition:all .15s;
+    }
+    .wgt-size-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+    /* sort radio */
+    .wgt-sort-row { display:flex; gap:10px; }
+    .wgt-sort-opt { display:flex; align-items:center; gap:5px; font-size:.82rem; cursor:pointer; }
+    .wgt-sort-opt input { accent-color:var(--accent); cursor:pointer; }
+    /* config divider */
+    .wgt-cfg-divider { border:none; border-top:1px solid var(--border); margin:12px 0 4px; }
+    /* Toggle tab */
+    .wgt-panel-tab {
+      position:fixed; right:0; top:50%; transform:translateY(-50%);
+      background:var(--surface); border:1px solid var(--border);
+      border-right:none; border-radius:8px 0 0 8px;
+      padding:14px 5px; cursor:pointer; z-index:81;
+      display:flex; flex-direction:column; align-items:center; gap:6px;
+      color:var(--muted); transition:right .22s, color .15s, background .15s;
+    }
+    .wgt-panel-tab:hover { color:var(--accent); background:var(--bg); }
+    .wgt-panel-tab.panel-open { right:300px; }
+    .wgt-tab-icon { font-size:1rem; }
+    .wgt-tab-label { writing-mode:vertical-rl; font-size:.6rem; text-transform:uppercase; letter-spacing:.08em; }
+    /* Widget cards */
+    .widget-card {
+      background:var(--surface); border:1px solid var(--border); border-radius:12px;
+      padding:16px; position:relative; overflow:hidden;
+    }
+    .widget-card:hover .wgt-actions { opacity:1; }
+    .wgt-actions { position:absolute; top:10px; right:10px; display:flex; gap:4px; opacity:0; transition:opacity .15s; }
+    .wgt-action-btn {
+      background:var(--bg); border:1px solid var(--border); border-radius:6px;
+      color:var(--muted); cursor:pointer; font-size:.72rem; padding:3px 7px; transition:all .15s;
+    }
+    .wgt-action-btn:hover { color:var(--text); border-color:var(--muted); }
+    .wgt-action-btn.del:hover { color:#ef4444; border-color:#ef4444; }
+    .wgt-label { font-size:.68rem; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:8px; }
+    .wgt-scorecard-val { font-size:1.8rem; font-weight:700; color:var(--text); line-height:1; }
+    .wgt-bar-wrap { margin-top:4px; }
+    .wgt-tbl { width:100%; border-collapse:collapse; margin-top:4px; font-size:.8rem; }
+    .wgt-tbl th { text-align:left; color:var(--muted); font-size:.66rem; text-transform:uppercase; letter-spacing:.04em; padding:4px 6px; border-bottom:1px solid var(--border); white-space:nowrap; }
+    .wgt-tbl td { padding:5px 6px; border-bottom:1px solid var(--border); }
+    .wgt-tbl tr:last-child td { border-bottom:none; }
+    .wgt-tbl .wgt-nc { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:110px; display:block; }
+    /* Widget picker */
+    .widget-picker-overlay {
+      display:none; position:fixed; inset:0; background:#00000066; z-index:110;
+      align-items:center; justify-content:center;
+    }
+    .widget-picker-overlay.open { display:flex; }
+    .widget-picker {
+      background:var(--bg); border:1px solid var(--border); border-radius:14px;
+      padding:24px; width:360px; max-width:95vw; box-shadow:0 16px 48px #00000099;
+    }
+    .widget-picker h3 { font-size:.95rem; margin-bottom:16px; }
+    .wgt-type-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .wgt-type-btn {
+      background:var(--surface); border:1px solid var(--border); border-radius:10px;
+      padding:16px 12px; cursor:pointer; font-size:.84rem; text-align:center;
+      transition:all .15s; color:var(--text);
+    }
+    .wgt-type-btn:hover { border-color:var(--accent); background:#ff4d0010; }
+    /* Widget config */
+    .wgt-config-overlay {
+      display:none; position:fixed; inset:0; background:#00000066; z-index:120;
+      align-items:center; justify-content:center;
+    }
+    .wgt-config-overlay.open { display:flex; }
+    .wgt-config-panel {
+      background:var(--bg); border:1px solid var(--border); border-radius:14px;
+      padding:24px; width:340px; max-width:95vw; box-shadow:0 16px 48px #00000099;
+    }
+    .wgt-config-panel h3 { font-size:.95rem; margin-bottom:16px; }
+    .wgt-cfg-row { margin-bottom:14px; }
+    .wgt-cfg-label { font-size:.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:5px; display:block; }
+    .wgt-cfg-input  { width:100%; background:var(--surface); border:1px solid var(--border); border-radius:7px; color:var(--text); padding:8px 10px; font-size:.84rem; box-sizing:border-box; }
+    .wgt-cfg-input:focus { outline:none; border-color:var(--accent); }
+    .wgt-cfg-select { width:100%; background:var(--surface); border:1px solid var(--border); border-radius:7px; color:var(--text); padding:8px 10px; font-size:.84rem; }
+    .wgt-cfg-actions { display:flex; gap:8px; margin-top:18px; }
+    .wgt-cfg-save   { flex:1; background:var(--accent); color:#fff; border:none; border-radius:8px; padding:9px; font-size:.84rem; font-weight:600; cursor:pointer; }
+    .wgt-cfg-cancel { background:none; border:1px solid var(--border); color:var(--muted); border-radius:8px; padding:9px 16px; font-size:.84rem; cursor:pointer; }
+    .wgt-cfg-cancel:hover { color:var(--text); }
   </style>
 </head>
 <body>
-<div class="trafego-page">
-  <div class="trafego-header">
-    <div class="trafego-title">
-      <a href="/">← Início</a>
-      <h1>📊 Tráfego — Meta Ads</h1>
-    </div>
-    <div class="trafego-controls">
-      <select id="clientSelect" class="trafego-select" onchange="load()">
-        {% for sigla in configured_clients %}
-        <option value="{{ sigla }}">{{ sigla }}</option>
-        {% endfor %}
-      </select>
-      <div class="period-tabs">
-        <button class="period-tab" data-preset="today" onclick="setPeriod(this)">Hoje</button>
-        <button class="period-tab active" data-preset="last_7_d" onclick="setPeriod(this)">7 dias</button>
-        <button class="period-tab" data-preset="last_30_d" onclick="setPeriod(this)">30 dias</button>
-        <button class="period-tab" data-preset="this_month" onclick="setPeriod(this)">Este mês</button>
+<div class="sinapse-shell">
+  {% include "_sidebar.html" %}
+  <main class="sinapse-main">
+<div class="page">
+
+  <div class="top-bar">
+    <div class="top-title">
+      <h1 id="dashTitle" title="Duplo clique para editar" ondblclick="startEditTitle(this)" onblur="stopEditTitle(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}">📊 Dashboard — Meta Ads</h1>
+      <div class="client-switcher-wrap">
+        <button id="clientSubtitle" class="client-switcher-btn" onclick="toggleClientDropdown()" title="Trocar cliente"></button>
+        <div id="clientDropdown" class="client-switcher-dropdown"></div>
       </div>
+      <div class="platform-tabs" id="platformTabs" style="display:none">
+        <span id="platformMeta" class="platform-tab active">📘 Meta Ads</span>
+        <a id="platformGads" class="platform-tab" href="#">🎯 Google Ads</a>
+      </div>
+    </div>
+    <div class="controls">
+      <div class="tabs" id="presetTabs">
+        <button class="tab"        data-p="today"      onclick="setPreset(this)">Hoje</button>
+        <button class="tab active" data-p="last_7d"    onclick="setPreset(this)">7 dias</button>
+        <button class="tab"        data-p="last_30d"   onclick="setPreset(this)">30 dias</button>
+        <button class="tab"        data-p="this_month" onclick="setPreset(this)">Este mês</button>
+        <button class="tab"        data-p="last_month" onclick="setPreset(this)">Mês passado</button>
+      </div>
+      <div class="dr-wrap" id="drWrap">
+        <button class="dr-display" id="drDisplay" onclick="toggleDatePicker()">
+          <span id="drLabel">Carregando…</span>
+          <span class="dr-arrow">▾</span>
+        </button>
+        <div class="dr-picker" id="drPicker">
+          <div class="dr-calendars">
+            <div class="dr-cal">
+              <span class="dr-cal-label">Data de início</span>
+              <div class="dr-cal-nav">
+                <button class="dr-nav-btn" onclick="drNavMonth('start',-1)">‹</button>
+                <span class="dr-cal-nav-label" id="drStartMonth"></span>
+                <button class="dr-nav-btn" onclick="drNavMonth('start',1)">›</button>
+              </div>
+              <div class="dr-weekdays"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
+              <div class="dr-days" id="drStartDays"></div>
+            </div>
+            <div class="dr-cal">
+              <span class="dr-cal-label">Data de término</span>
+              <div class="dr-cal-nav">
+                <button class="dr-nav-btn" onclick="drNavMonth('end',-1)">‹</button>
+                <span class="dr-cal-nav-label" id="drEndMonth"></span>
+                <button class="dr-nav-btn" onclick="drNavMonth('end',1)">›</button>
+              </div>
+              <div class="dr-weekdays"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
+              <div class="dr-days" id="drEndDays"></div>
+            </div>
+          </div>
+          <div class="dr-actions">
+            <button class="dr-btn-cancel" onclick="closeDatePicker()">Cancelar</button>
+            <button class="dr-btn-apply" onclick="applyDatePicker()">Aplicar</button>
+          </div>
+        </div>
+      </div>
+      <button class="btn-settings" onclick="openSettings()">⚙ Personalizar</button>
     </div>
   </div>
 
-  <div id="errorBanner" class="error-banner" style="display:none;"></div>
-  <div id="loading" class="loading">Carregando métricas...</div>
+  <!-- Page navigation -->
+  <div class="dash-pages-bar" id="dashPagesBar">
+    <span class="dash-add-page" onclick="addDashPage()" title="Adicionar página">＋</span>
+  </div>
+
+  <div class="acc-tabs" id="accTabs"></div>
+  <div id="errBox" class="error-box" style="display:none;"></div>
+  <div id="loadingEl" class="loading">Carregando métricas…</div>
+
   <div id="content" style="display:none;">
+    <div id="periodLabel" style="font-size:.78rem; color:var(--muted); margin-bottom:14px;"></div>
     <div class="metrics-grid" id="metricsGrid"></div>
-    <div class="section-title">Campanhas</div>
-    <div class="table-wrap">
-      <table class="campaigns-table">
-        <thead>
-          <tr>
-            <th>Campanha</th>
-            <th>Investimento</th>
-            <th>Alcance</th>
-            <th>Cliques</th>
-            <th>CTR</th>
-            <th>CPM</th>
-            <th>Leads</th>
-            <th>CPL</th>
-          </tr>
-        </thead>
-        <tbody id="campaignsBody"></tbody>
-      </table>
+
+    <div class="chart-wrap" id="chartWrap">
+      <div class="chart-header">
+        <span class="chart-title">Evolução diária</span>
+        <div class="chart-metric-tabs" id="chartTabs">
+          <button class="cmt active" data-m="spend"       onclick="setChartMetric(this)">Investimento</button>
+          <button class="cmt"        data-m="impressions" onclick="setChartMetric(this)">Impressões</button>
+          <button class="cmt"        data-m="clicks"      onclick="setChartMetric(this)">Cliques</button>
+          <button class="cmt"        data-m="leads"       onclick="setChartMetric(this)">Leads</button>
+        </div>
+      </div>
+      <canvas id="dailyChart"></canvas>
+    </div>
+
+    <div class="section-row">
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <span class="section-title" id="tableTitle">Campanhas</span>
+        <div class="level-tabs">
+          <button class="tab active" data-l="campaign"  onclick="setLevel(this)">Campanhas</button>
+          <button class="tab"        data-l="adset"     onclick="setLevel(this)">Conjuntos</button>
+          <button class="tab"        data-l="creative"  onclick="setLevel(this)">Criativos</button>
+        </div>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <input type="search" id="searchInp" class="search-inp" placeholder="Filtrar por nome…" oninput="renderItems()">
+        <div class="ms-wrap" id="msWrap">
+          <div class="ms-btn" id="msBtn" onclick="toggleMsDropdown()">
+            <span id="msBtnLabel">Todas</span>
+            <span>▾</span>
+          </div>
+          <div class="ms-dropdown" id="msDropdown">
+            <div class="ms-search-wrap">
+              <input type="search" id="msSearch" class="ms-search" placeholder="Pesquisar…" oninput="renderMsItems()">
+            </div>
+            <div class="ms-actions">
+              <button class="ms-act-btn" onclick="msSelectAll()">Selecionar tudo</button>
+              <button class="ms-act-btn" onclick="msSelectNone()">Limpar</button>
+            </div>
+            <div class="ms-list" id="msList"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table view (campaign / adset) -->
+    <div id="tableView">
+      <div class="table-wrap">
+        <table class="data-table" id="dataTable">
+          <colgroup id="colGroup"></colgroup>
+          <thead><tr id="tableHead"></tr></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Creative grid view -->
+    <div id="creativeView" style="display:none;">
+      <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;" id="statusFilterRow">
+        <button class="tab active" data-s="all"    onclick="setStatusFilter(this)">Todos</button>
+        <button class="tab"        data-s="active" onclick="setStatusFilter(this)">Ativos</button>
+        <button class="tab"        data-s="paused" onclick="setStatusFilter(this)">Pausados</button>
+      </div>
+      <div class="creative-grid" id="creativeGrid"></div>
+    </div>
+
+    <!-- Widgets in main content -->
+    <div id="widgetsSection" style="display:none; margin-top:28px;">
+      <div class="widget-grid" id="widgetGrid"></div>
+    </div>
+
+  </div>
+</div>
+</main>
+</div>
+
+<!-- Widget right panel (management only) -->
+<div class="wgt-panel" id="wgtPanel">
+  <div class="wgt-panel-hd">
+    <span>Widgets</span>
+    <button class="wgt-panel-add" onclick="openWidgetPicker()" title="Adicionar widget">＋</button>
+  </div>
+  <div class="wgt-panel-body" id="wgtPanelBody">
+    <div class="wgt-panel-empty">Nenhum widget nesta página.<br>Clique em ＋ para adicionar.</div>
+  </div>
+</div>
+<button class="wgt-panel-tab" id="wgtPanelTab" onclick="toggleWgtPanel()" title="Widgets">
+  <span class="wgt-tab-icon">⊞</span>
+  <span class="wgt-tab-label">Widgets</span>
+</button>
+
+<!-- Settings panel -->
+<div class="settings-overlay" id="settingsOverlay" onclick="maybeCloseSettings(event)">
+  <div class="settings-panel" id="settingsPanel">
+    <h2>⚙ Personalizar dashboard</h2>
+    <p>Alterações salvas automaticamente no navegador.</p>
+
+    <div class="s-section">
+      <h3>Cards de métricas</h3>
+      <div id="metricToggles"></div>
+    </div>
+
+    <div class="s-section">
+      <h3>
+        Métricas personalizadas
+        <button onclick="toggleCmForm()" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:.8rem;">+ Nova</button>
+      </h3>
+      <div id="customMetricList"></div>
+      <div class="cm-form" id="cmForm">
+        <input type="text" id="cmName" class="cm-inp" placeholder="Nome (ex: Hook Rate)">
+        <div class="cm-row">
+          <select id="cmFormat" class="cm-select">
+            <option value="pct">Percentual (%)</option>
+            <option value="money">Dinheiro (R$)</option>
+            <option value="num">Número inteiro</option>
+            <option value="decimal">Decimal</option>
+          </select>
+          <select id="cmInvert" class="cm-select">
+            <option value="false">↑ maior = melhor</option>
+            <option value="true">↓ menor = melhor</option>
+          </select>
+        </div>
+        <input type="text" id="cmFormula" class="cm-inp" placeholder="Fórmula (ex: video_views / impressions * 100)">
+        <div class="cm-vars">
+          <p>Clique para inserir na fórmula:</p>
+          <span class="var-chip" onclick="appendVar('spend')">spend</span>
+          <span class="var-chip" onclick="appendVar('impressions')">impressions</span>
+          <span class="var-chip" onclick="appendVar('clicks')">clicks</span>
+          <span class="var-chip" onclick="appendVar('reach')">reach</span>
+          <span class="var-chip" onclick="appendVar('leads')">leads</span>
+          <span class="var-chip" onclick="appendVar('cpm')">cpm</span>
+          <span class="var-chip" onclick="appendVar('ctr')">ctr</span>
+          <span class="var-chip" onclick="appendVar('cpc')">cpc</span>
+          <span class="var-chip" onclick="appendVar('cpl')">cpl</span>
+          <span class="var-chip" onclick="appendVar('video_views')">video_views</span>
+          <span class="var-chip" onclick="appendVar('thruplays')">thruplays</span>
+        </div>
+        <div class="cm-actions">
+          <button class="cm-save" onclick="saveCustomMetric()">Salvar</button>
+          <button class="cm-cancel" onclick="toggleCmForm()">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="s-section">
+      <h3>Colunas da tabela</h3>
+      <div id="colToggles"></div>
+    </div>
+
+    <button class="s-btn s-btn-outline" onclick="resetPrefs()">Restaurar padrão</button>
+    <button class="s-btn s-btn-outline" onclick="closeSettings()" style="margin-top:6px;">Fechar</button>
+  </div>
+</div>
+
+<!-- Widget picker modal -->
+<div class="widget-picker-overlay" id="widgetPickerOverlay" onclick="closeWidgetPicker()">
+  <div class="widget-picker" onclick="event.stopPropagation()">
+    <h3>Adicionar widget</h3>
+    <div class="wgt-type-grid">
+      <div class="wgt-type-btn" onclick="pickWidgetType('scorecard')">📊<br><span style="font-size:.75rem;color:var(--muted);margin-top:4px;display:block;">Scorecard</span></div>
+      <div class="wgt-type-btn" onclick="pickWidgetType('bar')">📊<br><span style="font-size:.75rem;color:var(--muted);margin-top:4px;display:block;">Barras</span></div>
+      <div class="wgt-type-btn" onclick="pickWidgetType('table')">📋<br><span style="font-size:.75rem;color:var(--muted);margin-top:4px;display:block;">Tabela</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Widget config modal -->
+<div class="wgt-config-overlay" id="wgtConfigOverlay" onclick="closeWidgetConfig()">
+  <div class="wgt-config-panel" onclick="event.stopPropagation()">
+    <h3 id="wgtConfigTitle">Configurar widget</h3>
+    <div id="wgtConfigBody"></div>
+    <div class="wgt-cfg-actions">
+      <button class="wgt-cfg-save" onclick="saveWidgetConfig()">Salvar</button>
+      <button class="wgt-cfg-cancel" onclick="closeWidgetConfig()">Cancelar</button>
     </div>
   </div>
 </div>
 
 <script>
-  let currentPreset = 'last_7_d';
+const CLIENTS_INFO = {{ clients_info | safe }};
+const GADS_CLIENTS = {{ gads_clients | safe }};  // { "SRW": "Speedrack West", ... }
+const PREF_KEY = 'sinapse_trafego_v3';
 
-  function setPeriod(btn) {
-    document.querySelectorAll('.period-tab').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentPreset = btn.dataset.preset;
-    load();
-  }
+// ── Editable title ────────────────────────────────────────────────────────────
+(function() {
+  const el = document.getElementById('dashTitle');
+  if (!el) return;
+  const saved = localStorage.getItem('sinapse_dash_title');
+  if (saved) el.textContent = saved;
+})();
+function startEditTitle(el) {
+  el.contentEditable = 'true';
+  el.focus();
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  window.getSelection().removeAllRanges();
+  window.getSelection().addRange(range);
+}
+function stopEditTitle(el) {
+  el.contentEditable = 'false';
+  localStorage.setItem('sinapse_dash_title', el.textContent.trim() || '📊 Dashboard — Meta Ads');
+}
 
-  function fmt(v, prefix='R$') {
-    if (v == null) return '<span class="num muted">—</span>';
-    return `<span class="num">${prefix}${Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2,maximumFractionDigits:2})}</span>`;
-  }
-  function fmtN(v) {
-    if (v == null) return '<span class="num muted">—</span>';
-    return `<span class="num">${Number(v).toLocaleString('pt-BR')}</span>`;
-  }
-  function fmtPct(v) {
-    if (v == null) return '<span class="num muted">—</span>';
-    const cls = v < 0.5 ? 'warn' : '';
-    return `<span class="num ${cls}">${Number(v).toFixed(2)}%</span>`;
-  }
+// ── Column definitions ───────────────────────────────────────────────────────
+const COLS = [
+  { key:'name',        label:'Nome',         always:true,  defaultW:240, render: r => nameCell(r) },
+  { key:'spend',       label:'Investimento', always:false, defaultW:120, render: r => numR(r.spend) },
+  { key:'reach',       label:'Alcance',      always:false, defaultW:90,  render: r => numN(r.reach) },
+  { key:'impressions', label:'Impressões',   always:false, defaultW:105, render: r => numN(r.impressions) },
+  { key:'clicks',      label:'Cliques',      always:false, defaultW:80,  render: r => numN(r.clicks) },
+  { key:'ctr',         label:'CTR',          always:false, defaultW:75,  render: r => numPct(r.ctr) },
+  { key:'cpm',         label:'CPM',          always:false, defaultW:95,  render: r => numR(r.cpm) },
+  { key:'cpc',         label:'CPC',          always:false, defaultW:95,  render: r => numR(r.cpc) },
+  { key:'leads',       label:'Leads',        always:false, defaultW:70,  render: r => numN(r.leads) },
+  { key:'cpl',         label:'CPL',          always:false, defaultW:95,  render: r => numR(r.cpl) },
+  { key:'video_views', label:'Views 3s',     always:false, defaultW:85,  render: r => numN(r.video_views) },
+  { key:'thruplays',   label:'ThruPlay',     always:false, defaultW:85,  render: r => numN(r.thruplays) },
+];
 
-  async function load() {
-    const sigla = document.getElementById('clientSelect').value;
-    document.getElementById('loading').style.display = 'block';
-    document.getElementById('content').style.display = 'none';
-    document.getElementById('errorBanner').style.display = 'none';
+// ── Metric card accent colors ────────────────────────────────────────────────
+const METRIC_COLORS = {
+  spend:       '#f59e0b',
+  reach:       '#64748b',
+  impressions: '#06b6d4',
+  clicks:      '#3b82f6',
+  ctr:         '#8b5cf6',
+  cpm:         '#f97316',
+  cpc:         '#f97316',
+  leads:       '#3b82f6',
+  cpl:         '#ec4899',
+  video_views: '#ec4899',
+  thruplays:   '#ec4899',
+};
 
-    try {
-      const res = await fetch(`/api/trafego/metrics?client_sigla=${sigla}&date_preset=${currentPreset}`);
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || 'Erro ao carregar métricas');
+// ── Base metric card defs ────────────────────────────────────────────────────
+const BASE_METRICS = [
+  { key:'spend',       label:'Investimento', fmt: v => fmtR(v),          invert:false },
+  { key:'reach',       label:'Alcance',      fmt: v => fmtN(v),          invert:false },
+  { key:'impressions', label:'Impressões',   fmt: v => fmtN(v),          invert:false },
+  { key:'clicks',      label:'Cliques',      fmt: v => fmtN(v),          invert:false },
+  { key:'ctr',         label:'CTR',          fmt: v => v.toFixed(2)+'%', invert:false },
+  { key:'cpm',         label:'CPM',          fmt: v => fmtR(v),          invert:true  },
+  { key:'cpc',         label:'CPC',          fmt: v => fmtR(v),          invert:true  },
+  { key:'leads',       label:'Leads',        fmt: v => fmtN(v),          invert:false },
+  { key:'cpl',         label:'CPL',          fmt: v => fmtR(v),          invert:true  },
+  { key:'video_views', label:'Views 3s',     fmt: v => fmtN(v),          invert:false },
+  { key:'thruplays',   label:'ThruPlay',     fmt: v => fmtN(v),          invert:false },
+];
+
+// ── Prefs ────────────────────────────────────────────────────────────────────
+const DEFAULT_PREFS = {
+  hiddenCols:    ['reach','video_views','thruplays'],
+  hiddenMetrics: ['reach','impressions','video_views','thruplays'],
+  metricOrder:   [],   // ordered list of metric keys (base + custom ids)
+  customMetrics: [],   // [{id,name,formula,format,invert}]
+  colWidths:     {},
+};
+
+function loadPrefs() {
+  try { return { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(PREF_KEY)||'{}') }; }
+  catch { return { ...DEFAULT_PREFS }; }
+}
+function savePrefs(p) { localStorage.setItem(PREF_KEY, JSON.stringify(p)); }
+let prefs = loadPrefs();
+
+// ── State ────────────────────────────────────────────────────────────────────
+const INITIAL_CLIENT = "{{ selected_client }}";
+let state = {
+  client: INITIAL_CLIENT,
+  preset: 'last_7d', since: null, until: null,
+  accountId: null, level: 'campaign', chartMetric: 'spend',
+  data: null, dailyData: null, creativeData: null,
+  sort: { key: 'spend', dir: 'desc' },
+};
+let chart = null;
+
+// ── All metric defs (base + custom) ──────────────────────────────────────────
+function allMetricDefs() {
+  return [
+    ...BASE_METRICS,
+    ...prefs.customMetrics.map(cm => ({
+      key: cm.id, label: cm.name, custom: true,
+      fmt: v => fmtCustom(v, cm.format),
+      invert: cm.invert === true || cm.invert === 'true',
+    })),
+  ];
+}
+
+function orderedMetricDefs() {
+  const all = allMetricDefs();
+  const order = prefs.metricOrder;
+  if (!order.length) return all;
+  const map = Object.fromEntries(all.map(m => [m.key, m]));
+  const ordered = order.filter(k => map[k]).map(k => map[k]);
+  const rest = all.filter(m => !order.includes(m.key));
+  return [...ordered, ...rest];
+}
+
+// ── Custom metric eval ────────────────────────────────────────────────────────
+const CM_VARS = ['spend','impressions','clicks','reach','leads','cpm','ctr','cpc','cpl','video_views','thruplays','purchases'];
+function evalFormula(formula, row) {
+  try {
+    const vals = CM_VARS.map(k => (row[k] == null ? 0 : Number(row[k])));
+    const fn = new Function(...CM_VARS, `"use strict"; return (${formula});`);
+    const r = fn(...vals);
+    return isFinite(r) ? r : null;
+  } catch { return null; }
+}
+function fmtCustom(v, format) {
+  if (v == null) return '—';
+  if (format === 'pct')     return Number(v).toFixed(2) + '%';
+  if (format === 'money')   return fmtR(v);
+  if (format === 'decimal') return Number(v).toFixed(2);
+  return fmtN(Math.round(v));
+}
+
+// ── Account/client ────────────────────────────────────────────────────────────
+function toggleClientDropdown() {
+  const dd = document.getElementById('clientDropdown');
+  if (!dd) return;
+  if (dd.classList.contains('open')) { dd.classList.remove('open'); return; }
+  // Meta Ads clients
+  let ddHtml = Object.entries(CLIENTS_INFO).map(([sigla, info]) =>
+    `<a class="cs-client-item ${state.client===sigla?'active':''}" href="/trafego?client=${encodeURIComponent(sigla)}">
+      <span class="cs-client-badge">${esc(sigla)}</span>
+      <span>${esc(info.name || sigla)}</span>
+    </a>`
+  ).join('');
+  // Google Ads-only clients (not already listed above)
+  Object.entries(GADS_CLIENTS).forEach(([sigla, nome]) => {
+    if (!CLIENTS_INFO[sigla]) {
+      ddHtml += `<a class="cs-client-item" href="/gads?client=${encodeURIComponent(sigla)}">
+        <span class="cs-client-badge" style="background:#4285f4">${esc(sigla)}</span>
+        <span>${esc(nome)}</span>
+      </a>`;
+    }
+  });
+  dd.innerHTML = ddHtml;
+  dd.classList.add('open');
+  setTimeout(() => {
+    document.addEventListener('click', function _close(e) {
+      if (!document.getElementById('clientDropdown')?.contains(e.target) &&
+          e.target.id !== 'clientSubtitle') {
+        document.getElementById('clientDropdown')?.classList.remove('open');
+        document.removeEventListener('click', _close);
       }
-      const data = await res.json();
-      renderMetrics(data.summary);
-      renderCampaigns(data.campaigns);
-      document.getElementById('loading').style.display = 'none';
-      document.getElementById('content').style.display = 'block';
-    } catch(e) {
-      document.getElementById('loading').style.display = 'none';
-      document.getElementById('errorBanner').textContent = e.message;
-      document.getElementById('errorBanner').style.display = 'block';
+    });
+  }, 0);
+}
+
+function renderAccTabs() {
+  const info = CLIENTS_INFO[state.client];
+  const sub = document.getElementById('clientSubtitle');
+  if (sub) {
+    const name = info?.name ? info.name : state.client;
+    sub.textContent = name;
+  }
+  // Platform tabs — só mostra se o cliente tiver Google Ads
+  const ptabs = document.getElementById('platformTabs');
+  const pgads = document.getElementById('platformGads');
+  if (ptabs && pgads) {
+    const hasGads = state.client in GADS_CLIENTS;
+    ptabs.style.display = hasGads ? 'flex' : 'none';
+    pgads.href = `/gads?client=${encodeURIComponent(state.client)}`;
+    // Meta Ads tab só aparece se o cliente tem Meta configurado
+    const pMeta = document.getElementById('platformMeta');
+    if (pMeta) pMeta.style.display = CLIENTS_INFO[state.client] ? 'flex' : 'none';
+  }
+
+  const el = document.getElementById('accTabs');
+  if (!info || info.accounts.length <= 1) { el.innerHTML = ''; return; }
+  const accs = [{ id:null, label:'Todas as contas' }, ...info.accounts.map(a => ({ id:a.id, label:a.name }))];
+  el.innerHTML = accs.map(a => `<span class="acc-tab ${state.accountId===a.id?'active':''}">${esc(a.label)}</span>`).join('');
+  el.querySelectorAll('.acc-tab').forEach((el2,i) => el2.addEventListener('click', () => { state.accountId = accs[i].id; renderAccTabs(); load(); }));
+}
+
+// ── Period / level ────────────────────────────────────────────────────────────
+function setPreset(btn) {
+  document.querySelectorAll('#presetTabs .tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  state.preset = btn.dataset.p;
+  if (state.preset === 'custom') { openDatePicker(); return; }
+  state.since = state.until = null;
+  load();
+}
+function setLevel(btn) {
+  document.querySelectorAll('.level-tabs .tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active'); state.level = btn.dataset.l;
+  const titles = { campaign:'Campanhas', adset:'Conjuntos de anúncios', creative:'Criativos' };
+  document.getElementById('tableTitle').textContent = titles[state.level] || '';
+  load();
+}
+function setChartMetric(btn) {
+  document.querySelectorAll('.cmt').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active'); state.chartMetric = btn.dataset.m; renderChart();
+}
+
+// ── Load ──────────────────────────────────────────────────────────────────────
+async function load() {
+  if (state.preset === 'custom') {
+    if (!state.since || !state.until) return;
+  }
+  show('loadingEl'); hide('content'); hide('errBox');
+  const qs = buildQS();
+  try {
+    if (state.level === 'creative') {
+      const res = await fetch(`/api/trafego/creatives?${qs}`);
+      if (!res.ok) { const e = await res.json(); throw new Error(e.detail||'Erro'); }
+      state.creativeData = await res.json();
+      state.data = null; state.dailyData = null;
+      resetMs();
+      hide('metricsGrid'); hide('chartWrap');
+      renderPeriodLabelCreative();
+      renderItems();
+      hide('loadingEl'); show('content');
+      updateDrLabel();
+      renderWidgets();
+    } else {
+      qs.set('level', state.level);
+      const [mRes, dRes] = await Promise.all([
+        fetch(`/api/trafego/metrics?${qs}`),
+        fetch(`/api/trafego/daily?${qs}`),
+      ]);
+      if (!mRes.ok) { const e = await mRes.json(); throw new Error(e.detail||'Erro'); }
+      state.data = await mRes.json();
+      state.dailyData = dRes.ok ? await dRes.json() : null;
+      state.creativeData = null;
+      resetMs();
+      show('metricsGrid'); show('chartWrap');
+      renderPeriodLabel();
+      renderMetrics();
+      renderChart();
+      renderTableHeader();
+      renderItems();
+      hide('loadingEl'); show('content');
+      updateDrLabel();
+      renderWidgets();
     }
+  } catch(e) {
+    hide('loadingEl');
+    document.getElementById('errBox').textContent = e.message;
+    show('errBox');
   }
+}
 
-  function renderMetrics(s) {
-    const grid = document.getElementById('metricsGrid');
-    const cards = [
-      { label: 'Investimento',  value: fmt(s.spend),          sub: null },
-      { label: 'Alcance',       value: fmtN(s.reach),          sub: null },
-      { label: 'Impressões',    value: fmtN(s.impressions),    sub: null },
-      { label: 'Cliques',       value: fmtN(s.clicks),         sub: null },
-      { label: 'CTR',           value: fmtPct(s.ctr),          sub: null },
-      { label: 'CPM',           value: fmt(s.cpm),             sub: null },
-      { label: 'CPC',           value: fmt(s.cpc),             sub: null },
-      { label: 'Leads',         value: fmtN(s.leads),          sub: null },
-      { label: 'CPL',           value: fmt(s.cpl),             sub: null },
-    ];
-    grid.innerHTML = cards.map(c => `
-      <div class="metric-card">
-        <div class="metric-label">${c.label}</div>
-        <div class="metric-value">${c.value}</div>
-        ${c.sub ? `<div class="metric-sub">${c.sub}</div>` : ''}
-      </div>`).join('');
-  }
+function buildQS() {
+  const qs = new URLSearchParams({ client_sigla: state.client });
+  if (state.since && state.until) { qs.set('since', state.since); qs.set('until', state.until); }
+  else qs.set('preset', state.preset);
+  if (state.accountId) qs.set('account_id', state.accountId);
+  return qs;
+}
 
-  function renderCampaigns(campaigns) {
-    const tbody = document.getElementById('campaignsBody');
-    if (!campaigns.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Nenhuma campanha no período</td></tr>';
-      return;
+// ── Compute summary from item rows (client-side aggregation) ─────────────────
+function computeSummaryFromItems(items) {
+  const sp = items.reduce((s,r) => s+(r.spend||0), 0);
+  const im = items.reduce((s,r) => s+(r.impressions||0), 0);
+  const cl = items.reduce((s,r) => s+(r.clicks||0), 0);
+  const rc = items.reduce((s,r) => s+(r.reach||0), 0);
+  const ld = items.reduce((s,r) => s+(r.leads||0), 0);
+  const vv = items.reduce((s,r) => s+(r.video_views||0), 0);
+  const tp = items.reduce((s,r) => s+(r.thruplays||0), 0);
+  return {
+    spend:       Math.round(sp*100)/100,
+    impressions: im, clicks: cl, reach: rc, leads: ld,
+    video_views: vv, thruplays: tp,
+    ctr:  im>0 ? Math.round(cl/im*10000)/100 : 0,
+    cpm:  im>0 ? Math.round(sp/im*100000)/100 : 0,
+    cpc:  cl>0 ? Math.round(sp/cl*100)/100 : 0,
+    cpl:  ld>0 ? Math.round(sp/ld*100)/100 : null,
+  };
+}
+
+// ── Render: period labels ─────────────────────────────────────────────────────
+function fd(s) { const [y,m,d] = s.split('-'); return `${d}/${m}/${y}`; }
+function renderPeriodLabel() {
+  const d = state.data;
+  document.getElementById('periodLabel').textContent = `${fd(d.since)} → ${fd(d.until)}  ·  período anterior: ${fd(d.prev_since)} → ${fd(d.prev_until)}`;
+}
+function renderPeriodLabelCreative() {
+  const d = state.creativeData;
+  document.getElementById('periodLabel').textContent = `${fd(d.since)} → ${fd(d.until)}`;
+}
+
+// ── Render: metric cards (draggable) ──────────────────────────────────────────
+function renderMetrics(summaryOverride=null, showDeltas=true) {
+  const s = summaryOverride || state.data.summary;
+  const all = orderedMetricDefs();
+  const visible = all.filter(m => !prefs.hiddenMetrics.includes(m.key));
+  const grid = document.getElementById('metricsGrid');
+  grid.innerHTML = visible.map((c,i) => {
+    const v = c.custom ? evalFormula(prefs.customMetrics.find(x=>x.id===c.key)?.formula||'0', s) : s[c.key];
+    const delta = showDeltas ? (s[`${c.key}_delta`] ?? null) : null;
+    const valHtml = v == null ? '<span style="color:var(--muted)">—</span>' : c.fmt(v);
+    let dHtml = '';
+    if (delta != null) {
+      const pos = c.invert ? delta < 0 : delta > 0;
+      const cls = delta === 0 ? 'neu' : pos ? 'pos' : 'neg';
+      dHtml = `<div class="m-delta ${cls}">${delta>0?'+':''}${delta}% vs ant.</div>`;
     }
-    tbody.innerHTML = campaigns.map(c => {
-      const risks = c.risks.map(r => `<span class="risk-tag">⚠ ${r}</span>`).join('');
-      return `<tr>
-        <td class="camp-name"><span class="camp-name-text" title="${c.name}">${c.name}</span>${risks}</td>
-        <td>${fmt(c.spend)}</td>
-        <td>${fmtN(c.impressions)}</td>
-        <td>${fmtN(c.clicks)}</td>
-        <td>${fmtPct(c.ctr)}</td>
-        <td>${fmt(c.cpm)}</td>
-        <td>${fmtN(c.leads)}</td>
-        <td>${fmt(c.cpl)}</td>
-      </tr>`;
-    }).join('');
+    const mColor = METRIC_COLORS[c.key] || 'var(--border)';
+    return `<div class="m-card" draggable="true" data-key="${c.key}" data-i="${i}" style="--m-color:${mColor}">
+      <div class="m-label">${esc(c.label)}</div>
+      <div class="m-value">${valHtml}</div>${dHtml}
+    </div>`;
+  }).join('');
+  setupCardDrag();
+}
+
+// ── Card drag-and-drop ────────────────────────────────────────────────────────
+let dragKey = null;
+function setupCardDrag() {
+  const cards = document.querySelectorAll('.m-card');
+  cards.forEach(card => {
+    card.addEventListener('dragstart', e => {
+      dragKey = card.dataset.key;
+      setTimeout(() => card.classList.add('dragging'), 0);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', () => card.classList.remove('dragging'));
+    card.addEventListener('dragover', e => { e.preventDefault(); card.classList.add('drag-over'); });
+    card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
+    card.addEventListener('drop', e => {
+      e.preventDefault();
+      card.classList.remove('drag-over');
+      const toKey = card.dataset.key;
+      if (dragKey === toKey) return;
+      const all = orderedMetricDefs().filter(m => !prefs.hiddenMetrics.includes(m.key));
+      const keys = all.map(m => m.key);
+      const fromIdx = keys.indexOf(dragKey);
+      const toIdx   = keys.indexOf(toKey);
+      if (fromIdx === -1 || toIdx === -1) return;
+      keys.splice(fromIdx, 1); keys.splice(toIdx, 0, dragKey);
+      // Merge with hidden metrics' order
+      const allKeys = orderedMetricDefs().map(m => m.key);
+      const hidden  = allKeys.filter(k => prefs.hiddenMetrics.includes(k));
+      prefs.metricOrder = [...keys, ...hidden.filter(k => !keys.includes(k))];
+      savePrefs(prefs);
+      renderMetrics();
+      if (document.getElementById('settingsOverlay').classList.contains('open')) buildSettingsToggles();
+    });
+  });
+}
+
+// ── Render: chart (dual Y axis) ───────────────────────────────────────────────
+const CHART_SECONDARY = {
+  spend:       { label:'CPM',  color:'#a78bfa', calc: d => d.impressions > 0 ? d.spend / d.impressions * 1000 : null },
+  impressions: { label:'CPM',  color:'#a78bfa', calc: d => d.impressions > 0 ? d.spend / d.impressions * 1000 : null },
+  clicks:      { label:'CPC',  color:'#fb923c', calc: d => d.clicks > 0 ? d.spend / d.clicks : null },
+  leads:       { label:'CPL',  color:'#f472b6', calc: d => d.leads > 0 ? d.spend / d.leads : null },
+};
+
+function renderChart() {
+  const days = state.dailyData?.days || [];
+  const m = state.chartMetric;
+  const labels = days.map(d => { const [,mo,da] = d.date.split('-'); return `${da}/${mo}`; });
+  const values  = days.map(d => d[m] || 0);
+  const colors  = { spend:'#6366f1', impressions:'#06b6d4', clicks:'#f59e0b', leads:'#22c55e' };
+  const color   = colors[m] || '#6366f1';
+  const sec     = CHART_SECONDARY[m];
+  const secVals = sec ? days.map(d => sec.calc(d)) : [];
+  const hasSecData = secVals.some(v => v !== null);
+
+  const datasets = [
+    { data:values, backgroundColor:color+'44', borderColor:color, borderWidth:2, borderRadius:4, type:'bar', yAxisID:'y' },
+  ];
+  if (sec && hasSecData) {
+    datasets.push({
+      label: sec.label,
+      data: secVals,
+      borderColor: sec.color,
+      backgroundColor: sec.color,
+      borderWidth: 2,
+      pointRadius: 3,
+      pointBackgroundColor: sec.color,
+      fill: false,
+      type: 'line',
+      tension: .3,
+      yAxisID: 'y2',
+      spanGaps: true,
+    });
   }
 
-  if (document.getElementById('clientSelect').options.length > 0) {
-    load();
+  if (chart) chart.destroy();
+  chart = new Chart(document.getElementById('dailyChart'), {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      interaction: { mode:'index', intersect:false },
+      plugins: {
+        legend: {
+          display: hasSecData,
+          labels: { color:'#888', font:{size:11}, boxWidth:12, padding:16,
+            filter: item => item.datasetIndex === 1 },
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              if (ctx.datasetIndex === 0) return `${ctx.dataset.label||''}${m==='spend'?fmtR(ctx.raw):fmtN(ctx.raw)}`;
+              return `${sec.label}: ${fmtR(ctx.raw)}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x:  { grid:{color:'#ffffff10'}, ticks:{color:'#888',font:{size:11}} },
+        y:  { grid:{color:'#ffffff10'}, ticks:{color:'#888',font:{size:11}}, position:'left' },
+        y2: hasSecData ? {
+          grid: { drawOnChartArea:false },
+          ticks: { color:sec.color, font:{size:11}, callback: v => fmtR(v) },
+          position: 'right',
+        } : { display:false },
+      },
+    },
+  });
+}
+
+// ── Render: table header (resizable cols) ────────────────────────────────────
+function visCols() { return COLS.filter(c => c.always || !prefs.hiddenCols.includes(c.key)); }
+function sortCol(key) {
+  if (state.sort.key === key) {
+    state.sort.dir = state.sort.dir === 'desc' ? 'asc' : 'desc';
   } else {
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('errorBanner').textContent = 'Nenhum cliente com Meta Ads configurado.';
-    document.getElementById('errorBanner').style.display = 'block';
+    state.sort = { key, dir: key === 'name' ? 'asc' : 'desc' };
   }
+  renderTableHeader();
+  renderItems();
+}
+
+function renderTableHeader() {
+  const cols = visCols();
+  document.getElementById('colGroup').innerHTML = cols.map(c =>
+    `<col data-key="${c.key}" style="width:${prefs.colWidths[c.key]||c.defaultW}px">`).join('');
+  document.getElementById('tableHead').innerHTML = cols.map((c,i) => {
+    const sortCls = state.sort.key === c.key ? `sort-${state.sort.dir}` : '';
+    return `<th data-idx="${i}" class="${sortCls}" onclick="sortCol('${c.key}')">${c.label}<span class="th-sort-icon"></span><div class="col-resize" data-idx="${i}" onclick="event.stopPropagation()"></div></th>`;
+  }).join('');
+  const total = cols.reduce((s,c) => s + (prefs.colWidths[c.key]||c.defaultW), 0);
+  document.getElementById('dataTable').style.width = total + 'px';
+  attachResize();
+}
+
+let _rs = null;
+function attachResize() {
+  document.querySelectorAll('.col-resize').forEach(h => {
+    h.addEventListener('mousedown', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const th = h.closest('th');
+      const col = visCols()[+th.dataset.idx];
+      _rs = { col, x0: e.clientX, w0: prefs.colWidths[col.key]||col.defaultW, h };
+      h.classList.add('active');
+      document.addEventListener('mousemove', onResize);
+      document.addEventListener('mouseup', offResize);
+    });
+  });
+}
+function onResize(e) {
+  if (!_rs) return;
+  const nw = Math.max(55, _rs.w0 + e.clientX - _rs.x0);
+  const el = document.querySelector(`#colGroup col[data-key="${_rs.col.key}"]`);
+  if (el) el.style.width = nw + 'px';
+  const total = visCols().reduce((s,c) => { const el2=document.querySelector(`#colGroup col[data-key="${c.key}"]`); return s+(el2?parseInt(el2.style.width):(prefs.colWidths[c.key]||c.defaultW)); }, 0);
+  document.getElementById('dataTable').style.width = total + 'px';
+}
+function offResize(e) {
+  if (!_rs) return;
+  prefs.colWidths[_rs.col.key] = Math.max(55, _rs.w0 + e.clientX - _rs.x0);
+  savePrefs(prefs); _rs.h.classList.remove('active'); _rs = null;
+  document.removeEventListener('mousemove', onResize);
+  document.removeEventListener('mouseup', offResize);
+}
+
+// ── Multi-select filter ────────────────────────────────────────────────────────
+let msSelected = null; // null = all; Set = specific names
+let crStatusFilter = 'all'; // 'all' | 'active' | 'paused'
+
+function setStatusFilter(btn) {
+  document.querySelectorAll('#statusFilterRow .tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  crStatusFilter = btn.dataset.s;
+  renderItems();
+}
+
+function toggleMsDropdown() {
+  const dd = document.getElementById('msDropdown');
+  dd.classList.toggle('open');
+  if (dd.classList.contains('open')) {
+    document.getElementById('msSearch').focus();
+    renderMsItems();
+  }
+}
+document.addEventListener('click', e => {
+  if (!document.getElementById('msWrap')?.contains(e.target)) {
+    document.getElementById('msDropdown')?.classList.remove('open');
+  }
+});
+
+// For creative level: group ads by campaign for the multi-select
+function creativeCampaigns() {
+  const ads = state.creativeData?.ads || [];
+  const map = {};
+  ads.forEach(a => {
+    const cn = a.campaign_name || '(sem campanha)';
+    if (!map[cn]) map[cn] = { name: cn, spend: 0 };
+    map[cn].spend += a.spend || 0;
+  });
+  return Object.values(map).sort((a,b) => b.spend - a.spend);
+}
+
+function adsetCampaigns() {
+  const adsets = state.data?.items || [];
+  const map = {};
+  adsets.forEach(a => {
+    const cn = a.campaign_name || '(sem campanha)';
+    if (!map[cn]) map[cn] = { name: cn, spend: 0 };
+    map[cn].spend += a.spend || 0;
+  });
+  return Object.values(map).sort((a,b) => b.spend - a.spend);
+}
+
+function allItems() {
+  if (state.level === 'creative') return creativeCampaigns();
+  if (state.level === 'adset') return adsetCampaigns();
+  return state.data?.items || [];
+}
+
+function renderMsItems() {
+  const q = document.getElementById('msSearch').value.toLowerCase();
+  const items = allItems();
+  const list = document.getElementById('msList');
+  const filtered = q ? items.filter(r => r.name.toLowerCase().includes(q)) : items;
+  if (!filtered.length) { list.innerHTML = '<div class="ms-empty">Nenhum item</div>'; return; }
+  list.innerHTML = filtered.map(r => {
+    const checked = msSelected === null || msSelected.has(r.name);
+    const spend = r.spend != null ? fmtR(r.spend) : '';
+    return `<label class="ms-item">
+      <input type="checkbox" ${checked ? 'checked' : ''} onchange="msToggle(this,'${esc(r.name)}')">
+      <span class="ms-item-label" title="${esc(r.name)}">${esc(r.name)}</span>
+      <span class="ms-item-count">${spend}</span>
+    </label>`;
+  }).join('');
+}
+
+function msToggle(cb, name) {
+  const items = allItems();
+  if (msSelected === null) {
+    msSelected = new Set(items.map(r => r.name));
+  }
+  if (cb.checked) msSelected.add(name);
+  else msSelected.delete(name);
+  if (msSelected.size === items.length) msSelected = null;
+  updateMsBtn();
+  renderMsItems();
+  renderItems();
+}
+
+function msSelectAll() {
+  const q = document.getElementById('msSearch').value.toLowerCase();
+  const allI = allItems();
+  if (!q) {
+    msSelected = null;
+  } else {
+    // Only select items visible in the filtered dropdown
+    const filtered = allI.filter(r => r.name.toLowerCase().includes(q));
+    msSelected = new Set(filtered.map(r => r.name));
+    if (msSelected.size === allI.length) msSelected = null;
+  }
+  renderMsItems();
+  updateMsBtn();
+  renderItems();
+}
+
+function msSelectNone() {
+  msSelected = new Set();
+  renderMsItems();
+  updateMsBtn();
+  renderItems();
+}
+
+function updateMsBtn() {
+  const btn = document.getElementById('msBtn');
+  const label = document.getElementById('msBtnLabel');
+  if (msSelected === null) {
+    label.textContent = 'Todas';
+    btn.classList.remove('has-filter');
+    btn.querySelector('.ms-badge')?.remove();
+  } else {
+    const n = msSelected.size;
+    btn.classList.add('has-filter');
+    let badge = btn.querySelector('.ms-badge');
+    if (!badge) { badge = document.createElement('span'); badge.className = 'ms-badge'; btn.insertBefore(badge, btn.lastElementChild); }
+    badge.textContent = n;
+    label.textContent = n === 0 ? 'Nenhuma' : `${n} selecionadas`;
+  }
+}
+
+function filterByMs(items) {
+  if (msSelected === null) return items;
+  if (state.level === 'creative' || state.level === 'adset') {
+    return items.filter(r => msSelected.has(r.campaign_name || '(sem campanha)'));
+  }
+  return items.filter(r => msSelected.has(r.name));
+}
+
+function filterByCrStatus(ads) {
+  if (crStatusFilter === 'all') return ads;
+  if (crStatusFilter === 'active') return ads.filter(a => a.effective_status === 'ACTIVE');
+  if (crStatusFilter === 'paused') return ads.filter(a => a.effective_status !== 'ACTIVE');
+  return ads;
+}
+
+function resetMs() {
+  msSelected = null;
+  crStatusFilter = 'all';
+  document.querySelectorAll('#statusFilterRow .tab').forEach((b,i) => b.classList.toggle('active', i===0));
+  updateMsBtn();
+}
+
+// ── Render: items (table or creative grid) ────────────────────────────────────
+function renderItems() {
+  const q = document.getElementById('searchInp').value.toLowerCase();
+  if (state.level === 'creative') {
+    show('creativeView'); hide('tableView');
+    renderCreativeGrid(q);
+  } else {
+    show('tableView'); hide('creativeView');
+    renderTable(q);
+    // Update metric cards to reflect filtered selection
+    if (state.data) {
+      if (msSelected !== null) {
+        const filtered = filterByMs(state.data?.items||[]).filter(r => !q || r.name.toLowerCase().includes(q));
+        renderMetrics(computeSummaryFromItems(filtered), false);
+      } else if (!q) {
+        renderMetrics(null, true);
+      } else {
+        const filtered = (state.data?.items||[]).filter(r => r.name.toLowerCase().includes(q));
+        renderMetrics(computeSummaryFromItems(filtered), false);
+      }
+    }
+  }
+}
+
+function nameCell(r) {
+  const risks = (r.risks||[]).map(t=>`<span class="risk-tag">⚠ ${t}</span>`).join('');
+  return `<span class="name-text" title="${esc(r.name)}">${esc(r.name)}</span>${risks}`;
+}
+function sortItems(items) {
+  const { key, dir } = state.sort;
+  return [...items].sort((a, b) => {
+    const av = a[key] ?? -Infinity, bv = b[key] ?? -Infinity;
+    if (typeof av === 'string') return dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+    return dir === 'asc' ? av - bv : bv - av;
+  });
+}
+
+function renderTable(q='') {
+  const items = sortItems(filterByMs(state.data?.items||[]).filter(r => !q || r.name.toLowerCase().includes(q)));
+  const cols = visCols();
+  // Custom metric cols: inject into rows
+  const custCols = prefs.customMetrics.filter(cm => !prefs.hiddenCols.includes(cm.id));
+
+  const tbody = document.getElementById('tableBody');
+  if (!items.length) { tbody.innerHTML = `<tr><td colspan="${cols.length+custCols.length}" class="empty">Nenhum dado</td></tr>`; return; }
+
+  const validCpl = items.filter(r => r.cpl > 0);
+  const avgCpl = validCpl.length ? validCpl.reduce((s,r) => s+r.cpl, 0) / validCpl.length : 0;
+  const validCpm = items.filter(r => r.cpm > 0);
+  const avgCpm = validCpm.length ? validCpm.reduce((s,r) => s+r.cpm, 0) / validCpm.length : 0;
+
+  const dataRows = items.map(r => {
+    const custVals = custCols.map(cm => {
+      const v = evalFormula(cm.formula, r);
+      return `<td>${v == null ? '<span class="num muted">—</span>' : `<span class="num">${fmtCustom(v, cm.format)}</span>`}</td>`;
+    }).join('');
+    const cells = cols.map(c => {
+      if (c.key === 'cpl') return `<td>${cellColored(r.cpl, avgCpl)}</td>`;
+      if (c.key === 'cpm') return `<td>${cellColored(r.cpm, avgCpm)}</td>`;
+      return `<td>${c.render(r)}</td>`;
+    }).join('');
+    return `<tr>${cells}${custVals}</tr>`;
+  }).join('');
+
+  // Total row
+  const tot = computeSummaryFromItems(items);
+  const totalCells = cols.map((c, i) => {
+    if (i === 0) return `<td>TOTAL</td>`;
+    const renders = {
+      spend: () => numR(tot.spend),
+      reach: () => numN(tot.reach),
+      impressions: () => numN(tot.impressions),
+      clicks: () => numN(tot.clicks),
+      ctr: () => numPct(tot.ctr),
+      cpm: () => numR(tot.cpm),
+      cpc: () => numR(tot.cpc),
+      leads: () => numN(tot.leads),
+      cpl: () => numR(tot.cpl),
+      video_views: () => numN(tot.video_views),
+      thruplays: () => numN(tot.thruplays),
+    };
+    return `<td>${renders[c.key] ? renders[c.key]() : ''}</td>`;
+  }).join('');
+  const totalCustCells = custCols.map(cm => {
+    const v = evalFormula(cm.formula, tot);
+    return `<td>${v == null ? '<span class="num muted">—</span>' : `<span class="num">${fmtCustom(v, cm.format)}</span>`}</td>`;
+  }).join('');
+  const totalRow = `<tr class="total-row">${totalCells}${totalCustCells}</tr>`;
+
+  tbody.innerHTML = dataRows + totalRow;
+}
+
+function crStatusInfo(s) {
+  if (s === 'ACTIVE')          return { cls:'active',  label:'Ativo' };
+  if (s === 'PAUSED')          return { cls:'paused',  label:'Pausado' };
+  if (s === 'CAMPAIGN_PAUSED') return { cls:'paused',  label:'Camp. pausada' };
+  if (s === 'ADSET_PAUSED')    return { cls:'paused',  label:'Conj. pausado' };
+  if (s === 'DISAPPROVED')     return { cls:'inactive', label:'Reprovado' };
+  if (s === 'ARCHIVED')        return { cls:'inactive', label:'Arquivado' };
+  return { cls:'inactive', label: s || 'Desconhecido' };
+}
+
+function renderCreativeGrid(q='') {
+  const ads = filterByCrStatus(filterByMs(state.creativeData?.ads||[]).filter(a => !q || a.name.toLowerCase().includes(q)));
+  const grid = document.getElementById('creativeGrid');
+  if (!ads.length) { grid.innerHTML = '<div class="empty" style="grid-column:1/-1">Nenhum criativo no período</div>'; return; }
+  grid.innerHTML = ads.map(a => {
+    const thumb = a.thumbnail
+      ? `<img src="${esc(a.thumbnail)}" alt="" loading="lazy" onerror="this.parentElement.innerHTML='<div class=cr-thumb-placeholder>🖼</div>'">`
+      : `<div class="cr-thumb-placeholder">🖼</div>`;
+    const linkBtn = a.link ? `<a href="${esc(a.link)}" target="_blank" class="cr-link-btn">Ver ↗</a>` : '';
+    const isVideo = a.video_views > 0 || a.thruplays > 0;
+    const hook = (isVideo && a.impressions) ? (a.video_views / a.impressions * 100).toFixed(1) : null;
+    const st = crStatusInfo(a.effective_status);
+    const statusBadge = `<span class="cr-status-badge ${st.cls}">${st.label}</span>`;
+    const inactive = st.cls !== 'active';
+    return `<div class="cr-card${inactive ? ' cr-inactive' : ''}">
+      <div class="cr-thumb">${thumb}${statusBadge}${linkBtn}</div>
+      <div class="cr-body">
+        <div class="cr-name" title="${esc(a.name)}">${esc(a.name)}</div>
+        <div class="cr-metrics">
+          <div class="cr-m"><span class="cr-m-label">Investimento</span><span class="cr-m-value">${fmtR(a.spend)}</span></div>
+          <div class="cr-m"><span class="cr-m-label">Leads</span><span class="cr-m-value">${fmtN(a.leads)}</span></div>
+          <div class="cr-m"><span class="cr-m-label">CPL</span><span class="cr-m-value">${fmtR(a.cpl)}</span></div>
+          <div class="cr-m"><span class="cr-m-label">CTR</span><span class="cr-m-value">${a.ctr?.toFixed(2)}%</span></div>
+          ${a.video_views ? `<div class="cr-m"><span class="cr-m-label">Views 3s</span><span class="cr-m-value">${fmtN(a.video_views)}</span></div>` : ''}
+          ${hook ? `<div class="cr-m"><span class="cr-m-label">Hook Rate</span><span class="cr-m-value">${hook}%</span></div>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+
+// ── Settings panel ────────────────────────────────────────────────────────────
+function openSettings()  { buildSettingsToggles(); document.getElementById('settingsOverlay').classList.add('open'); }
+function closeSettings() { document.getElementById('settingsOverlay').classList.remove('open'); }
+function maybeCloseSettings(e) { if (e.target === document.getElementById('settingsOverlay')) closeSettings(); }
+
+function buildSettingsToggles() {
+  const all = orderedMetricDefs();
+  // Metric toggles
+  document.getElementById('metricToggles').innerHTML = all.map(m => `
+    <div class="toggle-row">
+      <span class="toggle-label">${esc(m.label)}</span>
+      <label class="toggle">
+        <input type="checkbox" ${prefs.hiddenMetrics.includes(m.key)?'':'checked'} onchange="toggleMetric('${m.key}',this.checked)">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>`).join('');
+
+  // Custom metric list
+  document.getElementById('customMetricList').innerHTML = prefs.customMetrics.length
+    ? prefs.customMetrics.map(cm => `
+        <div class="custom-metric-item">
+          <span>${esc(cm.name)} <span style="color:var(--muted);font-size:.75rem">(${esc(cm.formula)})</span></span>
+          <button class="cm-del" onclick="deleteCustomMetric('${cm.id}')">✕</button>
+        </div>`).join('')
+    : '<div style="font-size:.8rem;color:var(--muted);padding:4px 0">Nenhuma ainda.</div>';
+
+  // Col toggles
+  document.getElementById('colToggles').innerHTML = COLS.filter(c=>!c.always).map(c => `
+    <div class="toggle-row">
+      <span class="toggle-label">${c.label}</span>
+      <label class="toggle">
+        <input type="checkbox" ${prefs.hiddenCols.includes(c.key)?'':'checked'} onchange="toggleCol('${c.key}',this.checked)">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>`).join('');
+}
+
+function toggleMetric(key, visible) {
+  prefs.hiddenMetrics = visible ? prefs.hiddenMetrics.filter(k=>k!==key) : [...new Set([...prefs.hiddenMetrics,key])];
+  savePrefs(prefs); if (state.data) renderMetrics();
+}
+function toggleCol(key, visible) {
+  prefs.hiddenCols = visible ? prefs.hiddenCols.filter(k=>k!==key) : [...new Set([...prefs.hiddenCols,key])];
+  savePrefs(prefs); if (state.data) { renderTableHeader(); renderItems(); }
+}
+
+// Insert variable into formula at cursor position
+function appendVar(v) {
+  const inp = document.getElementById('cmFormula');
+  inp.focus();
+  const pos = inp.selectionStart ?? inp.value.length;
+  const before = inp.value.substring(0, pos);
+  const after  = inp.value.substring(inp.selectionEnd ?? pos);
+  const pad = (before.length > 0 && !/[\s(+\-*\/]$/.test(before)) ? ' ' : '';
+  inp.value = before + pad + v + after;
+  const newPos = pos + pad.length + v.length;
+  inp.setSelectionRange(newPos, newPos);
+}
+
+// Custom metric CRUD
+let _cmEdit = null;
+function toggleCmForm() {
+  const f = document.getElementById('cmForm');
+  f.classList.toggle('open');
+  if (!f.classList.contains('open')) {
+    document.getElementById('cmName').value = '';
+    document.getElementById('cmFormula').value = '';
+    document.getElementById('cmFormat').value = 'pct';
+    document.getElementById('cmInvert').value = 'false';
+    _cmEdit = null;
+  }
+}
+function saveCustomMetric() {
+  const name    = document.getElementById('cmName').value.trim();
+  const formula = document.getElementById('cmFormula').value.trim();
+  const format  = document.getElementById('cmFormat').value;
+  const invert  = document.getElementById('cmInvert').value === 'true';
+  if (!name || !formula) return;
+  // Quick validation
+  try { new Function(...CM_VARS, `"use strict"; return (${formula});`); }
+  catch(e) { alert('Fórmula inválida: ' + e.message); return; }
+  const id = _cmEdit || 'cm_' + Date.now();
+  const existing = prefs.customMetrics.findIndex(m => m.id === id);
+  const entry = { id, name, formula, format, invert };
+  if (existing >= 0) prefs.customMetrics[existing] = entry;
+  else prefs.customMetrics.push(entry);
+  savePrefs(prefs);
+  toggleCmForm();
+  buildSettingsToggles();
+  if (state.data) renderMetrics();
+}
+function deleteCustomMetric(id) {
+  prefs.customMetrics = prefs.customMetrics.filter(m => m.id !== id);
+  prefs.hiddenMetrics  = prefs.hiddenMetrics.filter(k => k !== id);
+  prefs.metricOrder    = prefs.metricOrder.filter(k => k !== id);
+  savePrefs(prefs);
+  buildSettingsToggles();
+  if (state.data) renderMetrics();
+}
+
+function resetPrefs() {
+  if (!confirm('Restaurar todas as preferências ao padrão?')) return;
+  prefs = { ...DEFAULT_PREFS };
+  savePrefs(prefs);
+  buildSettingsToggles();
+  if (state.data) { renderMetrics(); renderTableHeader(); renderItems(); }
+}
+
+// ── Colored cell (CPL/CPM relative to avg) ───────────────────────────────────
+function cellColored(v, avg) {
+  if (v == null || avg === 0) return numR(v);
+  const ratio = v / avg;
+  const cls = ratio < 0.75 ? 'cell-good' : ratio > 1.5 ? 'cell-bad' : 'cell-warn';
+  return `<span class="num ${cls}">${fmtR(v)}</span>`;
+}
+
+// ── Formatters ────────────────────────────────────────────────────────────────
+function fmtR(v)  { if (v==null) return '—'; return 'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtN(v)  { return v==null ? '—' : Number(v).toLocaleString('pt-BR'); }
+function numR(v)  { return `<span class="num">${fmtR(v)}</span>`; }
+function numN(v)  { return v==null ? '<span class="num muted">—</span>' : `<span class="num">${fmtN(v)}</span>`; }
+function numPct(v){ if(v==null) return '<span class="num muted">—</span>'; return `<span class="num ${v<0.5?'warn':''}">${Number(v).toFixed(2)}%</span>`; }
+function esc(s)   { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+const FLEX_IDS = new Set(['metricsGrid','accTabs','controls','acc-tabs']);
+function show(id) { document.getElementById(id).style.display = FLEX_IDS.has(id) ? 'flex' : 'block'; }
+function hide(id) { document.getElementById(id).style.display = 'none'; }
+
+// ── Date range picker ────────────────────────────────────────────────────────
+const MONTHS_PT_ABR  = ['jan.','fev.','mar.','abr.','mai.','jun.','jul.','ago.','set.','out.','nov.','dez.'];
+const MONTHS_PT_CAPS = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+
+let _drSince = null;
+let _drUntil = null;
+let _drStep  = 0;
+let _drSV    = { year:0, month:0 };
+let _drEV    = { year:0, month:0 };
+
+function todayStr() { return new Date().toISOString().slice(0,10); }
+
+function fmtDateLabel(iso) {
+  if (!iso) return '—';
+  const [y, m, d] = iso.split('-').map(Number);
+  return `${d} de ${MONTHS_PT_ABR[m-1]} de ${y}`;
+}
+
+function updateDrLabel() {
+  const d = state.data || state.creativeData;
+  const s = state.since || d?.since;
+  const u = state.until || d?.until;
+  const el = document.getElementById('drLabel');
+  if (!el) return;
+  el.textContent = (s && u) ? `${fmtDateLabel(s)} – ${fmtDateLabel(u)}` : 'Selecione o período';
+}
+
+function drAdvMonth(v, dir) {
+  let { year, month } = v;
+  month += dir;
+  if (month > 12) { month = 1; year++; }
+  if (month < 1)  { month = 12; year--; }
+  return { year, month };
+}
+
+function openDatePicker() {
+  const d = state.data || state.creativeData;
+  _drSince = state.since || d?.since || todayStr();
+  _drUntil = state.until || d?.until || todayStr();
+  _drStep  = 0;
+  const [sy, sm] = _drSince.split('-').map(Number);
+  const [uy, um] = _drUntil.split('-').map(Number);
+  _drSV = { year: sy, month: sm };
+  _drEV = { year: uy, month: um };
+  if (_drSV.year === _drEV.year && _drSV.month === _drEV.month) {
+    _drEV = drAdvMonth(_drEV, 1);
+  }
+  renderDrCals();
+  document.getElementById('drPicker').classList.add('open');
+  document.getElementById('drDisplay').classList.add('open');
+}
+
+function toggleDatePicker() {
+  const open = document.getElementById('drPicker').classList.contains('open');
+  if (open) closeDatePicker(); else openDatePicker();
+}
+
+function closeDatePicker() {
+  document.getElementById('drPicker').classList.remove('open');
+  document.getElementById('drDisplay').classList.remove('open');
+}
+
+function applyDatePicker() {
+  if (!_drSince) return;
+  const until = _drUntil || _drSince;
+  if (_drSince > until) { state.since = until; state.until = _drSince; }
+  else { state.since = _drSince; state.until = until; }
+  document.querySelectorAll('#presetTabs .tab').forEach(b => b.classList.remove('active'));
+  document.querySelector('#presetTabs .tab[data-p="custom"]').classList.add('active');
+  state.preset = 'custom';
+  closeDatePicker();
+  load();
+}
+
+function drNavMonth(which, dir) {
+  if (which === 'start') _drSV = drAdvMonth(_drSV, dir);
+  else                   _drEV = drAdvMonth(_drEV, dir);
+  renderDrCals();
+}
+
+function renderDrCals() {
+  renderDrCal(_drSV, 'drStartMonth', 'drStartDays');
+  renderDrCal(_drEV, 'drEndMonth',   'drEndDays');
+}
+
+function renderDrCal(view, monthId, daysId) {
+  const { year, month } = view;
+  document.getElementById(monthId).textContent = `${MONTHS_PT_CAPS[month-1]}. DE ${year}`;
+  const today    = todayStr();
+  const firstDay = new Date(year, month - 1, 1).getDay();
+  const numDays  = new Date(year, month, 0).getDate();
+  let html = '';
+  for (let i = 0; i < firstDay; i++) html += '<div class="dr-day dr-empty"></div>';
+  for (let d = 1; d <= numDays; d++) {
+    const ds  = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const since = _drSince, until = _drUntil || _drSince;
+    const [lo, hi] = since <= until ? [since, until] : [until, since];
+    let cls = 'dr-day';
+    if (ds === today)  cls += ' dr-today';
+    if (ds === lo && ds === hi) cls += ' dr-sel-start dr-sel-end';
+    else if (ds === lo) cls += ' dr-sel-start';
+    else if (ds === hi) cls += ' dr-sel-end';
+    else if (ds > lo && ds < hi) cls += ' dr-in-range';
+    html += `<button class="${cls}" onclick="drPickDay('${ds}')">${d}</button>`;
+  }
+  document.getElementById(daysId).innerHTML = html;
+}
+
+function drPickDay(ds) {
+  if (_drStep === 0) {
+    _drSince = ds; _drUntil = null; _drStep = 1;
+  } else {
+    _drUntil = ds; _drStep = 0;
+  }
+  renderDrCals();
+}
+
+// Close picker when clicking outside
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('drWrap');
+  if (wrap && !wrap.contains(e.target)) closeDatePicker();
+});
+
+// ── Dashboard pages ───────────────────────────────────────────────────────────
+const PAGES_KEY = 'sinapse_dash_pages_v1';
+let dashPages = [];
+let activeDashPageId = null;
+
+function loadDashPages() {
+  try { dashPages = JSON.parse(localStorage.getItem(PAGES_KEY)) || []; } catch { dashPages = []; }
+  if (!dashPages.length) {
+    // first visit: create default page from current state
+    const id = 'dp_' + Date.now();
+    dashPages = [{ id, title: 'Dashboard', client: state.client, preset: state.preset, since: null, until: null, level: 'campaign', accountId: null, widgets: [] }];
+    saveDashPages();
+  }
+  activeDashPageId = dashPages[0].id;
+}
+
+function saveDashPages() {
+  localStorage.setItem(PAGES_KEY, JSON.stringify(dashPages));
+}
+
+function renderDashTabs() {
+  const bar = document.getElementById('dashPagesBar');
+  const addBtn = bar.querySelector('.dash-add-page');
+  bar.querySelectorAll('.dash-page-tab').forEach(t => t.remove());
+  dashPages.forEach(p => {
+    const tab = document.createElement('div');
+    tab.className = `dash-page-tab${p.id === activeDashPageId ? ' active' : ''}`;
+    tab.id = `dpt-${p.id}`;
+    tab.onclick = () => switchDashPage(p.id);
+    tab.ondblclick = () => startRenameDashTab(p.id);
+    tab.innerHTML = `
+      <input class="dash-page-tab-name" value="${esc(p.title)}" readonly
+             onclick="event.stopPropagation()"
+             onkeydown="if(event.key==='Enter'||event.key==='Escape')this.blur()"
+             onblur="finishRenameDashTab('${p.id}',this)">
+      <button class="dash-page-del" onclick="deleteDashPage('${p.id}',event)" title="Remover">✕</button>`;
+    bar.insertBefore(tab, addBtn);
+  });
+}
+
+function startRenameDashTab(id) {
+  const tab = document.getElementById(`dpt-${id}`);
+  if (!tab) return;
+  tab.classList.add('editing');
+  const inp = tab.querySelector('.dash-page-tab-name');
+  inp.removeAttribute('readonly');
+  inp.focus(); inp.select();
+}
+
+function finishRenameDashTab(id, inp) {
+  const name = inp.value.trim() || 'Sem título';
+  inp.value = name; inp.setAttribute('readonly', '');
+  const p = dashPages.find(x => x.id === id);
+  if (p) p.title = name;
+  document.getElementById(`dpt-${id}`)?.classList.remove('editing');
+  saveDashPages();
+}
+
+function saveCurrentPageState() {
+  const p = dashPages.find(x => x.id === activeDashPageId);
+  if (!p) return;
+  p.client = state.client;
+  p.preset = state.preset;
+  p.since = state.since;
+  p.until = state.until;
+  p.level = state.level;
+  p.accountId = state.accountId;
+  saveDashPages();
+}
+
+function switchDashPage(id) {
+  saveCurrentPageState();
+  activeDashPageId = id;
+  const p = dashPages.find(x => x.id === id);
+  if (!p) return;
+  // restore page state
+  state.client = p.client || INITIAL_CLIENT;
+  state.preset = p.preset || 'last_7d';
+  state.since = p.since || null;
+  state.until = p.until || null;
+  state.level = p.level || 'campaign';
+  state.accountId = p.accountId || null;
+  state.sort = { key: 'spend', dir: 'desc' };
+  // sync preset tabs UI
+  document.querySelectorAll('#presetTabs .tab').forEach(b => b.classList.toggle('active', b.dataset.p === state.preset));
+  // sync level tabs UI
+  document.querySelectorAll('.level-tabs .tab').forEach(b => b.classList.toggle('active', b.dataset.l === state.level));
+  document.getElementById('tableTitle').textContent = { campaign:'Campanhas', adset:'Conjuntos de anúncios', creative:'Criativos' }[state.level] || '';
+  renderDashTabs();
+  renderAccTabs();
+  load();
+}
+
+function addDashPage() {
+  saveCurrentPageState();
+  const id = 'dp_' + Date.now();
+  const n = dashPages.length + 1;
+  dashPages.push({ id, title: `Página ${n}`, client: state.client, preset: 'last_7d', since: null, until: null, level: 'campaign', accountId: null, widgets: [] });
+  saveDashPages();
+  switchDashPage(id);
+  setTimeout(() => startRenameDashTab(id), 80);
+}
+
+function deleteDashPage(id, e) {
+  e.stopPropagation();
+  if (dashPages.length === 1) return; // keep at least one
+  dashPages = dashPages.filter(p => p.id !== id);
+  saveDashPages();
+  if (activeDashPageId === id) {
+    activeDashPageId = dashPages[0].id;
+    switchDashPage(activeDashPageId);
+  } else {
+    renderDashTabs();
+  }
+}
+
+// ── Widgets ───────────────────────────────────────────────────────────────────
+const WGT_METRICS = [
+  { key:'spend',       label:'Investimento', fmt: v => fmtR(v) },
+  { key:'impressions', label:'Impressões',   fmt: v => fmtN(v) },
+  { key:'clicks',      label:'Cliques',      fmt: v => fmtN(v) },
+  { key:'reach',       label:'Alcance',      fmt: v => fmtN(v) },
+  { key:'leads',       label:'Leads',        fmt: v => fmtN(v) },
+  { key:'cpm',         label:'CPM',          fmt: v => fmtR(v) },
+  { key:'ctr',         label:'CTR',          fmt: v => v != null ? Number(v).toFixed(2)+'%' : '—' },
+  { key:'cpc',         label:'CPC',          fmt: v => fmtR(v) },
+  { key:'cpl',         label:'CPL',          fmt: v => fmtR(v) },
+];
+function wgtFmt(key, v)   { const m = WGT_METRICS.find(x => x.key === key); return m ? m.fmt(v) : (v != null ? String(v) : '—'); }
+function wgtLabel(key)    { return WGT_METRICS.find(x => x.key === key)?.label || key; }
+
+function getActivePageWidgets() {
+  const p = dashPages.find(x => x.id === activeDashPageId);
+  if (!p) return [];
+  if (!p.widgets) p.widgets = [];
+  return p.widgets;
+}
+function saveActivePageWidgets(widgets) {
+  const p = dashPages.find(x => x.id === activeDashPageId);
+  if (!p) return;
+  p.widgets = widgets;
+  saveDashPages();
+}
+
+const WGT_TYPE_ICONS = { scorecard:'📊', bar:'📈', table:'📋' };
+let _wgtCharts = {};
+
+function renderWidgets() {
+  const widgets  = getActivePageWidgets();
+  const section  = document.getElementById('widgetsSection');
+  const grid     = document.getElementById('widgetGrid');
+  const panelBody = document.getElementById('wgtPanelBody');
+
+  // Destroy existing Chart.js instances before re-render
+  Object.values(_wgtCharts).forEach(c => c.destroy());
+  _wgtCharts = {};
+
+  // Panel management list
+  if (panelBody) {
+    if (!widgets.length) {
+      panelBody.innerHTML = '<div class="wgt-panel-empty">Nenhum widget nesta página.<br>Clique em ＋ para adicionar.</div>';
+    } else {
+      panelBody.innerHTML = widgets.map(w => {
+        const icon  = WGT_TYPE_ICONS[w.type] || '📊';
+        const label = esc(w.config.title || wgtLabel(w.config.metric || ''));
+        const sub   = { scorecard:'Scorecard', bar:'Barras', table:'Tabela' }[w.type] || '';
+        return `<div class="wgt-panel-item">
+          <span style="font-size:.95rem">${icon}</span>
+          <div style="flex:1;min-width:0;">
+            <div class="wgt-panel-item-label">${label}</div>
+            <div class="wgt-panel-item-sub">${sub}</div>
+          </div>
+          <button class="wgt-action-btn" onclick="openWidgetConfig('${w.id}')" title="Editar">✎</button>
+          <button class="wgt-action-btn del" onclick="deleteWidget('${w.id}')" title="Remover">✕</button>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  // Main content widgets
+  if (!section || !grid) return;
+  if (!widgets.length || state.level === 'creative' || !state.data) {
+    section.style.display = 'none'; return;
+  }
+  section.style.display = 'block';
+  const items   = state.data.items   || [];
+  const summary = state.data.summary || {};
+  grid.innerHTML = widgets.map(w => renderWidgetCard(w, items, summary)).join('');
+  // Init Chart.js for bar widgets
+  widgets.filter(w => w.type === 'bar').forEach(w => initBarWidget(w, items));
+}
+
+function renderWidgetCard(w, items, summary) {
+  const titleText = esc(w.config.title || wgtLabel(w.config.metric || ''));
+  const sz  = w.config.size   || 'sm';
+  const ht  = w.config.height || 'sm';
+  const canH = { sm: 160, md: 240, lg: 340 }[ht] || 160;
+  let inner = '';
+  if (w.type === 'scorecard') {
+    const v = summary[w.config.metric];
+    inner = `<div class="wgt-scorecard-val">${wgtFmt(w.config.metric, v)}</div>`;
+  } else if (w.type === 'bar') {
+    inner = `<canvas id="wgt-canvas-${w.id}" style="max-height:${canH}px;"></canvas>`;
+  } else if (w.type === 'table') {
+    const cols    = w.config.metrics?.length ? w.config.metrics : ['spend','leads','cpl'];
+    const limit   = w.config.limit  || 5;
+    const sortKey = w.config.sortBy || cols[0] || 'spend';
+    const dir     = w.config.sortDir || 'desc';
+    const sorted  = [...items].sort((a,b) => dir === 'asc' ? (a[sortKey]||0)-(b[sortKey]||0) : (b[sortKey]||0)-(a[sortKey]||0)).slice(0, limit);
+    const heads   = `<tr><th><span class="wgt-nc">Nome</span></th>${cols.map(c => `<th>${wgtLabel(c)}</th>`).join('')}</tr>`;
+    const rows    = sorted.map(r =>
+      `<tr><td><span class="wgt-nc" title="${esc(r.name)}">${esc(r.name)}</span></td>${cols.map(c => `<td>${wgtFmt(c, r[c])}</td>`).join('')}</tr>`
+    ).join('');
+    inner = `<div style="overflow-y:auto;max-height:${canH}px;"><table class="wgt-tbl"><thead>${heads}</thead><tbody>${rows}</tbody></table></div>`;
+  }
+  return `<div class="widget-card" data-size="${sz}" data-h="${ht}">
+    <div class="wgt-actions">
+      <button class="wgt-action-btn" onclick="openWidgetConfig('${w.id}')">✎</button>
+      <button class="wgt-action-btn del" onclick="deleteWidget('${w.id}')">✕</button>
+    </div>
+    <div class="wgt-label">${titleText}</div>
+    ${inner}
+  </div>`;
+}
+
+function initBarWidget(w, items) {
+  const canvas = document.getElementById(`wgt-canvas-${w.id}`);
+  if (!canvas) return;
+  const metric = w.config.metric  || 'spend';
+  const limit  = w.config.limit   || 5;
+  const dir    = w.config.sortDir || 'desc';
+  const sorted = [...items].filter(r => r[metric] != null)
+                           .sort((a,b) => dir === 'asc' ? (a[metric]||0)-(b[metric]||0) : (b[metric]||0)-(a[metric]||0))
+                           .slice(0, limit);
+  const labels = sorted.map(r => r.name.length > 24 ? r.name.slice(0, 24) + '…' : r.name);
+  const values = sorted.map(r => r[metric] || 0);
+  _wgtCharts[w.id] = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data: values, backgroundColor: '#ff4d0077', borderColor: '#ff4d00', borderWidth: 2, borderRadius: 4 }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: '#ffffff10' }, ticks: { color: '#888', font: { size: 10 }, maxRotation: 40 } },
+        y: { grid: { color: '#ffffff10' }, ticks: { color: '#888', font: { size: 10 } } },
+      }
+    }
+  });
+}
+
+function openWidgetPicker()  { document.getElementById('widgetPickerOverlay').classList.add('open'); }
+function closeWidgetPicker() { document.getElementById('widgetPickerOverlay').classList.remove('open'); }
+
+let _wgtEdit = null;
+function pickWidgetType(type) { closeWidgetPicker(); _wgtEdit = { id: null, type }; openWidgetConfigForm(type, null); }
+function openWidgetConfig(wgtId) {
+  const w = getActivePageWidgets().find(x => x.id === wgtId);
+  if (!w) return;
+  _wgtEdit = { id: wgtId, type: w.type };
+  openWidgetConfigForm(w.type, w.config);
+}
+function sizeBtns(cur) {
+  return ['sm','md','lg'].map((s,i) => {
+    const label = ['Pequeno','Médio','Grande'][i];
+    return `<button type="button" class="wgt-size-btn${(cur||'sm')===s?' active':''}" onclick="wgtPickSize(this,'${s}')" data-s="${s}">${label}</button>`;
+  }).join('');
+}
+function wgtPickSize(btn, s) {
+  btn.closest('.wgt-size-row').querySelectorAll('.wgt-size-btn').forEach(b => b.classList.toggle('active', b.dataset.s === s));
+}
+function heightBtns(cur) {
+  return ['sm','md','lg'].map((s,i) => {
+    const label = ['Baixo','Médio','Alto'][i];
+    return `<button type="button" class="wgt-size-btn${(cur||'sm')===s?' active':''}" onclick="wgtPickH(this,'${s}')" data-s="${s}">${label}</button>`;
+  }).join('');
+}
+function wgtPickH(btn, s) {
+  btn.closest('.wgt-size-row').querySelectorAll('.wgt-size-btn').forEach(b => b.classList.toggle('active', b.dataset.s === s));
+}
+
+function openWidgetConfigForm(type, config) {
+  const overlay = document.getElementById('wgtConfigOverlay');
+  const titleEl = document.getElementById('wgtConfigTitle');
+  const body    = document.getElementById('wgtConfigBody');
+  const names   = { scorecard:'Scorecard', bar:'Gráfico de barras', table:'Tabela' };
+  titleEl.textContent = names[type] || 'Widget';
+  const metricOpts = WGT_METRICS.map(m =>
+    `<option value="${m.key}"${config?.metric===m.key?' selected':''}>${m.label}</option>`).join('');
+  const sizeRow   = `<hr class="wgt-cfg-divider"><div class="wgt-cfg-row"><label class="wgt-cfg-label">Largura</label><div class="wgt-size-row" id="wCfgSize">${sizeBtns(config?.size)}</div></div>`;
+  const heightRow = `<div class="wgt-cfg-row"><label class="wgt-cfg-label">Altura</label><div class="wgt-size-row" id="wCfgHeight">${heightBtns(config?.height)}</div></div>`;
+
+  if (type === 'scorecard') {
+    body.innerHTML = `
+      <div class="wgt-cfg-row"><label class="wgt-cfg-label">Título</label>
+        <input id="wCfgTitle" class="wgt-cfg-input" placeholder="Ex: Total investido" value="${esc(config?.title||'')}"></div>
+      <div class="wgt-cfg-row"><label class="wgt-cfg-label">Métrica</label>
+        <select id="wCfgMetric" class="wgt-cfg-select">${metricOpts}</select></div>
+      ${sizeRow}`;
+  } else if (type === 'bar') {
+    const sortDesc = (config?.sortDir || 'desc') === 'desc';
+    body.innerHTML = `
+      <div class="wgt-cfg-row"><label class="wgt-cfg-label">Título</label>
+        <input id="wCfgTitle" class="wgt-cfg-input" placeholder="Ex: Top campanhas" value="${esc(config?.title||'')}"></div>
+      <hr class="wgt-cfg-divider">
+      <div class="wgt-cfg-row"><label class="wgt-cfg-label">Dimensão (eixo X)</label>
+        <select class="wgt-cfg-select" disabled><option>Nome</option></select></div>
+      <div class="wgt-cfg-row"><label class="wgt-cfg-label">Métrica (eixo Y)</label>
+        <select id="wCfgMetric" class="wgt-cfg-select">${metricOpts}</select></div>
+      <hr class="wgt-cfg-divider">
+      <div class="wgt-cfg-row"><label class="wgt-cfg-label">Classificar</label>
+        <div class="wgt-sort-row">
+          <label class="wgt-sort-opt"><input type="radio" name="wSort" id="wSortDesc" value="desc"${sortDesc?' checked':''}> Decrescente</label>
+          <label class="wgt-sort-opt"><input type="radio" name="wSort" id="wSortAsc" value="asc"${!sortDesc?' checked':''}> Crescente</label>
+        </div>
+      </div>
+      <div class="wgt-cfg-row"><label class="wgt-cfg-label">Máx. itens</label>
+        <input id="wCfgLimit" type="number" class="wgt-cfg-input" min="1" max="20" value="${config?.limit||5}"></div>
+      ${sizeRow}${heightRow}`;
+  } else if (type === 'table') {
+    const selCols = config?.metrics || ['spend','leads','cpl'];
+    const sortDesc = (config?.sortDir || 'desc') === 'desc';
+    const sortByOpts = WGT_METRICS.map(m =>
+      `<option value="${m.key}"${(config?.sortBy||'spend')===m.key?' selected':''}>${m.label}</option>`).join('');
+    const colChecks = WGT_METRICS.map(m =>
+      `<label style="display:flex;align-items:center;gap:6px;font-size:.82rem;padding:3px 0;cursor:pointer;">
+        <input type="checkbox" value="${m.key}"${selCols.includes(m.key)?' checked':''} style="accent-color:var(--accent)">
+        ${m.label}</label>`).join('');
+    body.innerHTML = `
+      <div class="wgt-cfg-row"><label class="wgt-cfg-label">Título</label>
+        <input id="wCfgTitle" class="wgt-cfg-input" placeholder="Ex: Top campanhas" value="${esc(config?.title||'')}"></div>
+      <div class="wgt-cfg-row"><label class="wgt-cfg-label">Colunas</label>
+        <div id="wCfgCols" style="background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 10px;">${colChecks}</div></div>
+      <hr class="wgt-cfg-divider">
+      <div class="wgt-cfg-row"><label class="wgt-cfg-label">Classificar por</label>
+        <select id="wCfgSortBy" class="wgt-cfg-select">${sortByOpts}</select></div>
+      <div class="wgt-cfg-row"><label class="wgt-cfg-label">Ordem</label>
+        <div class="wgt-sort-row">
+          <label class="wgt-sort-opt"><input type="radio" name="wSort" value="desc"${sortDesc?' checked':''}> Decrescente</label>
+          <label class="wgt-sort-opt"><input type="radio" name="wSort" value="asc"${!sortDesc?' checked':''}> Crescente</label>
+        </div>
+      </div>
+      <div class="wgt-cfg-row"><label class="wgt-cfg-label">Máx. linhas</label>
+        <input id="wCfgLimit" type="number" class="wgt-cfg-input" min="1" max="30" value="${config?.limit||5}"></div>
+      ${sizeRow}${heightRow}`;
+  }
+  overlay.classList.add('open');
+}
+function closeWidgetConfig() { document.getElementById('wgtConfigOverlay').classList.remove('open'); _wgtEdit = null; }
+
+function saveWidgetConfig() {
+  if (!_wgtEdit) return;
+  const { id, type } = _wgtEdit;
+  const config = { title: document.getElementById('wCfgTitle')?.value.trim() || '' };
+  // size
+  config.size   = document.querySelector('#wCfgSize .wgt-size-btn.active')?.dataset.s   || 'sm';
+  config.height = document.querySelector('#wCfgHeight .wgt-size-btn.active')?.dataset.s || 'sm';
+  // sort
+  const sortRadio = document.querySelector('input[name="wSort"]:checked');
+  if (sortRadio) config.sortDir = sortRadio.value;
+  // per-type
+  if (type === 'scorecard' || type === 'bar') config.metric = document.getElementById('wCfgMetric')?.value || 'spend';
+  if (type === 'bar' || type === 'table')     config.limit  = parseInt(document.getElementById('wCfgLimit')?.value) || 5;
+  if (type === 'table') {
+    config.sortBy  = document.getElementById('wCfgSortBy')?.value || 'spend';
+    const checked = [...document.querySelectorAll('#wCfgCols input[type=checkbox]:checked')].map(cb => cb.value);
+    config.metrics = checked.length ? checked : ['spend'];
+  }
+  const widgets = getActivePageWidgets();
+  if (id) { const w = widgets.find(x => x.id === id); if (w) w.config = config; }
+  else    { widgets.push({ id: 'w_' + Date.now(), type, config }); }
+  saveActivePageWidgets(widgets);
+  closeWidgetConfig();
+  renderWidgets();
+}
+
+function deleteWidget(wgtId) {
+  saveActivePageWidgets(getActivePageWidgets().filter(w => w.id !== wgtId));
+  renderWidgets();
+}
+
+function toggleWgtPanel() {
+  const panel = document.getElementById('wgtPanel');
+  const tab   = document.getElementById('wgtPanelTab');
+  panel.classList.toggle('open');
+  tab.classList.toggle('panel-open');
+  localStorage.setItem('sinapseWgtPanel', panel.classList.contains('open') ? '1' : '0');
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+if (localStorage.getItem('sinapseWgtPanel') === '1') {
+  document.getElementById('wgtPanel').classList.add('open');
+  document.getElementById('wgtPanelTab').classList.add('panel-open');
+}
+loadDashPages();
+renderDashTabs();
+if (INITIAL_CLIENT && CLIENTS_INFO[INITIAL_CLIENT]) {
+  renderAccTabs(); load();
+} else {
+  hide('loadingEl');
+  document.getElementById('errBox').textContent = 'Nenhum cliente com Meta Ads configurado.';
+  show('errBox');
+}
+// save state when user interacts (before unload)
+window.addEventListener('beforeunload', saveCurrentPageState);
 </script>
 </body>
 </html>

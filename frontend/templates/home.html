@@ -5,65 +5,73 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sinapse</title>
   <link rel="stylesheet" href="/static/style.css">
+  <style>
+    .home-main { flex:1; display:flex; align-items:center; justify-content:center; padding:40px 24px; }
+    .home-inner { width:100%; max-width:520px; }
+    .home-greeting { margin-bottom:32px; }
+    .home-greeting h1 { font-size:1.5rem; font-weight:700; margin-bottom:4px; }
+    .home-greeting p { color:var(--muted); font-size:.9rem; }
+    .home-cards { display:flex; flex-direction:column; gap:10px; }
+    .home-card {
+      display:flex; align-items:center; gap:14px;
+      background:var(--surface); border:1px solid var(--border); border-radius:14px;
+      padding:16px 18px; text-decoration:none; color:var(--text);
+      transition:border-color .15s, background .15s;
+    }
+    .home-card:hover { border-color:var(--accent); background:#1f1210; }
+    .home-card-icon { font-size:1.5rem; width:38px; text-align:center; flex-shrink:0; }
+    .home-card-body { flex:1; }
+    .home-card-title { font-size:.95rem; font-weight:600; margin-bottom:3px; }
+    .home-card-desc { font-size:.78rem; color:var(--muted); line-height:1.4; }
+    .home-card-arrow { color:var(--muted); font-size:1rem; transition:color .15s, transform .15s; }
+    .home-card:hover .home-card-arrow { color:var(--accent); transform:translateX(3px); }
+  </style>
 </head>
-<body class="home-body">
-  <div class="home-container">
-    <div class="home-header">
-      <img src="/static/logo.png" alt="Cardô Marketing" class="home-logo">
-      <div class="home-sinapse-name">Sinapse</div>
-      <p class="home-sub">O que você quer fazer?</p>
+<body>
+<div class="sinapse-shell">
+  {% include "_sidebar.html" %}
+  <main class="sinapse-main home-main">
+    <div class="home-inner">
+      <div class="home-greeting">
+        <h1>Olá{% if nav_username %}, {{ nav_username }}{% endif %} 👋</h1>
+        <p>O que você quer fazer hoje?</p>
+      </div>
+      <div class="home-cards">
+        <a href="/trafego" class="home-card">
+          <div class="home-card-icon">📊</div>
+          <div class="home-card-body">
+            <div class="home-card-title">Dashboard — Meta Ads</div>
+            <div class="home-card-desc">Métricas de investimento, campanhas e performance por cliente</div>
+          </div>
+          <div class="home-card-arrow">→</div>
+        </a>
+        <a href="/ata" class="home-card">
+          <div class="home-card-icon">📝</div>
+          <div class="home-card-body">
+            <div class="home-card-title">Criar ata de reunião</div>
+            <div class="home-card-desc">Busca reuniões do Granola e gera a ata formatada no ClickUp</div>
+          </div>
+          <div class="home-card-arrow">→</div>
+        </a>
+        <a href="/conversar" class="home-card">
+          <div class="home-card-icon">🧠</div>
+          <div class="home-card-body">
+            <div class="home-card-title">Cérebro — Converse com a IA</div>
+            <div class="home-card-desc">Tire dúvidas sobre campanhas, métricas e estratégias</div>
+          </div>
+          <div class="home-card-arrow">→</div>
+        </a>
+        <a href="/tarefas" class="home-card">
+          <div class="home-card-icon">✅</div>
+          <div class="home-card-body">
+            <div class="home-card-title">Criar tarefas</div>
+            <div class="home-card-desc">Cole um texto ou print e cria as tarefas no ClickUp automaticamente</div>
+          </div>
+          <div class="home-card-arrow">→</div>
+        </a>
+      </div>
     </div>
-
-    <div class="home-cards">
-      <a href="/ata" class="home-card">
-        <div class="home-card-icon">📝</div>
-        <div class="home-card-body">
-          <div class="home-card-title">Criar ata de reunião</div>
-          <div class="home-card-desc">Busca reuniões do Granola e gera a ata formatada no ClickUp</div>
-        </div>
-        <div class="home-card-arrow">→</div>
-      </a>
-
-      <a href="/conversar" class="home-card">
-        <div class="home-card-icon">💬</div>
-        <div class="home-card-body">
-          <div class="home-card-title">Conversar sobre um cliente</div>
-          <div class="home-card-desc">Tire dúvidas sobre campanhas, métricas e estratégias de um cliente</div>
-        </div>
-        <div class="home-card-arrow">→</div>
-      </a>
-
-      <a href="/tarefas" class="home-card">
-        <div class="home-card-icon">✅</div>
-        <div class="home-card-body">
-          <div class="home-card-title">Criar tarefas</div>
-          <div class="home-card-desc">Cole um texto ou print de conversa e cria as tarefas no ClickUp automaticamente</div>
-        </div>
-        <div class="home-card-arrow">→</div>
-      </a>
-
-      <a href="/trafego" class="home-card">
-        <div class="home-card-icon">📊</div>
-        <div class="home-card-body">
-          <div class="home-card-title">Tráfego — Meta Ads</div>
-          <div class="home-card-desc">Métricas de investimento, campanhas e performance por cliente</div>
-        </div>
-        <div class="home-card-arrow">→</div>
-      </a>
-
-      <a href="/conversar?modo=processos" class="home-card">
-        <div class="home-card-icon">📚</div>
-        <div class="home-card-body">
-          <div class="home-card-title">Processos da agência</div>
-          <div class="home-card-desc">Consulte a CardôPédia, processos internos e boas práticas</div>
-        </div>
-        <div class="home-card-arrow">→</div>
-      </a>
-
-    </div>
-
-    <a href="/logs" class="home-footer-link">Ver histórico de conversas</a>
-    <a href="/logout" class="home-footer-link home-logout">Sair</a>
-  </div>
+  </main>
+</div>
 </body>
 </html>

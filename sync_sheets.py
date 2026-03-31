@@ -21,7 +21,7 @@ DOCS_DIR.mkdir(exist_ok=True)
 # Planilhas dos clientes
 PLANILHAS = {
     "SRW": {
-        "nome": "SpeedRack West",
+        "nome": "Speedrack West",
         "sheet_id": "1KB2xF6pjdFrPV1p0XosgEQVt_kGERxzoMVDOIZ_4274",
         "aba": None,  # None = primeira aba
     },

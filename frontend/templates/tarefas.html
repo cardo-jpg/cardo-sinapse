@@ -6,15 +6,15 @@
   <title>Sinapse — Criar tarefas</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
-<body class="home-body">
-  <div class="home-container" style="max-width:640px; align-items:stretch;">
+<body>
+<div class="sinapse-shell">
+  {% include "_sidebar.html" %}
+  <main class="sinapse-main" style="align-items:center; justify-content:center; padding:40px 24px;">
+  <div style="width:100%; max-width:640px;">
 
-    <div style="display:flex; align-items:center; gap:12px; margin-bottom:28px;">
-      <a href="/" class="ata-back-btn" style="font-size:1.2rem;">←</a>
-      <div style="display:flex; align-items:center; gap:10px;">
-        <span style="font-size:1.4rem;">✅</span>
-        <span style="font-size:1.15rem; font-weight:700; color:var(--text);">Criar tarefas</span>
-      </div>
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:28px;">
+      <span style="font-size:1.4rem;">✅</span>
+      <span style="font-size:1.15rem; font-weight:700; color:var(--text);">Criar tarefas</span>
     </div>
 
     <!-- Etapa 1: Input -->
@@ -279,5 +279,8 @@
       esconderErro();
     }
   </script>
+  </div>
+  </main>
+</div>
 </body>
 </html>

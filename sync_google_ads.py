@@ -3,13 +3,18 @@ Cardô Brain — Sincronização Google Ads
 Puxa dados de performance das contas dos clientes e salva em documents/
 Execute: python sync_google_ads.py
 
-Credenciais necessárias no .env:
+Modo 1 — Windsor.ai (ativo enquanto Google Ads API não está aprovada):
+  WINDSOR_SRW_URL  (URL completa do conector Windsor)
+
+Modo 2 — Google Ads API direta (após aprovação do token):
   GOOGLE_ADS_DEVELOPER_TOKEN
   GOOGLE_ADS_CLIENT_ID
   GOOGLE_ADS_CLIENT_SECRET
   GOOGLE_ADS_REFRESH_TOKEN
+  GOOGLE_ADS_SRW_CUSTOMER_ID
 """
 import os
+import httpx
 from datetime import datetime, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
@@ -22,15 +27,89 @@ DOCS_DIR.mkdir(exist_ok=True)
 # Contas dos clientes (preencher com os Customer IDs reais)
 CLIENTES = {
     "SRW": {
-        "nome": "SpeedRack West",
+        "nome": "Speedrack West",
         "customer_id": os.getenv("GOOGLE_ADS_SRW_CUSTOMER_ID", ""),
+        "windsor_url": os.getenv("WINDSOR_SRW_URL", ""),
     },
     # Adicionar outros clientes aqui conforme integrar
     # "HEAD": {
     #     "nome": "Headlight Co",
     #     "customer_id": os.getenv("GOOGLE_ADS_HEAD_CUSTOMER_ID", ""),
+    #     "windsor_url": os.getenv("WINDSOR_HEAD_URL", ""),
     # },
 }
+
+# ── Windsor.ai ────────────────────────────────────────────────────────────────
+
+def fetch_windsor(url: str) -> list:
+    """Busca dados do Google Ads via Windsor.ai e agrega por campanha."""
+    with httpx.Client(timeout=30) as c:
+        r = c.get(url)
+        r.raise_for_status()
+        rows = r.json().get("data", [])
+
+    campaigns = {}
+    for row in rows:
+        name = row.get("campaign", "Desconhecida")
+        if name not in campaigns:
+            campaigns[name] = {"clicks": 0, "conversions": 0, "spend": 0.0, "keywords": set()}
+        campaigns[name]["clicks"]      += int(row.get("clicks", 0) or 0)
+        campaigns[name]["conversions"] += float(row.get("conversions", 0) or 0)
+        campaigns[name]["spend"]       += float(row.get("spend", 0) or 0)
+        kw = row.get("keyword_text", "")
+        if kw:
+            campaigns[name]["keywords"].add(kw)
+
+    results = []
+    for name, d in sorted(campaigns.items(), key=lambda x: -x[1]["spend"]):
+        cpa  = round(d["spend"] / d["conversions"], 2) if d["conversions"] else 0
+        cpc  = round(d["spend"] / d["clicks"], 2)      if d["clicks"]      else 0
+        results.append({
+            "campaign":    name,
+            "clicks":      d["clicks"],
+            "conversions": round(d["conversions"], 1),
+            "spend":       round(d["spend"], 2),
+            "cpa":         cpa,
+            "cpc":         cpc,
+            "keywords":    sorted(d["keywords"])[:20],  # top 20 keywords
+        })
+    return results
+
+def format_windsor_markdown(nome: str, sigla: str, campaigns: list, updated_at: str) -> str:
+    total_clicks = sum(c["clicks"] for c in campaigns)
+    total_spend  = sum(c["spend"]  for c in campaigns)
+    total_conv   = sum(c["conversions"] for c in campaigns)
+    total_cpa    = round(total_spend / total_conv, 2) if total_conv else 0
+
+    lines = [
+        f"# Google Ads — {nome} [{sigla}]",
+        f"**Período:** últimos 30 dias | **Fonte:** Windsor.ai | **Atualizado em:** {updated_at}",
+        "",
+        "## Resumo da Conta",
+        "| Métrica | Valor |",
+        "|---|---|",
+        f"| Cliques totais | {total_clicks:,} |",
+        f"| Custo total | ${total_spend:,.2f} |",
+        f"| Conversões | {total_conv} |",
+        f"| CPA médio | ${total_cpa:,.2f} |",
+        "",
+        "## Campanhas (últimos 30 dias)",
+        "| Campanha | Cliques | Conv. | Custo | CPC | CPA |",
+        "|---|---|---|---|---|---|",
+    ]
+    for c in campaigns:
+        lines.append(
+            f"| {c['campaign']} | {c['clicks']:,} | {c['conversions']} | "
+            f"${c['spend']:,.2f} | ${c['cpc']:,.2f} | ${c['cpa']:,.2f} |"
+        )
+
+    lines += ["", "## Keywords Ativas (por campanha)"]
+    for c in campaigns:
+        if c["keywords"]:
+            lines.append(f"\n**{c['campaign']}**")
+            lines.append(", ".join(c["keywords"]))
+
+    return "\n".join(lines) + "\n"
 
 def get_client():
     from google.ads.googleads.client import GoogleAdsClient
@@ -148,30 +227,43 @@ def format_markdown(nome: str, sigla: str, summary: dict, campaigns: list, days:
     return "\n".join(lines) + "\n"
 
 def sync():
-    missing = [k for k in ["GOOGLE_ADS_DEVELOPER_TOKEN", "GOOGLE_ADS_CLIENT_ID",
-               "GOOGLE_ADS_CLIENT_SECRET", "GOOGLE_ADS_REFRESH_TOKEN"] if not os.getenv(k)]
-    if missing:
-        print(f"Credenciais faltando no .env: {', '.join(missing)}")
-        return
-
-    client = get_client()
     updated_at = datetime.now().strftime("%d/%m/%Y %H:%M")
 
     for sigla, info in CLIENTES.items():
+        print(f"Sincronizando Google Ads: {info['nome']} ({sigla})...")
+
+        # ── Modo Windsor (prioritário enquanto API não está aprovada) ──────────
+        if info.get("windsor_url"):
+            try:
+                campaigns = fetch_windsor(info["windsor_url"])
+                content = format_windsor_markdown(info["nome"], sigla, campaigns, updated_at)
+                out = DOCS_DIR / f"google_ads_{sigla.lower()}.md"
+                out.write_text(content, encoding="utf-8")
+                print(f"  [Windsor] Salvo em: {out}")
+                continue
+            except Exception as e:
+                print(f"  [Windsor] Erro: {e} — tentando Google Ads API...")
+
+        # ── Modo Google Ads API direta ─────────────────────────────────────────
+        missing = [k for k in ["GOOGLE_ADS_DEVELOPER_TOKEN", "GOOGLE_ADS_CLIENT_ID",
+                   "GOOGLE_ADS_CLIENT_SECRET", "GOOGLE_ADS_REFRESH_TOKEN"] if not os.getenv(k)]
+        if missing:
+            print(f"  Credenciais faltando no .env: {', '.join(missing)} — pulando")
+            continue
         if not info["customer_id"]:
-            print(f"[{sigla}] GOOGLE_ADS_{sigla}_CUSTOMER_ID não configurado — pulando")
+            print(f"  GOOGLE_ADS_{sigla}_CUSTOMER_ID não configurado — pulando")
             continue
 
-        print(f"Sincronizando Google Ads: {info['nome']} ({sigla})...")
         try:
+            client = get_client()
             summary = fetch_account_summary(client, info["customer_id"])
             campaigns = fetch_campaign_data(client, info["customer_id"])
             content = format_markdown(info["nome"], sigla, summary, campaigns, 30, updated_at)
             out = DOCS_DIR / f"google_ads_{sigla.lower()}.md"
             out.write_text(content, encoding="utf-8")
-            print(f"  Salvo em: {out}")
+            print(f"  [API] Salvo em: {out}")
         except Exception as e:
-            print(f"  Erro: {e}")
+            print(f"  [API] Erro: {e}")
 
     print("Concluído.")
 

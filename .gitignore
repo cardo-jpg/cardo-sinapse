@@ -12,3 +12,7 @@ documents/**/*.jpg
 documents/**/*.PNG
 documents/**/*.JPG
 documents/**/Google Chat/
+*.json
+!package.json
+data/
+sinapse_api_design.rtf

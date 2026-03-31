@@ -6,10 +6,12 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+<div class="sinapse-shell">
+  {% include "_sidebar.html" %}
+  <main class="sinapse-main">
   <div class="logs-page">
     <div class="logs-header">
       <h2>Cardô<span>Brain</span> — Histórico</h2>
-      <a href="/">Voltar ao chat</a>
     </div>
     <div class="logs-list">
       {% if not convs %}
@@ -27,5 +29,7 @@
       {% endif %}
     </div>
   </div>
+  </main>
+</div>
 </body>
 </html>
