@@ -290,17 +290,20 @@
     function showTasksModal(tasks) {
       const body = document.getElementById('tasksModalBody');
       body.innerHTML = '';
+      const areaOptions = Object.entries(AREA_LABELS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
       tasks.forEach((t, i) => {
         const div = document.createElement('div');
         div.className = 'task-item';
-        const areaLabel = AREA_LABELS[t.area] || t.area || '';
+        const selectedArea = t.area || 'atendimento';
         div.innerHTML = `
           <label class="task-item-check">
             <input type="checkbox" checked data-idx="${i}">
             <div class="task-item-info">
               <div class="task-item-name">${escapeHtml(t.name)}</div>
               <div class="task-item-meta">
-                ${areaLabel ? `<span class="task-meta-tag task-meta-area">📁 ${escapeHtml(areaLabel)}</span>` : ''}
+                <select class="task-area-select" data-idx="${i}" style="font-size:11px;padding:2px 6px;border-radius:6px;border:1px solid #444;background:#1e1e1e;color:#ccc;cursor:pointer;">
+                  ${Object.entries(AREA_LABELS).map(([k, v]) => `<option value="${k}" ${k === selectedArea ? 'selected' : ''}>${v}</option>`).join('')}
+                </select>
                 ${t.assignee ? `<span class="task-meta-tag">👤 ${escapeHtml(t.assignee)}</span>` : ''}
                 ${t.due_date ? `<span class="task-meta-tag">📅 ${formatDate(t.due_date)}</span>` : ''}
                 ${t.is_client ? `<span class="task-meta-tag task-meta-client">cliente</span>` : '<span class="task-meta-tag task-meta-cardo">cardô</span>'}
@@ -321,7 +324,14 @@
       const checkboxes = document.querySelectorAll('#tasksModalBody input[type=checkbox]');
       const selected = [];
       checkboxes.forEach(cb => {
-        if (cb.checked) selected.push(extractedTasks[parseInt(cb.dataset.idx)]);
+        if (cb.checked) {
+          const idx = parseInt(cb.dataset.idx);
+          const task = { ...extractedTasks[idx] };
+          // Sobrescreve área com o valor do select (caso o usuário tenha alterado)
+          const areaSelect = document.querySelector(`.task-area-select[data-idx="${idx}"]`);
+          if (areaSelect) task.area = areaSelect.value;
+          selected.push(task);
+        }
       });
       if (!selected.length) { alert('Selecione ao menos uma tarefa.'); return; }
 
