@@ -80,6 +80,7 @@ CLICKUP_CLIENTE_OPTIONS = {
 }
 
 GRANOLA_SUPABASE_PATH = Path.home() / "Library" / "Application Support" / "Granola" / "supabase.json"
+GRANOLA_CACHE_PATH = Path.home() / "Library" / "Application Support" / "Granola" / "cache-v6.json"
 GRANOLA_API_BASE = "https://api.granola.ai/v1"
 
 # ── Google Ads Clients ───────────────────────────────────────────────────────
@@ -894,15 +895,45 @@ async def chat(request: Request):
 
     return JSONResponse({"reply": reply, "conv_id": conv_id, "task_created": task_created, "specialist": specialist})
 
+def _load_granola_cache_docs() -> list:
+    """Lê documentos do cache local do app Granola (só disponível em modo local)."""
+    try:
+        if not GRANOLA_CACHE_PATH.exists():
+            return []
+        data = json.loads(GRANOLA_CACHE_PATH.read_text())
+        docs_dict = data.get("cache", {}).get("state", {}).get("documents", {})
+        if not isinstance(docs_dict, dict):
+            return []
+        return [v for v in docs_dict.values() if v and isinstance(v, dict)]
+    except Exception as e:
+        print(f"[granola] Erro ao ler cache local: {e}")
+        return []
+
+
 @app.get("/api/granola/meetings")
 async def get_granola_meetings(request: Request):
     if not verify_session(request):
         raise HTTPException(status_code=401)
-    docs = await granola_post("get-documents")
-    if not isinstance(docs, list):
+    api_docs = await granola_post("get-documents")
+    if not isinstance(api_docs, list):
+        api_docs = []
+
+    # Complementa com cache local (contém reuniões mais antigas não retornadas pela API)
+    cache_docs = _load_granola_cache_docs()
+
+    # Merge deduplificado por ID
+    seen_ids = {d.get("id") for d in api_docs if d.get("id")}
+    all_docs = list(api_docs)
+    for doc in cache_docs:
+        if doc.get("id") not in seen_ids:
+            all_docs.append(doc)
+            seen_ids.add(doc.get("id"))
+
+    if not all_docs:
         return JSONResponse({"error": "Não foi possível conectar ao Granola."}, status_code=503)
+
     meetings = []
-    for doc in docs:
+    for doc in all_docs:
         if doc.get("deleted_at"):
             continue
         title = doc.get("title") or "Sem título"
@@ -917,7 +948,7 @@ async def get_granola_meetings(request: Request):
             "has_summary": bool(doc.get("summary")),
         })
     meetings.sort(key=lambda x: x["date"], reverse=True)
-    return JSONResponse(meetings[:30])
+    return JSONResponse(meetings)
 
 
 @app.post("/api/ata/generate")
@@ -927,11 +958,15 @@ async def generate_ata(request: Request):
     body = await request.json()
     meeting_id = body.get("meeting_id")
 
-    docs = await granola_post("get-documents")
-    if not isinstance(docs, list):
-        raise HTTPException(status_code=503, detail="Erro ao conectar ao Granola.")
+    api_docs = await granola_post("get-documents")
+    cache_docs = _load_granola_cache_docs()
+    all_docs = list(api_docs) if isinstance(api_docs, list) else []
+    seen_ids = {d.get("id") for d in all_docs if d.get("id")}
+    for d in cache_docs:
+        if d.get("id") not in seen_ids:
+            all_docs.append(d)
 
-    doc = next((d for d in docs if d.get("id") == meeting_id), None)
+    doc = next((d for d in all_docs if d.get("id") == meeting_id), None)
     if not doc:
         raise HTTPException(status_code=404, detail="Reunião não encontrada.")
 
