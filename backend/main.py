@@ -77,6 +77,7 @@ CLICKUP_CLIENTE_OPTIONS = {
     "SRW":   "e2c89d2d-0ee7-4d55-9afb-84e049fa9abe",
     "SCALE": "ffb45136-aab2-469d-906f-d08d64bd2c6e",
     "HDLT":  "8f18de61-41a2-428a-93db-6dc62604e7a8",
+    "DFT":   "",  # ⚠️ adicionar ID após criar opção manualmente no ClickUp
 }
 
 GRANOLA_SUPABASE_PATH = Path.home() / "Library" / "Application Support" / "Granola" / "supabase.json"
@@ -98,6 +99,7 @@ META_CLIENTS = {
     "SRW":   {"name": "Speedrack West",        "token": lambda: os.getenv("META_TOKEN_SRW"),   "accounts": []},
     "SCALE": {"name": "Scale Army",            "token": lambda: os.getenv("META_TOKEN_SCALE"), "accounts": []},
     "HDLT":  {"name": "Headlight Co",          "token": lambda: os.getenv("META_TOKEN_HDLT"),  "accounts": []},
+    "DFT":   {"name": "DFT Logística",         "token": lambda: os.getenv("META_TOKEN_DFT"),   "accounts": []},
 }
 
 # Doc ID da Documentação no ClickUp + ID das páginas "Atas de Reunião" por cliente
@@ -110,6 +112,7 @@ CLICKUP_ATAS_PAGES = {
     "SRW":   "1391ah-49551",
     "HDLT":  "1391ah-49811",
     "SCALE": "1391ah-49751",
+    "DFT":   "1391ah-50411",
 }
 
 # Lista padrão para novas tarefas: Pendências Clientes (Atendimento & CS)
