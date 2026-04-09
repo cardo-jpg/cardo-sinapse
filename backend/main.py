@@ -77,7 +77,7 @@ CLICKUP_CLIENTE_OPTIONS = {
     "SRW":   "e2c89d2d-0ee7-4d55-9afb-84e049fa9abe",
     "SCALE": "ffb45136-aab2-469d-906f-d08d64bd2c6e",
     "HDLT":  "8f18de61-41a2-428a-93db-6dc62604e7a8",
-    "DFT":   "",  # ⚠️ adicionar ID após criar opção manualmente no ClickUp
+    "DFT":   "fd139028-ba1e-4011-afa5-df0f04902e55",
 }
 
 GRANOLA_SUPABASE_PATH = Path.home() / "Library" / "Application Support" / "Granola" / "supabase.json"
