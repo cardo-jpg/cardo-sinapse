@@ -2435,8 +2435,8 @@ async def wici2_page(request: Request):
 
 @app.get("/dashboard-hire", response_class=HTMLResponse)
 async def dashboard_hire_page(request: Request):
-    """Public alias for WICI2 — no login required."""
-    return templates.TemplateResponse("wici2.html", {"request": request, "nav_username": "", "active_page": "wici2", "nav_clients": None, "nav_current_client": None})
+    """Public alias for WICI2 — no login required, no sidebar."""
+    return templates.TemplateResponse("wici2.html", {"request": request, "nav_username": "", "active_page": "wici2", "nav_clients": None, "nav_current_client": None, "public_mode": True})
 
 @app.get("/api/wici2/metrics")
 async def get_wici2_metrics(

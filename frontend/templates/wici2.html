@@ -258,10 +258,10 @@
     @keyframes spin { to { transform:rotate(360deg); } }
   </style>
 </head>
-<body>
+<body{% if public_mode %} class="public-mode"{% endif %}>
 <div class="sinapse-shell">
-  {% include "_sidebar.html" %}
-  <main class="sinapse-main">
+  {% if not public_mode %}{% include "_sidebar.html" %}{% endif %}
+  <main class="sinapse-main" style="{% if public_mode %}margin-left:0;width:100%;{% endif %}">
   <div class="page">
 
     <!-- Top bar -->
