@@ -280,6 +280,7 @@
     .data-table th.sort-asc .th-sort-icon::after  { content:'▲'; color:var(--accent); }
     .data-table th.sort-desc .th-sort-icon::after { content:'▼'; color:var(--accent); }
     .data-table th:not(.sort-asc):not(.sort-desc) .th-sort-icon::after { content:'↕'; }
+    .th-label[contenteditable="true"] { outline:1px dashed rgba(255,255,255,.4); border-radius:3px; cursor:text; padding:0 3px; background:rgba(0,0,0,.15); }
 
     /* ── Page tabs ── */
     .dash-pages-bar {
@@ -442,6 +443,12 @@
     .wgt-cfg-save   { flex:1; background:var(--accent); color:#fff; border:none; border-radius:8px; padding:9px; font-size:.84rem; font-weight:600; cursor:pointer; }
     .wgt-cfg-cancel { background:none; border:1px solid var(--border); color:var(--muted); border-radius:8px; padding:9px 16px; font-size:.84rem; cursor:pointer; }
     .wgt-cfg-cancel:hover { color:var(--text); }
+    #colMenu { position:fixed; background:var(--bg); border:1px solid var(--border); border-radius:8px; box-shadow:0 8px 24px #00000088; z-index:9999; min-width:190px; padding:4px 0; display:none; }
+    #colMenu .cm-item { padding:7px 14px; font-size:.8rem; cursor:pointer; color:var(--text); display:flex; align-items:center; gap:8px; white-space:nowrap; }
+    #colMenu .cm-item:hover { background:#ffffff0d; }
+    #colMenu .cm-hide { color:#f87171; }
+    #colMenu .cm-show { color:#86efac; }
+    #colMenu .cm-sep { border-top:1px solid var(--border); margin:4px 0; }
   </style>
 </head>
 <body>
@@ -456,6 +463,16 @@
       <div class="client-switcher-wrap">
         <button id="clientSubtitle" class="client-switcher-btn" onclick="toggleClientDropdown()" title="Trocar cliente"></button>
         <div id="clientDropdown" class="client-switcher-dropdown"></div>
+      </div>
+      <!-- Dashboard type switcher — visible apenas para Hire -->
+      <div class="client-switcher-wrap" id="dashTypeSwitcherWrap" style="display:none;">
+        <button class="client-switcher-btn" id="dashTypeBtn" onclick="toggleDashTypeDropdown()">Meta Ads</button>
+        <div class="client-switcher-dropdown" id="dashTypeDropdown">
+          <span class="cs-client-item active" style="pointer-events:none;cursor:default;">
+            <span class="cs-client-badge">ATUAL</span> Meta Ads
+          </span>
+          <a class="cs-client-item" href="/wici2">🚀 WICI 2</a>
+        </div>
       </div>
       <div class="platform-tabs" id="platformTabs" style="display:none">
         <span id="platformMeta" class="platform-tab active">📘 Meta Ads</span>
@@ -784,6 +801,14 @@ function loadPrefs() {
 function savePrefs(p) { localStorage.setItem(PREF_KEY, JSON.stringify(p)); }
 let prefs = loadPrefs();
 
+// Custom column labels (persisted)
+const customColLabels = {};
+try { Object.assign(customColLabels, JSON.parse(localStorage.getItem('trafegoCustomLabels') || '{}')); } catch(_) {}
+function _saveCustomColLabels() { localStorage.setItem('trafegoCustomLabels', JSON.stringify(customColLabels)); }
+function _tColLabel(key) {
+  return customColLabels[key] || (COLS.find(c=>c.key===key)||{}).label || key;
+}
+
 // ── State ────────────────────────────────────────────────────────────────────
 const INITIAL_CLIENT = "{{ selected_client }}";
 let state = {
@@ -836,6 +861,21 @@ function fmtCustom(v, format) {
 }
 
 // ── Account/client ────────────────────────────────────────────────────────────
+function toggleDashTypeDropdown() {
+  const dd = document.getElementById('dashTypeDropdown');
+  if (!dd) return;
+  if (dd.classList.contains('open')) { dd.classList.remove('open'); return; }
+  dd.classList.add('open');
+  setTimeout(() => {
+    document.addEventListener('click', function _c(e) {
+      if (!document.getElementById('dashTypeDropdown')?.contains(e.target) && e.target.id !== 'dashTypeBtn') {
+        document.getElementById('dashTypeDropdown')?.classList.remove('open');
+        document.removeEventListener('click', _c);
+      }
+    });
+  }, 0);
+}
+
 function toggleClientDropdown() {
   const dd = document.getElementById('clientDropdown');
   if (!dd) return;
@@ -887,6 +927,10 @@ function renderAccTabs() {
     const pMeta = document.getElementById('platformMeta');
     if (pMeta) pMeta.style.display = CLIENTS_INFO[state.client] ? 'flex' : 'none';
   }
+
+  // Dashboard type switcher: visível só para HIRE
+  const dashWrap = document.getElementById('dashTypeSwitcherWrap');
+  if (dashWrap) dashWrap.style.display = state.client === 'HIRE' ? 'inline-block' : 'none';
 
   const el = document.getElementById('accTabs');
   if (!info || info.accounts.length <= 1) { el.innerHTML = ''; return; }
@@ -1139,7 +1183,41 @@ function renderChart() {
 
 // ── Render: table header (resizable cols) ────────────────────────────────────
 function visCols() { return COLS.filter(c => c.always || !prefs.hiddenCols.includes(c.key)); }
+function _editColLabel(e, key) {
+  e.stopPropagation();
+  const th = e.currentTarget;
+  const el = th.querySelector('.th-label');
+  if (!el || el.contentEditable === 'true') return;
+  const original = el.textContent;
+  el.contentEditable = 'true';
+  el.focus();
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+
+  function commit() {
+    el.contentEditable = 'false';
+    const val = el.textContent.trim();
+    if (val) customColLabels[key] = val;
+    else { delete customColLabels[key]; el.textContent = (COLS.find(c=>c.key===key)||{}).label||key; }
+    _saveCustomColLabels();
+  }
+  function cancel() { el.contentEditable = 'false'; el.textContent = original; }
+
+  el.addEventListener('blur', commit, { once:true });
+  el.addEventListener('keydown', ev => {
+    ev.stopPropagation();
+    if (ev.key === 'Enter')  { ev.preventDefault(); el.removeEventListener('blur', commit); commit(); }
+    if (ev.key === 'Escape') { ev.preventDefault(); el.removeEventListener('blur', commit); cancel(); }
+  });
+}
 function sortCol(key) {
+  const thEl = document.querySelector(`#tableHead th[data-idx]`);
+  const allThs = document.querySelectorAll('#tableHead th');
+  for (const t of allThs) {
+    const lbl = t.querySelector('.th-label');
+    if (lbl && lbl.contentEditable === 'true') return;
+  }
   if (state.sort.key === key) {
     state.sort.dir = state.sort.dir === 'desc' ? 'asc' : 'desc';
   } else {
@@ -1155,7 +1233,7 @@ function renderTableHeader() {
     `<col data-key="${c.key}" style="width:${prefs.colWidths[c.key]||c.defaultW}px">`).join('');
   document.getElementById('tableHead').innerHTML = cols.map((c,i) => {
     const sortCls = state.sort.key === c.key ? `sort-${state.sort.dir}` : '';
-    return `<th data-idx="${i}" class="${sortCls}" onclick="sortCol('${c.key}')">${c.label}<span class="th-sort-icon"></span><div class="col-resize" data-idx="${i}" onclick="event.stopPropagation()"></div></th>`;
+    return `<th data-idx="${i}" class="${sortCls}" onclick="sortCol('${c.key}')" ondblclick="_editColLabel(event,'${c.key}')" oncontextmenu="_openColMenu(event,'${c.key}')"><span class="th-label">${_tColLabel(c.key)}</span><span class="th-sort-icon"></span><div class="col-resize" data-idx="${i}" onclick="event.stopPropagation()" draggable="false"></div></th>`;
   }).join('');
   const total = cols.reduce((s,c) => s + (prefs.colWidths[c.key]||c.defaultW), 0);
   document.getElementById('dataTable').style.width = total + 'px';
@@ -2115,6 +2193,32 @@ function toggleWgtPanel() {
   localStorage.setItem('sinapseWgtPanel', panel.classList.contains('open') ? '1' : '0');
 }
 
+// ── Column visibility context menu ────────────────────────────────────────────
+const _colMenu = document.getElementById('colMenu');
+function _closeColMenu() { _colMenu.style.display = 'none'; }
+document.addEventListener('click', _closeColMenu);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') _closeColMenu(); });
+
+function _openColMenu(e, key) {
+  e.preventDefault(); e.stopPropagation();
+  const hidden  = COLS.filter(c => !c.always && prefs.hiddenCols.includes(c.key));
+  const thisCol = COLS.find(c => c.key === key);
+  let html = '';
+  if (thisCol && !thisCol.always)
+    html += `<div class="cm-item cm-hide" onclick="toggleCol('${key}',false);_closeColMenu()">✕ Ocultar "${_tColLabel(thisCol.key)}"</div>`;
+  if (hidden.length) {
+    if (html) html += '<div class="cm-sep"></div>';
+    html += hidden.map(c => `<div class="cm-item cm-show" onclick="toggleCol('${c.key}',true);_closeColMenu()">＋ Mostrar "${_tColLabel(c.key)}"</div>`).join('');
+  }
+  if (!html) return;
+  _colMenu.innerHTML = html;
+  _colMenu.style.display = 'block';
+  const mx = Math.min(e.clientX, window.innerWidth  - _colMenu.offsetWidth  - 8);
+  const my = Math.min(e.clientY, window.innerHeight - _colMenu.offsetHeight - 8);
+  _colMenu.style.left = mx + 'px';
+  _colMenu.style.top  = my + 'px';
+}
+
 // ── Boot ──────────────────────────────────────────────────────────────────────
 if (localStorage.getItem('sinapseWgtPanel') === '1') {
   document.getElementById('wgtPanel').classList.add('open');
@@ -2132,5 +2236,6 @@ if (INITIAL_CLIENT && CLIENTS_INFO[INITIAL_CLIENT]) {
 // save state when user interacts (before unload)
 window.addEventListener('beforeunload', saveCurrentPageState);
 </script>
+<div id="colMenu"></div>
 </body>
 </html>

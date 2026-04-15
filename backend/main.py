@@ -19,6 +19,8 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import anthropic
+from google.oauth2 import service_account
+from googleapiclient.discovery import build as gapi_build
 
 load_dotenv()
 
@@ -91,6 +93,354 @@ CLICKUP_CLIENTE_OPTIONS = {
 GRANOLA_SUPABASE_PATH = Path.home() / "Library" / "Application Support" / "Granola" / "supabase.json"
 GRANOLA_CACHE_PATH = Path.home() / "Library" / "Application Support" / "Granola" / "cache-v6.json"
 GRANOLA_API_BASE = "https://api.granola.ai/v1"
+
+# ── WICI 2 — Hire Brazil (Workshop Intensivo Carreira Internacional) ─────────
+WICI2_SHEET_ID      = "1KjDx2tEpWdyWusjLFwW5SmeAEsA-aiH1ULOPgGQ4E-s"
+WICI2_ABA_VENDAS    = "Green - Todas as Vendas"
+WICI2_ABA_META      = "Meta Ads"
+WICI2_ABA_METAS     = "Metas"
+WICI2_GRUPO         = int(os.getenv("WICI2_GRUPO", "0"))   # membros do grupo (atualizar via env)
+WICI2_PREVISTO = {
+    "total":    90_000.0,
+    "workshop": 75_000.0,
+    "lembrete":  1_750.0,
+    "mentoria":  8_500.0,
+    "corredor":    300.0,
+}
+
+# Product keyword → category (priority order, first match wins)
+# NOTE: lembrete/corredor must come before "workshop" because their product names
+# also contain the substring "Workshop Intensivo de Carreira Internacional".
+_WICI2_PRODUCTS = [
+    ("lembrete",  "Acesso"),
+    ("corredor",  "Combo:"),
+    ("mentoria",  "Análise de currículo"),
+    ("workshop",  "Workshop Intensivo de Carreira Internacional"),
+]
+
+def _wici2_product_category(nome: str) -> str:
+    nome_l = nome.strip().lower()
+    for cat, kw in _WICI2_PRODUCTS:
+        if kw.lower() in nome_l:
+            return cat
+    return "outro"
+
+def _wici2_campaign_type(camp: str) -> str:
+    if "Corredor" in camp:
+        return "corredor"
+    if "_Q" in camp:
+        return "quente"
+    if "_F" in camp:
+        return "frio"
+    return ""
+
+def _wici2_parse_brl(s: str) -> float:
+    try:
+        return float(s.replace("R$ ", "").replace("R$", "").replace(".", "").replace(",", ".").strip())
+    except Exception:
+        return 0.0
+
+def _wici2_parse_date(s: str):
+    """Parse date string from column A (formats: dd/mm/yyyy HH:MM:SS or dd/mm/yyyy)."""
+    s = (s or "").strip()
+    if not s:
+        return None
+    for fmt in ("%d/%m/%Y %H:%M:%S", "%d/%m/%Y", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(s, fmt).date()
+        except ValueError:
+            pass
+    return None
+
+def _wici2_fetch_metrics(date_start=None, date_end=None, profile: str = "") -> dict:
+    """
+    Lê as abas do Google Sheets e calcula todas as métricas do WICI 2.
+    date_start / date_end: datetime.date para filtrar por período.
+    profile: "" = geral, "malu" = campanhas com MO, "hire" = campanhas sem MO.
+    """
+    sa_path = BASE_DIR / "service_account.json"
+    creds = service_account.Credentials.from_service_account_file(
+        str(sa_path),
+        scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
+    )
+    svc = gapi_build("sheets", "v4", credentials=creds)
+    sheets = svc.spreadsheets().values()
+
+    # ── Metas (Canal | Meta de Ingressos Vendidos | Data de Inicio | Data de Fim) ──
+    try:
+        metas_rows = sheets.get(spreadsheetId=WICI2_SHEET_ID, range=WICI2_ABA_METAS).execute().get("values", [])[1:]
+    except Exception:
+        metas_rows = []
+
+    meta_total = 1500
+    meta_trafego = 1120
+    meta_organico = 380
+    data_inicio_geral = None
+    data_fim_geral = None
+
+    for row in metas_rows:
+        if len(row) < 2:
+            continue
+        canal = row[0].strip().lower()
+        raw = str(row[1]).replace(".", "").replace(",", "").strip() if row[1] else ""
+        meta_val = int(raw) if raw.isdigit() else None
+        d_inicio = _wici2_parse_date(row[2]) if len(row) > 2 else None
+        d_fim    = _wici2_parse_date(row[3]) if len(row) > 3 else None
+
+        if "tráfego" in canal or "trafego" in canal:
+            if meta_val:
+                meta_trafego = meta_val
+        elif "orgânico" in canal or "organico" in canal:
+            if meta_val:
+                meta_organico = meta_val
+        elif "total" in canal:
+            if meta_val:
+                meta_total = meta_val
+
+        if d_inicio and (data_inicio_geral is None or d_inicio < data_inicio_geral):
+            data_inicio_geral = d_inicio
+        if d_fim and (data_fim_geral is None or d_fim > data_fim_geral):
+            data_fim_geral = d_fim
+
+    # Total de dias de lançamento: diferença (sem +1) entre início mais cedo e fim mais tardio
+    if data_inicio_geral and data_fim_geral:
+        total_dias_lancamento = max(1, (data_fim_geral - data_inicio_geral).days)
+    else:
+        total_dias_lancamento = 40  # fallback
+
+    meta_diaria_geral    = round(meta_total    / total_dias_lancamento, 1)
+    meta_diaria_org      = round(meta_organico / total_dias_lancamento, 1)
+    meta_diaria_trafego  = round(meta_trafego  / total_dias_lancamento, 1)
+
+    # ── Meta Ads (gasto por campanha) ─────────────────────────────────────────
+    meta_rows_raw = sheets.get(spreadsheetId=WICI2_SHEET_ID, range=WICI2_ABA_META).execute().get("values", [])[1:]
+
+    invest_total = invest_q = invest_f = invest_cor = 0.0
+    invest_por_dia: dict = {}
+    for row in meta_rows_raw:
+        if len(row) < 4:
+            continue
+        row_date = _wici2_parse_date(row[0]) if row[0] else None
+        if date_start and row_date and row_date < date_start:
+            continue
+        if date_end and row_date and row_date > date_end:
+            continue
+        try:
+            cost = float(row[3].replace(",", "."))
+        except Exception:
+            continue
+        camp = row[1] if len(row) > 1 else ""
+        has_mo = "MO" in camp
+        if profile == "malu" and not has_mo: continue
+        if profile == "hire" and has_mo:     continue
+        invest_total += cost
+        if row_date:
+            dk = row_date.strftime("%Y-%m-%d")
+            invest_por_dia[dk] = invest_por_dia.get(dk, 0.0) + cost
+        ct = _wici2_campaign_type(camp)
+        if ct == "quente":
+            invest_q += cost
+        elif ct == "frio":
+            invest_f += cost
+        elif ct == "corredor":
+            invest_cor += cost
+
+    invest_workshop = invest_total - invest_cor
+
+    # ── Vendas ────────────────────────────────────────────────────────────────
+    vendas_rows_raw = sheets.get(spreadsheetId=WICI2_SHEET_ID, range=WICI2_ABA_VENDAS).execute().get("values", [])[1:]
+
+    emails_uniq: set = set()
+    fat_by_cat: dict = {cat: 0.0 for cat, _ in _WICI2_PRODUCTS}
+    fat_traf = fat_org = fat_q = fat_f = 0.0
+    ws_traf = ws_org = ws_q = ws_f = 0
+
+    vendas_por_dia: dict = {}      # date_str → {"total": int, "org": int}
+    vendas_por_origem: dict = {}   # src → count (vendas orgânicas)
+    vendas_por_posic: dict = {}    # placement → count (vendas Meta Ads)
+    all_ws_dates: list = []
+
+    for row in vendas_rows_raw:
+        if len(row) < 5:
+            continue
+        row_date  = _wici2_parse_date(row[0]) if row[0] else None
+        if date_start and row_date and row_date < date_start:
+            continue
+        if date_end and row_date and row_date > date_end:
+            continue
+
+        product     = row[4].strip() if len(row) > 4 else ""
+        src         = row[5].strip() if len(row) > 5 else ""
+        camp_utm    = row[6].strip() if len(row) > 6 else ""
+        utm_medium  = row[7].strip() if len(row) > 7 else ""
+        # utm_term (col J, index 9): placement para paid (Instagram_Stories…) ou slug de campanha para org
+        placement   = row[9].strip() if len(row) > 9 else ""
+        email       = row[2].lower().strip() if len(row) > 2 else ""
+        valor       = _wici2_parse_brl(row[3]) if len(row) > 3 else 0.0
+        cat         = _wici2_product_category(product)
+        sale_has_mo = "MO" in camp_utm
+        if profile == "malu" and not sale_has_mo: continue
+        if profile == "hire" and sale_has_mo:     continue
+
+        ct = _wici2_campaign_type(camp_utm)
+        # tráfego pago = ig ou facebook; todo o resto é orgânico
+        is_ig_fb = src.lower() in ("ig", "facebook", "metaads", "meta")
+
+        # Hire: só campanhas de tráfego pago (exclui orgânico)
+        if profile == "hire" and ct == "" and not is_ig_fb:
+            continue
+
+        if email:
+            emails_uniq.add(email)
+        if cat in fat_by_cat:
+            fat_by_cat[cat] += valor
+
+        if ct == "quente":
+            fat_q += valor
+        elif ct == "frio":
+            fat_f += valor
+        elif is_ig_fb:
+            fat_traf += valor
+        else:
+            fat_org += valor
+
+        if cat == "workshop":
+            if row_date:
+                all_ws_dates.append(row_date)
+                dk = row_date.strftime("%Y-%m-%d")
+                if dk not in vendas_por_dia:
+                    vendas_por_dia[dk] = {"total": 0, "org": 0, "traf": 0}
+                vendas_por_dia[dk]["total"] += 1
+
+            # posicionamento: utm_term para TODAS as vendas workshop
+            if placement:
+                vendas_por_posic[placement] = vendas_por_posic.get(placement, 0) + 1
+
+            if ct == "quente":
+                ws_q += 1
+                if row_date:
+                    vendas_por_dia[row_date.strftime("%Y-%m-%d")]["traf"] += 1
+            elif ct == "frio":
+                ws_f += 1
+                if row_date:
+                    vendas_por_dia[row_date.strftime("%Y-%m-%d")]["traf"] += 1
+            elif is_ig_fb:
+                ws_traf += 1
+                if row_date:
+                    vendas_por_dia[row_date.strftime("%Y-%m-%d")]["traf"] += 1
+            else:
+                ws_org += 1
+                # origem orgânica: usa utm_medium (manychat, youtube, whatsapp, email…)
+                medium_key = utm_medium if utm_medium else src
+                if medium_key:
+                    vendas_por_origem[medium_key] = vendas_por_origem.get(medium_key, 0) + 1
+                if row_date:
+                    vendas_por_dia[row_date.strftime("%Y-%m-%d")]["org"] += 1
+
+    # ── Totais derivados ──────────────────────────────────────────────────────
+    vendas_trafego = ws_q + ws_f + ws_traf
+    vendas_org     = ws_org
+    fat_trafego    = fat_q + fat_f + fat_traf
+    fat_geral      = sum(fat_by_cat.values())
+    valor_bruto    = sum(_wici2_parse_brl(r[3]) for r in vendas_rows_raw if len(r) > 3)
+    compradores    = len(emails_uniq)
+    ws_total       = ws_q + ws_f + ws_traf + ws_org
+    fat_ws         = fat_by_cat["workshop"]
+    ticket         = round(fat_ws / ws_total, 2) if ws_total else None
+
+    # ── Médias diárias ────────────────────────────────────────────────────────
+    today    = datetime.now().date()
+    ref_date = date_end if date_end else today
+    base_date = data_inicio_geral if data_inicio_geral else (min(all_ws_dates) if all_ws_dates else ref_date)
+    dias_vendendo = max(1, (ref_date - base_date).days)
+
+    media_geral   = round(ws_total       / dias_vendendo, 1)
+    media_org     = round(ws_org         / dias_vendendo, 1)
+    media_trafego = round(vendas_trafego / dias_vendendo, 1)
+
+    # ── Dados para gráficos ───────────────────────────────────────────────────
+    sorted_dias  = sorted(vendas_por_dia.items())
+    chart_labels = [d for d, _ in sorted_dias]
+    chart_total  = [v["total"] for _, v in sorted_dias]
+    chart_org    = [v["org"]   for _, v in sorted_dias]
+    chart_traf   = [v.get("traf", 0) for _, v in sorted_dias]
+    chart_cpa    = [
+        round(invest_por_dia[dk] / v["traf"], 2) if v.get("traf") and dk in invest_por_dia else None
+        for dk, v in sorted_dias
+    ]
+
+    origem_sorted = sorted(vendas_por_origem.items(), key=lambda x: -x[1])[:10]
+    posic_sorted  = sorted(vendas_por_posic.items(),  key=lambda x: -x[1])[:10]
+
+    def safe_div(a, b):
+        return round(a / b, 2) if b else None
+
+    def taxa_pct(a, b):
+        return round(a / b * 100, 2) if b else None
+
+    return {
+        # investimentos
+        "invest_total":    round(invest_total, 2),
+        "invest_workshop": round(invest_workshop, 2),
+        "invest_quente":   round(invest_q, 2),
+        "invest_frio":     round(invest_f, 2),
+        "invest_corredor": round(invest_cor, 2),
+        # faturamentos
+        "fat_geral":    round(fat_geral, 2),
+        "fat_lembrete": round(fat_by_cat["lembrete"], 2),
+        "fat_mentoria": round(fat_by_cat["mentoria"], 2),
+        "fat_corredor": round(fat_by_cat["corredor"], 2),
+        "fat_trafego":  round(fat_trafego, 2),
+        "fat_org":      round(fat_org, 2),
+        "fat_quente":   round(fat_q, 2),
+        "fat_frio":     round(fat_f, 2),
+        "valor_bruto":  round(valor_bruto, 2),
+        # contagens
+        "compradores":    compradores,
+        "ws_total":       ws_total,
+        "grupo":          WICI2_GRUPO or None,
+        "vendas_trafego": vendas_trafego,
+        "vendas_org":     vendas_org,
+        "vendas_quente":  ws_q,
+        "vendas_frio":    ws_f,
+        "ticket_medio":   ticket,
+        # derivados
+        "cpa":         safe_div(invest_total, vendas_trafego),
+        "cpa_quente":  safe_div(invest_q,     ws_q),
+        "cpa_frio":    safe_div(invest_f,     ws_f),
+        "roas_geral":  safe_div(fat_geral,    invest_total),
+        "roas_quente": safe_div(fat_q,        invest_q),
+        "roas_frio":   safe_div(fat_f,        invest_f),
+        # taxas (% do previsto de investimento)
+        "taxa_invest_total":    taxa_pct(invest_total,          WICI2_PREVISTO["total"]),
+        "taxa_invest_workshop": taxa_pct(invest_workshop, WICI2_PREVISTO["workshop"]),
+        "invest_lembrete":      0.0,
+        "taxa_invest_lembrete": 0.0,
+        "invest_mentoria":      0.0,
+        "taxa_invest_mentoria": 0.0,
+        "taxa_invest_corredor": taxa_pct(invest_cor,   WICI2_PREVISTO["corredor"]),
+        # metas totais
+        "meta_total":    meta_total,
+        "meta_trafego":  meta_trafego,
+        "meta_organico": meta_organico,
+        # gauges (% da meta total atingida)
+        "gauge_geral_pct":   round(ws_total       / meta_total    * 100, 1) if meta_total    else 0,
+        "gauge_org_pct":     round(ws_org         / meta_organico * 100, 1) if meta_organico else 0,
+        "gauge_trafego_pct": round(vendas_trafego / meta_trafego  * 100, 1) if meta_trafego  else 0,
+        # médias e metas diárias
+        "media_geral":         media_geral,
+        "media_org":           media_org,
+        "media_trafego":       media_trafego,
+        "meta_diaria_geral":   meta_diaria_geral,
+        "meta_diaria_org":     meta_diaria_org,
+        "meta_diaria_trafego": meta_diaria_trafego,
+        "dias_vendendo":       dias_vendendo,
+        # dados para gráficos
+        "chart_dias": {"labels": chart_labels, "total": chart_total, "org": chart_org, "traf": chart_traf, "cpa": chart_cpa},
+        "chart_origem":  [{"label": k, "count": v} for k, v in origem_sorted],
+        "chart_posicao": [{"label": k, "count": v} for k, v in posic_sorted],
+        "temperatura":   {"frio": ws_f, "quente": ws_q + ws_traf, "org": ws_org},
+    }
 
 # ── Google Ads Clients ───────────────────────────────────────────────────────
 GOOGLE_ADS_CLIENTS = {
@@ -1834,6 +2184,274 @@ async def get_gads_keywords(request: Request, client_sigla: str = "SRW", preset:
             key=lambda x: -x["spend"]
         )
     return JSONResponse(result)
+
+def _wici2_fetch_trafego(date_start=None, date_end=None, profile: str = "") -> dict:
+    """Retorna dados de tráfego por campanha, público (conjunto) e criativo (anúncio)."""
+    sa_path = BASE_DIR / "service_account.json"
+    creds = service_account.Credentials.from_service_account_file(
+        str(sa_path), scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
+    )
+    sheets = gapi_build("sheets", "v4", credentials=creds).spreadsheets().values()
+
+    def _toi(v):
+        try: return int(v)
+        except: return 0
+
+    def _blank():
+        return {"invest": 0.0, "imp": 0, "clicks": 0, "pv": 0, "checkout": 0}
+
+    def _agg(d, key, cost, imp, clks, pv, co):
+        if not key: return
+        if key not in d: d[key] = _blank()
+        d[key]["invest"]   += cost
+        d[key]["imp"]      += imp
+        d[key]["clicks"]   += clks
+        d[key]["pv"]       += pv
+        d[key]["checkout"] += co
+
+    # ── Meta Ads: agrega por campanha, conjunto e anúncio ────────────────────
+    meta_rows = sheets.get(spreadsheetId=WICI2_SHEET_ID, range=WICI2_ABA_META).execute().get("values", [])[1:]
+    camp_meta:  dict = {}
+    adset_meta: dict = {}
+    ad_meta:    dict = {}
+    ad_links:   dict = {}   # anúncio → primeiro link encontrado (col 9)
+    ad_daily_invest:    dict = {}  # (anuncio, date) → invest
+    camp_daily_invest:  dict = {}  # (campanha, date) → invest
+    adset_daily_invest: dict = {}  # (conjunto, date) → invest
+
+    for row in meta_rows:
+        if len(row) < 4: continue
+        row_date = _wici2_parse_date(row[0]) if row[0] else None
+        if date_start and row_date and row_date < date_start: continue
+        if date_end   and row_date and row_date > date_end:   continue
+        camp = row[1].strip() if len(row) > 1 else ""
+        if not camp: continue
+        has_mo = "MO" in camp
+        if profile == "malu" and not has_mo: continue
+        if profile == "hire" and has_mo:     continue
+        try:    cost = float(row[3].replace(",", "."))
+        except: continue
+        adset   = row[2].strip()  if len(row) > 2  else ""
+        anuncio = row[10].strip() if len(row) > 10 else ""
+        link    = row[9].strip()  if len(row) > 9  else ""
+        imp  = _toi(row[4]) if len(row) > 4 else 0
+        clks = _toi(row[6]) if len(row) > 6 else 0
+        pv   = _toi(row[7]) if len(row) > 7 else 0
+        co   = _toi(row[8]) if len(row) > 8 else 0
+        _agg(camp_meta,  camp,    cost, imp, clks, pv, co)
+        _agg(adset_meta, adset,   cost, imp, clks, pv, co)
+        _agg(ad_meta,    anuncio, cost, imp, clks, pv, co)
+        if anuncio and link and anuncio not in ad_links:
+            ad_links[anuncio] = link
+        if row_date:
+            if anuncio:
+                dk = (anuncio, row_date); ad_daily_invest[dk]    = ad_daily_invest.get(dk, 0.0)    + cost
+            if camp:
+                dk = (camp,    row_date); camp_daily_invest[dk]  = camp_daily_invest.get(dk, 0.0)  + cost
+            if adset:
+                dk = (adset,   row_date); adset_daily_invest[dk] = adset_daily_invest.get(dk, 0.0) + cost
+
+    # ── Green: vendas por campanha (utm_campaign), público (utm_medium) e criativo (utm_content) ──
+    green_rows = sheets.get(spreadsheetId=WICI2_SHEET_ID, range=WICI2_ABA_VENDAS).execute().get("values", [])[1:]
+    camp_sales:    dict = {}
+    medium_sales:  dict = {}
+    content_sales: dict = {}
+    ad_daily_sales:     dict = {}  # (utm_content, date) → vendas
+    camp_daily_sales:   dict = {}  # (utm_campaign, date) → vendas
+    medium_daily_sales: dict = {}  # (utm_medium, date) → vendas
+
+    for row in green_rows:
+        if len(row) < 7: continue
+        row_date = _wici2_parse_date(row[0]) if row[0] else None
+        if date_start and row_date and row_date < date_start: continue
+        if date_end   and row_date and row_date > date_end:   continue
+        prod = row[4].strip() if len(row) > 4 else ""
+        if _wici2_product_category(prod) != "workshop": continue
+        src  = row[5].strip().lower() if len(row) > 5 else ""
+        if src not in ("ig", "facebook", "metaads", "meta"): continue
+        camp    = row[6].strip() if len(row) > 6 else ""
+        medium  = row[7].strip() if len(row) > 7 else ""
+        content = row[8].strip() if len(row) > 8 else ""
+        if camp:
+            has_mo = "MO" in camp
+            if profile == "malu" and not has_mo: continue
+            if profile == "hire" and has_mo:     continue
+        if camp:    camp_sales[camp]       = camp_sales.get(camp, 0)       + 1
+        if medium:  medium_sales[medium]   = medium_sales.get(medium, 0)   + 1
+        if content: content_sales[content] = content_sales.get(content, 0) + 1
+        if row_date:
+            if content: dk = (content, row_date); ad_daily_sales[dk]     = ad_daily_sales.get(dk, 0)     + 1
+            if camp:    dk = (camp,    row_date); camp_daily_sales[dk]   = camp_daily_sales.get(dk, 0)   + 1
+            if medium:  dk = (medium,  row_date); medium_daily_sales[dk] = medium_daily_sales.get(dk, 0) + 1
+
+    # ── Monta tabela ─────────────────────────────────────────────────────────
+    def _build(meta_dict, sales_dict, with_profile=False):
+        rows = []
+        for key, m in meta_dict.items():
+            vendas  = sales_dict.get(key, 0)
+            invest  = m["invest"]
+            clicks  = m["clicks"]
+            imp     = m["imp"]
+            pv      = m["pv"]
+            ctr          = round(clicks / imp    * 100, 2) if imp    else 0.0
+            connect_rate = round(pv     / clicks * 100, 2) if clicks else 0.0
+            tx_conv = round(vendas / clicks * 100, 2) if clicks else 0.0
+            cpa     = round(invest / vendas, 2) if vendas else None
+            row = {
+                "nome":         key,
+                "type":         _wici2_campaign_type(key) or "outro",
+                "invest":       round(invest, 2),
+                "imp":          imp,
+                "ctr":          ctr,
+                "clicks":       clicks,
+                "pv":           pv,
+                "connect_rate": connect_rate,
+                "checkout":     m["checkout"],
+                "vendas":       vendas,
+                "tx_conv":      tx_conv,
+                "cpa":          cpa,
+            }
+            if with_profile:
+                row["profile"] = "malu" if "MO" in key else "hire"
+            rows.append(row)
+
+        rows.sort(key=lambda x: -x["invest"])
+
+        # Alertas baseados na meta fixa de CPA = R$ 70
+        # green = OK (≤ R$70) | yellow = CPA Alto (>R$70–R$105) | orange = CPA Crítico (>R$105) | red = Sem Venda
+        CPA_META = 70.0
+        for r in rows:
+            if r["vendas"] == 0:            r["alerta"] = "red"
+            elif r["cpa"] > CPA_META * 1.5: r["alerta"] = "orange"   # > R$105
+            elif r["cpa"] > CPA_META:       r["alerta"] = "yellow"   # > R$70
+            else:                           r["alerta"] = "green"
+        return rows
+
+    criativos = _build(ad_meta, content_sales)
+
+    # ── Tendência de CPA (últimos 3 dias do período selecionado) ─────────────
+    ref_date   = date_end if date_end else datetime.today().date()
+    trend_days = [(ref_date - timedelta(days=i)) for i in range(3)]  # [hoje, ontem, anteontem]
+
+    def _cpa_trend(name, inv_dict, sales_dict):
+        daily_cpas = []
+        for d in trend_days:
+            inv   = inv_dict.get((name, d), 0.0)
+            sales = sales_dict.get((name, d), 0)
+            if sales > 0:
+                daily_cpas.append(inv / sales)
+        if len(daily_cpas) < 2:
+            return ""
+        recent, old = daily_cpas[0], daily_cpas[-1]
+        if recent <= old * 0.9:  return "improving"
+        if recent >= old * 1.1:  return "worsening"
+        return "stable"
+
+    for r in criativos:
+        r["cpa_trend"] = _cpa_trend(r["nome"], ad_daily_invest, ad_daily_sales)
+
+    # Adiciona link por anúncio (col 9 da aba Meta Ads)
+    for r in criativos:
+        r["link"] = ad_links.get(r["nome"], "")
+
+    # Status via Meta Graph API — campanhas, conjuntos e anúncios
+    active_ads:    set = set()
+    active_camps:  set = set()
+    active_adsets: set = set()
+    meta_api_ok = False
+    try:
+        import urllib.request as _ur, json as _json, urllib.parse as _up
+        hire_cfg   = META_CLIENTS.get("HIRE", {})
+        hire_token = hire_cfg.get("token", lambda: "")()
+        hire_accts = hire_cfg.get("accounts", [])
+        if hire_token and hire_accts:
+            _filt = _up.quote('[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]')
+
+            def _fetch_active(endpoint, target_set):
+                for acct_id in hire_accts:
+                    nxt = (f"{META_GRAPH_BASE}/{acct_id}/{endpoint}"
+                           f"?fields=name&limit=500&filtering={_filt}&access_token={hire_token}")
+                    while nxt:
+                        with _ur.urlopen(nxt, timeout=10) as resp:
+                            d = _json.loads(resp.read().decode())
+                        if "error" in d:
+                            print(f"[WICI2/Meta] {endpoint} error {acct_id}: {d['error']}", flush=True)
+                            break
+                        for obj in d.get("data", []):
+                            n = obj.get("name", "").strip()
+                            if n: target_set.add(n)
+                        nxt = d.get("paging", {}).get("next")
+
+            _fetch_active("ads",       active_ads)
+            _fetch_active("campaigns", active_camps)
+            _fetch_active("adsets",    active_adsets)
+            meta_api_ok = True
+        else:
+            print(f"[WICI2/Meta] token={bool(hire_token)} accounts={hire_accts}", flush=True)
+    except Exception as _meta_err:
+        print(f"[WICI2/Meta] Erro ao buscar status: {_meta_err}", flush=True)
+
+    for r in criativos:
+        r["status"] = ("ACTIVE" if r["nome"] in active_ads else "PAUSED") if meta_api_ok else ""
+
+    campanhas = _build(camp_meta,  camp_sales, with_profile=True)
+    for r in campanhas:
+        r["cpa_trend"] = _cpa_trend(r["nome"], camp_daily_invest, camp_daily_sales)
+        r["status"] = ("ACTIVE" if r["nome"] in active_camps  else "PAUSED") if meta_api_ok else ""
+
+    publicos = _build(adset_meta, medium_sales)
+    for r in publicos:
+        r["cpa_trend"] = _cpa_trend(r["nome"], adset_daily_invest, medium_daily_sales)
+        r["status"] = ("ACTIVE" if r["nome"] in active_adsets else "PAUSED") if meta_api_ok else ""
+
+    return {
+        "campanhas": campanhas,
+        "publicos":  publicos,
+        "criativos": criativos,
+    }
+
+
+@app.get("/api/wici2/trafego")
+async def get_wici2_trafego(
+    request: Request,
+    date_start: str = None,
+    date_end:   str = None,
+    profile:    str = "",
+):
+    try:
+        ds = datetime.strptime(date_start, "%Y-%m-%d").date() if date_start else None
+        de = datetime.strptime(date_end,   "%Y-%m-%d").date() if date_end   else None
+        data = await asyncio.to_thread(_wici2_fetch_trafego, ds, de, profile)
+        return JSONResponse(data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/wici2", response_class=HTMLResponse)
+async def wici2_page(request: Request):
+    if not verify_session(request):
+        return RedirectResponse("/login")
+    return templates.TemplateResponse("wici2.html", {"request": request, **_nav_base(request, "wici2")})
+
+@app.get("/dashboard-hire", response_class=HTMLResponse)
+async def dashboard_hire_page(request: Request):
+    """Public alias for WICI2 — no login required."""
+    return templates.TemplateResponse("wici2.html", {"request": request, "nav_username": "", "active_page": "wici2", "nav_clients": None, "nav_current_client": None})
+
+@app.get("/api/wici2/metrics")
+async def get_wici2_metrics(
+    request: Request,
+    date_start: str = None,
+    date_end:   str = None,
+    profile:    str = "",
+):
+    try:
+        ds = datetime.strptime(date_start, "%Y-%m-%d").date() if date_start else None
+        de = datetime.strptime(date_end,   "%Y-%m-%d").date() if date_end   else None
+        data = await asyncio.to_thread(_wici2_fetch_metrics, ds, de, profile)
+        return JSONResponse(data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/logs", response_class=HTMLResponse)
 async def view_logs(request: Request):
