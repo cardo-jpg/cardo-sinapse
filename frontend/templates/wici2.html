@@ -599,10 +599,7 @@
     <div id="viewCria" style="display:none;">
       <div class="traf-section">
         <div class="traf-section-title">Performance por Criativo (Anúncio)</div>
-        <div class="cria-filters">
-          <button class="cria-filter-btn active" onclick="setCriaFilter('todos', this)">Todos</button>
-          <button class="cria-filter-btn"        onclick="setCriaFilter('rmkt',  this)">RMKT</button>
-        </div>
+        <div id="criaFiltersBar"></div>
         <div class="traf-table-wrap">
           <table class="traf-table" id="trafTableCria">
             <colgroup id="trafCgCria"></colgroup>
@@ -793,6 +790,7 @@ function setTab(btn) {
   if (TRAF_TABS.includes(tab)) {
     const W = tab.charAt(0).toUpperCase() + tab.slice(1);
     document.getElementById(`view${W}`).style.display = '';
+    if (tab === 'cria') _initCriaFilters();
     if (!trafData) loadTrafego();
     // else data already rendered — just revealing the view is enough
   } else {
@@ -1129,6 +1127,21 @@ const ALERTA_LABELS = { green: 'OK', yellow: 'CPA Alto', orange: 'CPA Crítico',
 
 // ── Filtro RMKT (apenas na tab Criativos) ────────────────────────────────────
 let criaFilter = 'todos'; // 'todos' | 'rmkt'
+
+function _initCriaFilters() {
+  const bar = document.getElementById('criaFiltersBar');
+  if (!bar || bar.dataset.init) return;
+  bar.dataset.init = '1';
+  bar.className = 'cria-filters';
+  [['todos','Todos'],['rmkt','RMKT']].forEach(([val, label]) => {
+    const btn = document.createElement('button');
+    btn.className = 'cria-filter-btn' + (val === criaFilter ? ' active' : '');
+    btn.textContent = label;
+    btn.onclick = () => setCriaFilter(val, btn);
+    bar.appendChild(btn);
+  });
+}
+
 function setCriaFilter(val, btn) {
   criaFilter = val;
   document.querySelectorAll('.cria-filter-btn').forEach(b => b.classList.remove('active'));
