@@ -1674,6 +1674,7 @@ function _pqBar(id, labels, values, opts = {}) {
     options: {
       indexAxis: opts.horizontal ? 'y' : 'x',
       responsive: true,
+      aspectRatio: opts.horizontal ? 1.8 : 2.4,
       plugins: {
         legend: { display: false },
         tooltip: {
@@ -1706,6 +1707,7 @@ function _pqDonut(id, labels, values) {
     },
     options: {
       responsive: true,
+      aspectRatio: 2,
       cutout: '60%',
       plugins: {
         legend: { position:'right', labels:{ color:'rgba(255,255,255,.75)', font:{size:11}, boxWidth:12, padding:10 } },
