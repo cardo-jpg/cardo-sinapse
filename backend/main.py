@@ -99,6 +99,7 @@ WICI2_SHEET_ID      = "1KjDx2tEpWdyWusjLFwW5SmeAEsA-aiH1ULOPgGQ4E-s"
 WICI2_ABA_VENDAS    = "Green - Todas as Vendas"
 WICI2_ABA_META      = "Meta Ads"
 WICI2_ABA_METAS     = "Metas"
+WICI2_ABA_RMKT      = "Ads RMKT"
 WICI2_GRUPO         = int(os.getenv("WICI2_GRUPO", "0"))   # membros do grupo (atualizar via env)
 WICI2_PREVISTO = {
     "total":    90_000.0,
@@ -2284,6 +2285,16 @@ def _wici2_fetch_trafego(date_start=None, date_end=None, profile: str = "") -> d
             if camp:    dk = (camp,    row_date); camp_daily_sales[dk]   = camp_daily_sales.get(dk, 0)   + 1
             if medium:  dk = (medium,  row_date); medium_daily_sales[dk] = medium_daily_sales.get(dk, 0) + 1
 
+    # ── Ads RMKT: lê lista de nomes da aba "Ads RMKT" ────────────────────────
+    rmkt_names: set = set()
+    try:
+        rmkt_rows = sheets.get(spreadsheetId=WICI2_SHEET_ID, range=WICI2_ABA_RMKT).execute().get("values", [])
+        for row in rmkt_rows:
+            if row and row[0].strip():
+                rmkt_names.add(row[0].strip())
+    except Exception:
+        pass  # aba ausente ou erro → sem marcação RMKT
+
     # ── Monta tabela ─────────────────────────────────────────────────────────
     def _build(meta_dict, sales_dict, with_profile=False):
         rows = []
@@ -2328,6 +2339,8 @@ def _wici2_fetch_trafego(date_start=None, date_end=None, profile: str = "") -> d
         return rows
 
     criativos = _build(ad_meta, content_sales)
+    for r in criativos:
+        r["rmkt"] = r["nome"] in rmkt_names
 
     # ── Tendência de CPA (últimos 3 dias do período selecionado) ─────────────
     ref_date   = date_end if date_end else datetime.today().date()
