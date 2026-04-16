@@ -1272,14 +1272,16 @@ function renderTrafTable(w) {
   const fNUM = v => (v != null && v !== 0) ? v.toLocaleString('pt-BR') : Z();
 
   // ── rows ──
-  let totInvest=0, totImp=0, totClicks=0, totVendas=0;
+  let totInvest=0, totImp=0, totClicks=0, totPV=0, totCheckout=0, totVendas=0;
 
   const tbody = document.getElementById(`trafTbody${w}`);
   tbody.innerHTML = sorted.map(r => {
-    totInvest += r.invest  || 0;
-    totImp    += r.imp     || 0;
-    totClicks += r.clicks  || 0;
-    totVendas += r.vendas  || 0;
+    totInvest   += r.invest   || 0;
+    totImp      += r.imp      || 0;
+    totClicks   += r.clicks   || 0;
+    totPV       += r.pv       || 0;
+    totCheckout += r.checkout || 0;
+    totVendas   += r.vendas   || 0;
 
     const cells = cols.map(c => {
       switch(c.fmt) {
@@ -1323,17 +1325,30 @@ function renderTrafTable(w) {
   }).join('');
 
   // ── footer ──
-  const cpaFt = totVendas ? 'R$\u202f'+(totInvest/totVendas).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+  const fBRLft = v => 'R$\u202f' + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const fPCTft = v => v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '%';
+  const totCTR  = totImp    ? totClicks   / totImp    * 100 : null;
+  const totCR   = totClicks ? totPV       / totClicks * 100 : null;
+  const totTxCV = totClicks ? totVendas   / totClicks * 100 : null;
+  const totCPA  = totVendas ? totInvest   / totVendas       : null;
   const ftCells = cols.map((c, i) => {
     if (i === 0) return `<td class="tl">TOTAL (${sorted.length})</td>`;
     switch(c.key) {
-      case 'type':   return '<td></td>';
-      case 'invest': return `<td>R$\u202f${totInvest.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>`;
-      case 'imp':    return `<td>${totImp.toLocaleString('pt-BR')}</td>`;
-      case 'clicks': return `<td>${totClicks.toLocaleString('pt-BR')}</td>`;
-      case 'vendas': return `<td>${totVendas}</td>`;
-      case 'cpa':    return `<td>${cpaFt}</td>`;
-      default:       return '<td>—</td>';
+      case 'type':         return '<td></td>';
+      case 'metastatus':   return '<td></td>';
+      case 'cpa_trend':    return '<td></td>';
+      case 'alerta':       return '<td></td>';
+      case 'invest':       return `<td>${fBRLft(totInvest)}</td>`;
+      case 'imp':          return `<td>${totImp.toLocaleString('pt-BR')}</td>`;
+      case 'ctr':          return `<td>${totCTR  != null ? fPCTft(totCTR)  : '—'}</td>`;
+      case 'clicks':       return `<td>${totClicks.toLocaleString('pt-BR')}</td>`;
+      case 'pv':           return `<td>${totPV.toLocaleString('pt-BR')}</td>`;
+      case 'connect_rate': return `<td>${totCR    != null ? fPCTft(totCR)   : '—'}</td>`;
+      case 'checkout':     return `<td>${totCheckout.toLocaleString('pt-BR')}</td>`;
+      case 'vendas':       return `<td>${totVendas.toLocaleString('pt-BR')}</td>`;
+      case 'tx_conv':      return `<td>${totTxCV != null ? fPCTft(totTxCV) : '—'}</td>`;
+      case 'cpa':          return `<td>${totCPA  != null ? fBRLft(totCPA)  : '—'}</td>`;
+      default:             return '<td>—</td>';
     }
   });
   document.getElementById(`trafTfoot${w}`).innerHTML = '<tr>' + ftCells.join('') + '</tr>';
