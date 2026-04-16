@@ -219,10 +219,18 @@
     .traf-badge.q { background:rgba(245,158,11,.2); color:#fbbf24; }
     .traf-badge.f { background:rgba(99,102,241,.2); color:#a5b4fc; }
     .traf-badge.rmkt { background:rgba(239,68,68,.2); color:#fca5a5; }
-    .cria-filters { display:flex; align-items:center; gap:6px; margin-bottom:12px; }
-    .cria-filter-btn { padding:5px 14px; font-size:.78rem; font-weight:600; border-radius:20px; border:1px solid rgba(123,45,139,.4); background:none; color:rgba(255,255,255,.55); cursor:pointer; transition:all .15s; }
-    .cria-filter-btn:hover { border-color:var(--purple-light); color:var(--purple-light); }
-    .cria-filter-btn.active { background:var(--purple); border-color:var(--purple); color:#fff; }
+    .cria-controls { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+    .cria-search-inp { background:rgba(255,255,255,.06); border:1px solid rgba(123,45,139,.4); border-radius:8px; color:var(--text); padding:6px 12px; font-size:.82rem; width:200px; }
+    .cria-search-inp:focus { outline:none; border-color:var(--purple-light); }
+    .cria-dd-wrap { position:relative; }
+    .cria-dd-btn { display:flex; align-items:center; gap:6px; background:rgba(255,255,255,.06); border:1px solid rgba(123,45,139,.4); border-radius:8px; color:var(--text); padding:6px 12px; font-size:.82rem; cursor:pointer; white-space:nowrap; user-select:none; }
+    .cria-dd-btn:hover { border-color:var(--purple-light); }
+    .cria-dd-btn.has-filter { border-color:var(--purple-light); color:var(--purple-light); }
+    .cria-dd { display:none; position:absolute; top:calc(100% + 6px); right:0; z-index:60; background:var(--purple-deep); border:1px solid rgba(123,45,139,.5); border-radius:10px; min-width:160px; box-shadow:0 8px 24px #00000066; overflow:hidden; }
+    .cria-dd.open { display:block; }
+    .cria-dd-item { padding:9px 14px; font-size:.83rem; cursor:pointer; color:var(--text); transition:background .1s; }
+    .cria-dd-item:hover { background:rgba(123,45,139,.2); }
+    .cria-dd-item.active { color:var(--purple-light); font-weight:600; }
     .traf-alerta { display:inline-block; font-size:.65rem; font-weight:700; padding:2px 8px; border-radius:4px; letter-spacing:.03em; white-space:nowrap; }
     .traf-alerta.green  { background:rgba(196,241,53,.12);  color:#c4f135; border:1px solid rgba(196,241,53,.25); }
     .traf-alerta.yellow { background:rgba(251,191,36,.12);  color:#fbbf24; border:1px solid rgba(251,191,36,.25); }
@@ -599,7 +607,19 @@
     <div id="viewCria" style="display:none;">
       <div class="traf-section">
         <div class="traf-section-title">Performance por Criativo (Anúncio)</div>
-        <div id="criaFiltersBar"></div>
+        <div class="cria-controls">
+          <input type="search" id="criaSearch" class="cria-search-inp" placeholder="Filtrar por nome…" oninput="renderTrafTable('Cria')">
+          <div class="cria-dd-wrap">
+            <button class="cria-dd-btn" id="criaDdBtn" onclick="toggleCriaDd()">
+              <span id="criaDdLabel">Todas</span>
+              <span>▾</span>
+            </button>
+            <div class="cria-dd" id="criaDd">
+              <div class="cria-dd-item active" onclick="setCriaFilter('todos',this)">Todas</div>
+              <div class="cria-dd-item"        onclick="setCriaFilter('rmkt',this)">Apenas RMKT</div>
+            </div>
+          </div>
+        </div>
         <div class="traf-table-wrap">
           <table class="traf-table" id="trafTableCria">
             <colgroup id="trafCgCria"></colgroup>
@@ -790,7 +810,6 @@ function setTab(btn) {
   if (TRAF_TABS.includes(tab)) {
     const W = tab.charAt(0).toUpperCase() + tab.slice(1);
     document.getElementById(`view${W}`).style.display = '';
-    if (tab === 'cria') _initCriaFilters();
     if (!trafData) loadTrafego();
     // else data already rendered — just revealing the view is enough
   } else {
@@ -1125,29 +1144,27 @@ const trafSort = {
 // CPA meta = R$70 | OK ≤70 | CPA Alto >70 | CPA Crítico >105 | Sem Venda = 0 sales
 const ALERTA_LABELS = { green: 'OK', yellow: 'CPA Alto', orange: 'CPA Crítico', red: 'Sem Venda' };
 
-// ── Filtro RMKT (apenas na tab Criativos) ────────────────────────────────────
+// ── Filtro RMKT + busca (tab Criativos) ──────────────────────────────────────
 let criaFilter = 'todos'; // 'todos' | 'rmkt'
 
-function _initCriaFilters() {
-  const bar = document.getElementById('criaFiltersBar');
-  if (!bar || bar.dataset.init) return;
-  bar.dataset.init = '1';
-  bar.className = 'cria-filters';
-  [['todos','Todos'],['rmkt','RMKT']].forEach(([val, label]) => {
-    const btn = document.createElement('button');
-    btn.className = 'cria-filter-btn' + (val === criaFilter ? ' active' : '');
-    btn.textContent = label;
-    btn.onclick = () => setCriaFilter(val, btn);
-    bar.appendChild(btn);
-  });
+function toggleCriaDd() {
+  document.getElementById('criaDd').classList.toggle('open');
 }
-
-function setCriaFilter(val, btn) {
+function setCriaFilter(val, el) {
   criaFilter = val;
-  document.querySelectorAll('.cria-filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+  document.querySelectorAll('.cria-dd-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+  const btn = document.getElementById('criaDdBtn');
+  const lbl = document.getElementById('criaDdLabel');
+  lbl.textContent = val === 'rmkt' ? 'RMKT' : 'Todas';
+  btn.classList.toggle('has-filter', val === 'rmkt');
+  document.getElementById('criaDd').classList.remove('open');
   if (trafData) renderTrafTable('Cria');
 }
+document.addEventListener('click', e => {
+  const wrap = document.querySelector('.cria-dd-wrap');
+  if (wrap && !wrap.contains(e.target)) document.getElementById('criaDd')?.classList.remove('open');
+});
 
 // ── Column widths (persisted per table, reset on page load) ────────────────────
 const _TW = { nome:240, type:52, invest:115, imp:78, ctr:64, clicks:78, pv:64, connect_rate:64, checkout:78, vendas:70, tx_conv:68, cpa:108, cpa_trend:100, metastatus:90, alerta:130, rmkt:70 };
@@ -1261,7 +1278,12 @@ function sortTraf(w, key) {
 
 function renderTrafTable(w) {
   const rawRows = (w === 'Camp' ? trafData.campanhas : w === 'Publ' ? trafData.publicos : trafData.criativos) || [];
-  const rows = (w === 'Cria' && criaFilter === 'rmkt') ? rawRows.filter(r => r.rmkt) : rawRows;
+  const searchQ = w === 'Cria' ? (document.getElementById('criaSearch')?.value || '').toLowerCase() : '';
+  const rows = rawRows.filter(r => {
+    if (w === 'Cria' && criaFilter === 'rmkt' && !r.rmkt) return false;
+    if (searchQ && !r.nome.toLowerCase().includes(searchQ)) return false;
+    return true;
+  });
   const s    = trafSort[w];
   const cols = _visibleCols(w);
   const cw   = colWidths[w];
