@@ -2466,6 +2466,106 @@ async def get_wici2_metrics(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+PESQUISA_SHEET_ID = "1anx4DPJxtLI7c_TefA8bn3aNTUrvWoIQBHkN4dE1ALg"
+PESQUISA_ABA      = "Respostas ao formulário 1"
+
+_PT_STOPS = {
+    'a','e','o','as','os','de','do','da','dos','das','em','no','na','nos','nas',
+    'que','para','por','com','um','uma','me','se','eu','te','não','nao','meu','minha',
+    'mais','ja','já','mas','ou','é','e','sao','são','ter','ser','estar','ao','aos',
+    'à','às','pelo','pela','pelos','pelas','entre','como','muito','bem','também',
+    'tambem','só','so','ainda','ele','ela','eles','elas','isso','esse','essa',
+    'este','esta','aqui','la','lá','quando','onde','quem','qual','quais','porque',
+    'pois','então','entao','assim','hoje','sempre','nunca','todo','toda','todos',
+    'todas','cada','tem','foi','ir','poder','quero','tenho','sou','estou','meus',
+    'minhas','seus','suas','seu','sua','num','numa','nao','pra','pro','ta','to',
+    'mim','voce','você','vc','nos','aquela','aquele','mesmo','mesma','muitos',
+    'muitas','poucos','poucas','outros','outras','outro','outra','tanto','tanta',
+    'quanto','quanta','agora','antes','depois','pouco','mal','ali','ai','aí',
+    'talvez','porem','porém','logo','portanto','além','alem','disso','desde','até',
+    'ate','sem','sob','sobre','ante','apos','após','durante','através','atraves',
+    'mediante','conforme','segundo','fora','dentro','diante','acima','abaixo',
+    'junto','contra','fazer','saber','haver','vir','ver','dar','ficar','dizer',
+    'falar','tomar','parecer','deixar','passar','usar','dia','dias','anos','ano',
+    'vez','vezes','parte','coisa','coisas','lugar','pessoas','pessoa','forma',
+    'modo','tempo','area','área','caso','ponto','meio','mundo','pais','país',
+    'brasil','trabalho','vaga','vagas','internacional','exterior','moeda','forte',
+    'remoto','morar','conseguir','oportunidade','oportunidades','vida','novo',
+    'nova','querer','poder','ter','algum','alguma','alguns','algumas','nenhum',
+    'nenhuma','tudo','nada','algo','alguem','alguém','ninguem','ninguém',
+}
+
+def _pesquisa_word_cloud(texts: list, max_words: int = 70) -> list:
+    from collections import Counter
+    words = []
+    for text in texts:
+        if not text:
+            continue
+        for w in re.findall(r"[a-záéíóúàãõâêôüç]+", text.lower()):
+            if len(w) > 3 and w not in _PT_STOPS:
+                words.append(w)
+    c = Counter(words)
+    return [[w, cnt] for w, cnt in c.most_common(max_words)]
+
+def _wici2_fetch_pesquisa() -> dict:
+    sa_path = Path(__file__).parent.parent / "service_account.json"
+    creds = service_account.Credentials.from_service_account_file(
+        str(sa_path), scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
+    )
+    from googleapiclient.discovery import build as _build_svc
+    svc    = _build_svc("sheets", "v4", credentials=creds)
+    rows_raw = svc.spreadsheets().values().get(
+        spreadsheetId=PESQUISA_SHEET_ID, range=PESQUISA_ABA
+    ).execute().get("values", [])
+
+    if not rows_raw:
+        return {}
+
+    data  = rows_raw[1:]
+    total = len(data)
+
+    def _col(i):
+        return [r[i].strip() if len(r) > i else "" for r in data]
+
+    def _count(idx):
+        from collections import Counter
+        return dict(Counter(v for v in _col(idx) if v).most_common())
+
+    # Profissão: OUTRO → usa texto livre do campo seguinte
+    profissao_texts = []
+    for r in data:
+        p     = r[12].strip() if len(r) > 12 else ""
+        outro = r[13].strip() if len(r) > 13 else ""
+        if p == "OUTRO":
+            if outro:
+                profissao_texts.append(outro)
+        elif p:
+            profissao_texts.append(p)
+
+    return {
+        "total":          total,
+        "genero":         _count(4),
+        "idade":          _count(3),
+        "faixa_salarial": _count(6),
+        "formacao":       _count(7),
+        "passaporte":     _count(8),
+        "ingles":         _count(9),
+        "outro_idioma":   _count(10),
+        "tempo_insta":    _count(14),
+        "morou_fora":     _count(15),
+        "estado":         _count(16),
+        "profissao_words": _pesquisa_word_cloud(profissao_texts),
+        "porque_words":    _pesquisa_word_cloud(_col(17)),
+    }
+
+@app.get("/api/wici2/pesquisa")
+async def get_wici2_pesquisa(request: Request):
+    try:
+        data = await asyncio.to_thread(_wici2_fetch_pesquisa)
+        return JSONResponse(data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/logs", response_class=HTMLResponse)
 async def view_logs(request: Request):
     if not verify_session(request):

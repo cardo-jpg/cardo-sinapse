@@ -6,6 +6,7 @@
   <title>WICI 2 — Sinapse</title>
   <link rel="stylesheet" href="/static/style.css?v=2">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.2.2/wordcloud2.min.js"></script>
   <style>
     :root {
       --purple:       #7b2d8b;
@@ -269,6 +270,20 @@
     .sk { background:linear-gradient(90deg,rgba(123,45,139,.2) 25%,rgba(123,45,139,.4) 50%,rgba(123,45,139,.2) 75%); background-size:400% 100%; animation:shimmer 1.4s infinite; border-radius:6px; height:1.3rem; width:70%; }
     @keyframes shimmer { 0%{background-position:100% 50%} 100%{background-position:0 50%} }
     @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* ── Pesquisa ── */
+    .pq-header { display:flex; align-items:center; gap:14px; margin-bottom:24px; }
+    .pq-total { background:var(--purple-card); border:1px solid rgba(123,45,139,.35); border-radius:12px; padding:14px 22px; display:flex; flex-direction:column; }
+    .pq-total-num { font-size:2rem; font-weight:800; color:var(--purple-light); line-height:1; }
+    .pq-total-lbl { font-size:.72rem; color:rgba(255,255,255,.5); text-transform:uppercase; letter-spacing:.07em; margin-top:3px; }
+    .pq-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(360px,1fr)); gap:18px; margin-bottom:24px; }
+    .pq-card { background:var(--purple-card); border:1px solid rgba(123,45,139,.35); border-radius:14px; padding:18px 20px; }
+    .pq-card-title { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:rgba(255,255,255,.5); margin-bottom:14px; }
+    .pq-canvas-wrap { position:relative; }
+    .pq-wc-row { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:24px; }
+    .pq-wc-card { background:var(--purple-card); border:1px solid rgba(123,45,139,.35); border-radius:14px; padding:18px 20px; }
+    .pq-wc-title { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:rgba(255,255,255,.5); margin-bottom:14px; }
+    @media(max-width:760px) { .pq-wc-row { grid-template-columns:1fr; } }
   </style>
 </head>
 <body{% if public_mode %} class="public-mode"{% endif %}>
@@ -363,7 +378,8 @@
       <button class="wici-tab"        data-tab="hire"   onclick="setTab(this)">Hire</button>
       <button class="wici-tab"        data-tab="camp"   onclick="setTab(this)">Campanhas</button>
       <button class="wici-tab"        data-tab="publ"   onclick="setTab(this)">Públicos</button>
-      <button class="wici-tab"        data-tab="cria"   onclick="setTab(this)">Criativos</button>
+      <button class="wici-tab"        data-tab="cria"     onclick="setTab(this)">Criativos</button>
+      <button class="wici-tab"        data-tab="pesquisa" onclick="setTab(this)">Pesquisa</button>
     </div>
 
     <div id="viewDashboard">
@@ -632,6 +648,35 @@
     </div>
 
   </div>
+
+    <!-- Tab: Pesquisa -->
+    <div id="viewPesquisa" style="display:none;">
+      <div class="pq-header">
+        <div class="pq-total">
+          <span class="pq-total-num" id="pqTotal">—</span>
+          <span class="pq-total-lbl">respostas</span>
+        </div>
+      </div>
+
+      <div class="pq-grid">
+        <div class="pq-card"><div class="pq-card-title">Gênero</div><div class="pq-canvas-wrap"><canvas id="pqGenero" height="200"></canvas></div></div>
+        <div class="pq-card"><div class="pq-card-title">Faixa de Idade</div><div class="pq-canvas-wrap"><canvas id="pqIdade" height="200"></canvas></div></div>
+        <div class="pq-card"><div class="pq-card-title">Faixa Salarial</div><div class="pq-canvas-wrap"><canvas id="pqSalario" height="200"></canvas></div></div>
+        <div class="pq-card"><div class="pq-card-title">Formação</div><div class="pq-canvas-wrap"><canvas id="pqFormacao" height="200"></canvas></div></div>
+        <div class="pq-card"><div class="pq-card-title">Tem Passaporte Europeu?</div><div class="pq-canvas-wrap"><canvas id="pqPassaporte" height="200"></canvas></div></div>
+        <div class="pq-card"><div class="pq-card-title">Nível de Inglês</div><div class="pq-canvas-wrap"><canvas id="pqIngles" height="200"></canvas></div></div>
+        <div class="pq-card"><div class="pq-card-title">Fala Outro Idioma?</div><div class="pq-canvas-wrap"><canvas id="pqIdioma" height="200"></canvas></div></div>
+        <div class="pq-card"><div class="pq-card-title">Há quanto tempo segue no Instagram?</div><div class="pq-canvas-wrap"><canvas id="pqInsta" height="200"></canvas></div></div>
+        <div class="pq-card"><div class="pq-card-title">Já Morou Fora?</div><div class="pq-canvas-wrap"><canvas id="pqMorouFora" height="200"></canvas></div></div>
+        <div class="pq-card"><div class="pq-card-title">Estado (BR)</div><div class="pq-canvas-wrap"><canvas id="pqEstado" height="200"></canvas></div></div>
+      </div>
+
+      <div class="pq-wc-row">
+        <div class="pq-wc-card"><div class="pq-wc-title">Profissão Atual</div><canvas id="pqWcProfissao" width="500" height="280"></canvas></div>
+        <div class="pq-wc-card"><div class="pq-wc-title">Por que quer uma vaga internacional?</div><canvas id="pqWcPorque" width="500" height="280"></canvas></div>
+      </div>
+    </div>
+
   </main>
 </div>
 <div id="trafColMenu"></div>
@@ -794,7 +839,7 @@ document.addEventListener('click', e => {
 // ── State & presets ───────────────────────────────────────────────────────────
 const state = { preset: 'all', dateStart: null, dateEnd: null, profile: '', tab: 'geral' };
 
-const TRAF_TABS = ['camp', 'publ', 'cria'];
+const TRAF_TABS = ['camp', 'publ', 'cria', 'pesquisa'];
 
 function setTab(btn) {
   document.querySelectorAll('#wiciTabs .wici-tab').forEach(b => b.classList.remove('active'));
@@ -803,15 +848,17 @@ function setTab(btn) {
   state.tab = tab;
 
   // hide all views
-  ['viewDashboard','viewCamp','viewPubl','viewCria'].forEach(id => {
+  ['viewDashboard','viewCamp','viewPubl','viewCria','viewPesquisa'].forEach(id => {
     const el = document.getElementById(id); if (el) el.style.display = 'none';
   });
 
-  if (TRAF_TABS.includes(tab)) {
+  if (tab === 'pesquisa') {
+    document.getElementById('viewPesquisa').style.display = '';
+    loadPesquisa();
+  } else if (TRAF_TABS.includes(tab)) {
     const W = tab.charAt(0).toUpperCase() + tab.slice(1);
     document.getElementById(`view${W}`).style.display = '';
     if (!trafData) loadTrafego();
-    // else data already rendered — just revealing the view is enough
   } else {
     document.getElementById('viewDashboard').style.display = '';
     state.profile = tab === 'geral' ? '' : tab;
@@ -1559,6 +1606,176 @@ async function loadTrafego() {
       const el = document.getElementById(`trafTbody${w}`);
       if (el) el.innerHTML = `<tr><td colspan="12" style="text-align:center;padding:32px;color:#ff8080;">Erro: ${e.message}</td></tr>`;
     });
+  }
+}
+
+// ── Pesquisa tab ─────────────────────────────────────────────────────────────
+let _pqLoaded = false;
+const _pqCharts = {};
+
+const _PQ_PURPLES = ['#7b2d8b','#a855c8','#c084f5','#d8a8f8','#4c1d5e','#9333ea','#6b21a8','#3b0764','#e879f9','#f0abfc'];
+const _PQ_GREENS  = ['#c4f135','#84cc16','#65a30d','#4d7c0f','#a3e635'];
+
+function _pqBar(id, labels, values, opts = {}) {
+  if (_pqCharts[id]) _pqCharts[id].destroy();
+  const ctx = document.getElementById(id)?.getContext('2d');
+  if (!ctx) return;
+  const total = values.reduce((a,b)=>a+b,0);
+  _pqCharts[id] = new Chart(ctx, {
+    type: opts.horizontal ? 'bar' : 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: opts.colors || _PQ_PURPLES,
+        borderRadius: 5,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      indexAxis: opts.horizontal ? 'y' : 'x',
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const pct = total ? (ctx.raw/total*100).toFixed(1) : 0;
+              return ` ${ctx.raw} respostas (${pct}%)`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { grid:{color:'rgba(255,255,255,.06)'}, ticks:{color:'rgba(255,255,255,.6)',font:{size:11}} },
+        y: { grid:{color:'rgba(255,255,255,.06)'}, ticks:{color:'rgba(255,255,255,.6)',font:{size:11}} },
+      }
+    }
+  });
+}
+
+function _pqDonut(id, labels, values) {
+  if (_pqCharts[id]) _pqCharts[id].destroy();
+  const ctx = document.getElementById(id)?.getContext('2d');
+  if (!ctx) return;
+  const total = values.reduce((a,b)=>a+b,0);
+  _pqCharts[id] = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data: values, backgroundColor: _PQ_PURPLES, borderWidth: 2, borderColor: '#1e0a2e' }]
+    },
+    options: {
+      responsive: true,
+      cutout: '60%',
+      plugins: {
+        legend: { position:'right', labels:{ color:'rgba(255,255,255,.75)', font:{size:11}, boxWidth:12, padding:10 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const pct = total ? (ctx.raw/total*100).toFixed(1) : 0;
+              return ` ${ctx.raw} (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+function _pqWordCloud(canvasId, words) {
+  const el = document.getElementById(canvasId);
+  if (!el || !words?.length || typeof WordCloud === 'undefined') return;
+  const maxW = words[0][1];
+  WordCloud(el, {
+    list: words,
+    gridSize: 10,
+    weightFactor: w => Math.max(10, (w / maxW) * 52),
+    fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
+    color: (word, weight) => {
+      const t = weight / maxW;
+      if (t > 0.7) return '#c4f135';
+      if (t > 0.4) return '#a855c8';
+      return '#7b8fa8';
+    },
+    rotateRatio: 0.3,
+    backgroundColor: 'transparent',
+    shuffle: true,
+  });
+}
+
+function _objToSorted(obj) {
+  const entries = Object.entries(obj).sort((a,b) => b[1]-a[1]);
+  return { labels: entries.map(e=>e[0]), values: entries.map(e=>e[1]) };
+}
+
+async function loadPesquisa() {
+  if (_pqLoaded) return;
+  _pqLoaded = true;
+  try {
+    const res = await fetch('/api/wici2/pesquisa');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const d = await res.json();
+
+    document.getElementById('pqTotal').textContent = d.total;
+
+    // Gênero — donut
+    const gen = _objToSorted(d.genero);
+    _pqDonut('pqGenero', gen.labels, gen.values);
+
+    // Idade — bar (ordem cronológica)
+    const idadeOrder = ['De 19 a 24','De 25 a 29','De 30 a 35','De 36 a 39','De 40 a 44','De 45 a 50','50+'];
+    const idadeVals  = idadeOrder.map(k => d.idade[k] || 0);
+    _pqBar('pqIdade', idadeOrder, idadeVals, { colors: _PQ_PURPLES });
+
+    // Faixa salarial — bar horizontal (ordem crescente)
+    const salOrder = ['Até 1500 reais','De 1500 a 2 mil reais','De 2 a 3 mil reais','De 3 a 5 mil reais','De 5 a 10 mil reais','Mais de 10 mil reais por mês'];
+    const salVals  = salOrder.map(k => d.faixa_salarial[k] || 0);
+    _pqBar('pqSalario', salOrder, salVals, { horizontal: true, colors: _PQ_PURPLES });
+
+    // Formação — bar horizontal
+    const fmOrder = ['Ensino médio COMPLETO','Ensino superior INCOMPLETO','Ensino superior COMPLETO','Pós-graduação INCOMPLETA','Pós-graduação COMPLETA'];
+    const fmVals  = fmOrder.map(k => d.formacao[k] || 0);
+    _pqBar('pqFormacao', fmOrder, fmVals, { horizontal: true, colors: _PQ_GREENS });
+
+    // Passaporte — donut
+    _pqDonut('pqPassaporte', ['Não','Sim'], [d.passaporte['Não']||0, d.passaporte['Sim']||0]);
+
+    // Inglês — bar horizontal
+    const ingOrder = ['Zero, não falo','Entendo, mas travo total e não consigo falar','Me viro já, mas preciso praticar um pouco','Me comunico tranquilamente, sou fluente'];
+    const ingLabels = ['Zero','Entendo mas travo','Me viro','Fluente'];
+    const ingVals   = ingOrder.map(k => d.ingles[k] || 0);
+    _pqBar('pqIngles', ingLabels, ingVals, { horizontal: true, colors: _PQ_PURPLES });
+
+    // Outro idioma — donut
+    const id = d.outro_idioma;
+    _pqDonut('pqIdioma',
+      ['Só inglês','Inglês + outro','Outro (sem inglês)','Nenhum'],
+      [id['Não. Só falo inglês']||0, id['Sim. Falo inglês e outro idioma']||0, id['Não falo inglês, mas falo outro idioma']||0, id['Não falo inglês']||0]
+    );
+
+    // Tempo no Instagram — bar
+    const instaOrder = ['Menos de 1 semana','Menos de 1 mês','Entre 1 e 3 meses','Entre 3 e 6 meses','Entre 6 meses e 1 ano','Mais de 1 ano'];
+    const instaVals  = instaOrder.map(k => d.tempo_insta[k] || 0);
+    _pqBar('pqInsta', instaOrder, instaVals, { colors: _PQ_PURPLES });
+
+    // Morou fora — donut
+    const mf = d.morou_fora;
+    _pqDonut('pqMorouFora',
+      ['Nunca','Já morei, voltei','Moro fora atualmente'],
+      [mf['Nunca']||0, mf['Já morei fora, mas estou morando no Brasil agora']||0, mf['Já! Moro fora do Brasil atualmente']||0]
+    );
+
+    // Estado — bar horizontal (top 12)
+    const estSorted = Object.entries(d.estado).sort((a,b)=>b[1]-a[1]).slice(0,12);
+    _pqBar('pqEstado', estSorted.map(e=>e[0]), estSorted.map(e=>e[1]), { horizontal: true, colors: _PQ_PURPLES });
+
+    // Word clouds
+    _pqWordCloud('pqWcProfissao', d.profissao_words);
+    _pqWordCloud('pqWcPorque',    d.porque_words);
+
+  } catch(e) {
+    console.error('Pesquisa error:', e);
   }
 }
 </script>
