@@ -272,18 +272,33 @@
     @keyframes spin { to { transform:rotate(360deg); } }
 
     /* ── Pesquisa ── */
-    .pq-header { display:flex; align-items:center; gap:14px; margin-bottom:24px; }
-    .pq-total { background:var(--purple-card); border:1px solid rgba(123,45,139,.35); border-radius:12px; padding:14px 22px; display:flex; flex-direction:column; }
-    .pq-total-num { font-size:2rem; font-weight:800; color:var(--purple-light); line-height:1; }
-    .pq-total-lbl { font-size:.72rem; color:rgba(255,255,255,.5); text-transform:uppercase; letter-spacing:.07em; margin-top:3px; }
-    .pq-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(360px,1fr)); gap:18px; margin-bottom:24px; }
-    .pq-card { background:var(--purple-card); border:1px solid rgba(123,45,139,.35); border-radius:14px; padding:18px 20px; }
-    .pq-card-title { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:rgba(255,255,255,.5); margin-bottom:14px; }
+    .pq-stats-strip { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; margin-bottom:28px; }
+    .pq-stat { background:var(--purple-card); border:1px solid rgba(123,45,139,.35); border-radius:14px; padding:16px 20px; position:relative; overflow:hidden; }
+    .pq-stat::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(123,45,139,.18) 0%,transparent 60%); pointer-events:none; }
+    .pq-stat-num { font-size:1.85rem; font-weight:800; color:var(--purple-light); line-height:1.1; }
+    .pq-stat-num.green { color:var(--green); }
+    .pq-stat-lbl { font-size:.7rem; color:rgba(255,255,255,.45); text-transform:uppercase; letter-spacing:.07em; margin-top:5px; line-height:1.3; }
+
+    .pq-section-label { font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:rgba(255,255,255,.3); margin:28px 0 12px; padding-left:2px; border-left:2px solid rgba(123,45,139,.5); padding-left:10px; }
+
+    .pq-row { display:grid; gap:16px; margin-bottom:16px; }
+    .pq-row-3 { grid-template-columns:1fr 1fr 1fr; }
+    .pq-row-2 { grid-template-columns:1fr 1fr; }
+    .pq-row-21 { grid-template-columns:2fr 1fr; }
+    .pq-row-12 { grid-template-columns:1fr 2fr; }
+    .pq-row-1  { grid-template-columns:1fr; }
+
+    .pq-card { background:var(--purple-card); border:1px solid rgba(123,45,139,.28); border-radius:16px; padding:20px 22px; }
+    .pq-card-title { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:rgba(255,255,255,.4); margin-bottom:16px; display:flex; align-items:center; gap:7px; }
+    .pq-card-title::before { content:''; display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--purple-light); flex-shrink:0; }
     .pq-canvas-wrap { position:relative; }
-    .pq-wc-row { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:24px; }
-    .pq-wc-card { background:var(--purple-card); border:1px solid rgba(123,45,139,.35); border-radius:14px; padding:18px 20px; }
-    .pq-wc-title { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:rgba(255,255,255,.5); margin-bottom:14px; }
-    @media(max-width:760px) { .pq-wc-row { grid-template-columns:1fr; } }
+
+    .pq-wc-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+    .pq-wc-card { background:var(--purple-card); border:1px solid rgba(123,45,139,.28); border-radius:16px; padding:20px 22px; }
+    .pq-wc-title { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:rgba(255,255,255,.4); margin-bottom:16px; display:flex; align-items:center; gap:7px; }
+    .pq-wc-title::before { content:''; display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--green); flex-shrink:0; }
+    @media(max-width:900px) { .pq-row-3,.pq-row-21,.pq-row-12 { grid-template-columns:1fr 1fr; } }
+    @media(max-width:640px) { .pq-row-3,.pq-row-2,.pq-row-21,.pq-row-12 { grid-template-columns:1fr; } .pq-wc-row { grid-template-columns:1fr; } }
   </style>
 </head>
 <body{% if public_mode %} class="public-mode"{% endif %}>
@@ -651,30 +666,54 @@
 
     <!-- Tab: Pesquisa -->
     <div id="viewPesquisa" style="display:none;">
-      <div class="pq-header">
-        <div class="pq-total">
-          <span class="pq-total-num" id="pqTotal">—</span>
-          <span class="pq-total-lbl">respostas</span>
-        </div>
+
+      <!-- Stats strip -->
+      <div class="pq-stats-strip">
+        <div class="pq-stat"><div class="pq-stat-num" id="pqTotal">—</div><div class="pq-stat-lbl">Respostas</div></div>
+        <div class="pq-stat"><div class="pq-stat-num green" id="pqPctMulher">—</div><div class="pq-stat-lbl">Mulheres</div></div>
+        <div class="pq-stat"><div class="pq-stat-num" id="pqPctPassaporte">—</div><div class="pq-stat-lbl">Sem passaporte</div></div>
+        <div class="pq-stat"><div class="pq-stat-num green" id="pqPctFluente">—</div><div class="pq-stat-lbl">Fluentes em inglês</div></div>
+        <div class="pq-stat"><div class="pq-stat-num" id="pqPctNuncaMorou">—</div><div class="pq-stat-lbl">Nunca moraram fora</div></div>
+        <div class="pq-stat"><div class="pq-stat-num green" id="pqTopEstado">—</div><div class="pq-stat-lbl">Estado com + respostas</div></div>
       </div>
 
-      <div class="pq-grid">
-        <div class="pq-card"><div class="pq-card-title">Gênero</div><div class="pq-canvas-wrap"><canvas id="pqGenero" height="200"></canvas></div></div>
-        <div class="pq-card"><div class="pq-card-title">Faixa de Idade</div><div class="pq-canvas-wrap"><canvas id="pqIdade" height="200"></canvas></div></div>
-        <div class="pq-card"><div class="pq-card-title">Faixa Salarial</div><div class="pq-canvas-wrap"><canvas id="pqSalario" height="200"></canvas></div></div>
-        <div class="pq-card"><div class="pq-card-title">Formação</div><div class="pq-canvas-wrap"><canvas id="pqFormacao" height="200"></canvas></div></div>
-        <div class="pq-card"><div class="pq-card-title">Tem Passaporte Europeu?</div><div class="pq-canvas-wrap"><canvas id="pqPassaporte" height="200"></canvas></div></div>
-        <div class="pq-card"><div class="pq-card-title">Nível de Inglês</div><div class="pq-canvas-wrap"><canvas id="pqIngles" height="200"></canvas></div></div>
-        <div class="pq-card"><div class="pq-card-title">Fala Outro Idioma?</div><div class="pq-canvas-wrap"><canvas id="pqIdioma" height="200"></canvas></div></div>
-        <div class="pq-card"><div class="pq-card-title">Há quanto tempo segue no Instagram?</div><div class="pq-canvas-wrap"><canvas id="pqInsta" height="200"></canvas></div></div>
-        <div class="pq-card"><div class="pq-card-title">Já Morou Fora?</div><div class="pq-canvas-wrap"><canvas id="pqMorouFora" height="200"></canvas></div></div>
-        <div class="pq-card"><div class="pq-card-title">Estado (BR)</div><div class="pq-canvas-wrap"><canvas id="pqEstado" height="200"></canvas></div></div>
+      <!-- Perfil -->
+      <div class="pq-section-label">Perfil Demográfico</div>
+      <div class="pq-row pq-row-3">
+        <div class="pq-card"><div class="pq-card-title">Gênero</div><canvas id="pqGenero" height="210"></canvas></div>
+        <div class="pq-card"><div class="pq-card-title">Faixa de Idade</div><canvas id="pqIdade" height="210"></canvas></div>
+        <div class="pq-card"><div class="pq-card-title">Já Morou Fora?</div><canvas id="pqMorouFora" height="210"></canvas></div>
       </div>
 
+      <!-- Renda / Formação -->
+      <div class="pq-section-label">Renda &amp; Formação</div>
+      <div class="pq-row pq-row-2">
+        <div class="pq-card"><div class="pq-card-title">Faixa Salarial</div><canvas id="pqSalario" height="200"></canvas></div>
+        <div class="pq-card"><div class="pq-card-title">Formação Acadêmica</div><canvas id="pqFormacao" height="200"></canvas></div>
+      </div>
+
+      <!-- Idiomas -->
+      <div class="pq-section-label">Idiomas</div>
+      <div class="pq-row pq-row-3">
+        <div class="pq-card"><div class="pq-card-title">Passaporte Europeu</div><canvas id="pqPassaporte" height="210"></canvas></div>
+        <div class="pq-card"><div class="pq-card-title">Nível de Inglês</div><canvas id="pqIngles" height="210"></canvas></div>
+        <div class="pq-card"><div class="pq-card-title">Fala Outro Idioma?</div><canvas id="pqIdioma" height="210"></canvas></div>
+      </div>
+
+      <!-- Engajamento / Localização -->
+      <div class="pq-section-label">Engajamento &amp; Localização</div>
+      <div class="pq-row pq-row-21">
+        <div class="pq-card"><div class="pq-card-title">Estado (Brasil)</div><canvas id="pqEstado" height="200"></canvas></div>
+        <div class="pq-card"><div class="pq-card-title">Há quanto tempo segue no Instagram?</div><canvas id="pqInsta" height="200"></canvas></div>
+      </div>
+
+      <!-- Word clouds -->
+      <div class="pq-section-label">O que elas dizem</div>
       <div class="pq-wc-row">
-        <div class="pq-wc-card"><div class="pq-wc-title">Profissão Atual</div><canvas id="pqWcProfissao" width="500" height="280"></canvas></div>
-        <div class="pq-wc-card"><div class="pq-wc-title">Por que quer uma vaga internacional?</div><canvas id="pqWcPorque" width="500" height="280"></canvas></div>
+        <div class="pq-wc-card"><div class="pq-wc-title">Profissão Atual</div><canvas id="pqWcProfissao" width="540" height="320"></canvas></div>
+        <div class="pq-wc-card"><div class="pq-wc-title">Por que querem uma vaga internacional?</div><canvas id="pqWcPorque" width="540" height="320"></canvas></div>
       </div>
+
     </div>
 
   </main>
@@ -1718,6 +1757,16 @@ async function loadPesquisa() {
     const d = await res.json();
 
     document.getElementById('pqTotal').textContent = d.total;
+
+    // Stats strip
+    const pct = (n, tot) => tot ? Math.round(n/tot*100)+'%' : '—';
+    const tot = d.total;
+    document.getElementById('pqPctMulher').textContent     = pct(d.genero['Mulher']||0, tot);
+    document.getElementById('pqPctPassaporte').textContent = pct(d.passaporte['Não']||0, tot);
+    document.getElementById('pqPctFluente').textContent    = pct(d.ingles['Me comunico tranquilamente, sou fluente']||0, tot);
+    document.getElementById('pqPctNuncaMorou').textContent = pct(d.morou_fora['Nunca']||0, tot);
+    const topEst = Object.entries(d.estado).sort((a,b)=>b[1]-a[1])[0];
+    document.getElementById('pqTopEstado').textContent     = topEst ? topEst[0] : '—';
 
     // Gênero — donut
     const gen = _objToSorted(d.genero);
