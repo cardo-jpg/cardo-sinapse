@@ -2566,6 +2566,132 @@ async def get_wici2_pesquisa(request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# ── LP (Landing Page) ─────────────────────────────────────────────────────────
+WICI2_LP_NOME = "LP A"
+WICI2_LP_URL  = "https://hirebrazil.com.br/workshop-intensivo-de-carreira-internacional-malu-ads/"
+
+def _wici2_fetch_lp(date_start=None, date_end=None, profile: str = "") -> dict:
+    """Agrega todos os dados Meta Ads para análise da LP única do WICI 2."""
+    sa_path = BASE_DIR / "service_account.json"
+    creds = service_account.Credentials.from_service_account_file(
+        str(sa_path), scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
+    )
+    sheets = gapi_build("sheets", "v4", credentials=creds).spreadsheets().values()
+
+    def _toi(v):
+        try: return int(v)
+        except: return 0
+
+    # ── Meta Ads ──────────────────────────────────────────────────────────────
+    meta_rows = sheets.get(spreadsheetId=WICI2_SHEET_ID, range=WICI2_ABA_META).execute().get("values", [])[1:]
+    total_invest = 0.0
+    total_imp = total_clicks = total_pv = 0
+    daily: dict = {}  # date_str → {invest, imp, clicks, pv, vendas}
+
+    for row in meta_rows:
+        if len(row) < 4: continue
+        row_date = _wici2_parse_date(row[0]) if row[0] else None
+        if date_start and row_date and row_date < date_start: continue
+        if date_end   and row_date and row_date > date_end:   continue
+        camp = row[1].strip() if len(row) > 1 else ""
+        if not camp: continue
+        has_mo = "MO" in camp
+        if profile == "malu" and not has_mo: continue
+        if profile == "hire" and has_mo:     continue
+        try:    cost = float(row[3].replace(",", "."))
+        except: continue
+        imp  = _toi(row[4]) if len(row) > 4 else 0
+        clks = _toi(row[6]) if len(row) > 6 else 0
+        pv   = _toi(row[7]) if len(row) > 7 else 0
+        total_invest += cost
+        total_imp    += imp
+        total_clicks += clks
+        total_pv     += pv
+        if row_date:
+            dk = row_date.strftime("%Y-%m-%d")
+            if dk not in daily:
+                daily[dk] = {"invest": 0.0, "imp": 0, "clicks": 0, "pv": 0, "vendas": 0}
+            daily[dk]["invest"] += cost
+            daily[dk]["imp"]    += imp
+            daily[dk]["clicks"] += clks
+            daily[dk]["pv"]     += pv
+
+    # ── Green (vendas workshop via Meta Ads) ──────────────────────────────────
+    green_rows = sheets.get(spreadsheetId=WICI2_SHEET_ID, range=WICI2_ABA_VENDAS).execute().get("values", [])[1:]
+    total_vendas = 0
+    for row in green_rows:
+        if len(row) < 7: continue
+        row_date = _wici2_parse_date(row[0]) if row[0] else None
+        if date_start and row_date and row_date < date_start: continue
+        if date_end   and row_date and row_date > date_end:   continue
+        prod = row[4].strip() if len(row) > 4 else ""
+        if _wici2_product_category(prod) != "workshop": continue
+        src = row[5].strip().lower() if len(row) > 5 else ""
+        if src not in ("ig", "facebook", "metaads", "meta"): continue
+        camp = row[6].strip() if len(row) > 6 else ""
+        if camp:
+            has_mo = "MO" in camp
+            if profile == "malu" and not has_mo: continue
+            if profile == "hire" and has_mo:     continue
+        total_vendas += 1
+        if row_date:
+            dk = row_date.strftime("%Y-%m-%d")
+            if dk not in daily:
+                daily[dk] = {"invest": 0.0, "imp": 0, "clicks": 0, "pv": 0, "vendas": 0}
+            daily[dk]["vendas"] += 1
+
+    # ── Totais derivados ──────────────────────────────────────────────────────
+    ctr          = round(total_clicks / total_imp    * 100, 2) if total_imp    else 0.0
+    connect_rate = round(total_pv     / total_clicks * 100, 2) if total_clicks else 0.0
+    tx_conv      = round(total_vendas / total_pv     * 100, 2) if total_pv     else 0.0  # LP Views → Vendas
+    cpa          = round(total_invest / total_vendas, 2)       if total_vendas else None
+
+    # ── Séries diárias ────────────────────────────────────────────────────────
+    sorted_days = sorted(daily.items())
+    day_labels  = [d for d, _ in sorted_days]
+    day_connect = [round(v["pv"]     / v["clicks"] * 100, 2) if v["clicks"] else None for _, v in sorted_days]
+    day_tx_conv = [round(v["vendas"] / v["pv"]     * 100, 2) if v["pv"]     else None for _, v in sorted_days]
+    day_ctr     = [round(v["clicks"] / v["imp"]    * 100, 2) if v["imp"]    else None for _, v in sorted_days]
+    day_cpa     = [round(v["invest"] / v["vendas"], 2)       if v["vendas"] else None for _, v in sorted_days]
+
+    return {
+        "lp_nome": WICI2_LP_NOME,
+        "lp_url":  WICI2_LP_URL,
+        "invest":        round(total_invest, 2),
+        "imp":           total_imp,
+        "clicks":        total_clicks,
+        "pv":            total_pv,
+        "vendas":        total_vendas,
+        "cpa":           cpa,
+        "ctr":           ctr,
+        "connect_rate":  connect_rate,
+        "tx_conv":       tx_conv,
+        "daily": {
+            "labels":       day_labels,
+            "connect_rate": day_connect,
+            "tx_conv":      day_tx_conv,
+            "ctr":          day_ctr,
+            "cpa":          day_cpa,
+        }
+    }
+
+
+@app.get("/api/wici2/lp")
+async def get_wici2_lp(
+    request: Request,
+    date_start: str = None,
+    date_end:   str = None,
+    profile:    str = "",
+):
+    try:
+        ds = datetime.strptime(date_start, "%Y-%m-%d").date() if date_start else None
+        de = datetime.strptime(date_end,   "%Y-%m-%d").date() if date_end   else None
+        data = await asyncio.to_thread(_wici2_fetch_lp, ds, de, profile)
+        return JSONResponse(data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/logs", response_class=HTMLResponse)
 async def view_logs(request: Request):
     if not verify_session(request):
