@@ -2695,8 +2695,8 @@ async def get_wici2_lp(
 # ── Hire Funis Contínuos ──────────────────────────────────────────────────────
 HIRE_FUNIS_SHEET_ID   = "1l6_bsucWh3CZKhBZpqBykPJuYT3GQ5ZehAR5IAXd8kg"
 HIRE_MALU_TRACKER_ID  = "1SVz6Eti4E6hkOpgVjOeYkQ3XvDuYuVYmSWOj_cWYvPM"
-# Row 1 (index 1) of Sheet2 "dados" = 05/02/2023 (daily sequential from there)
-HIRE_MALU_TRACKER_BASE = datetime(2023, 2, 5).date()
+# Row 1 (index 1) of Sheet2 "dados" = 05/02/2024 (daily sequential; last data row 777 = 22/03/2026)
+HIRE_MALU_TRACKER_BASE = datetime(2024, 2, 5).date()
 HIRE_FUNIS_BUDGETS_PATH = BASE_DIR / "data" / "hire_funis_budgets.json"
 
 def _hf_load_budgets() -> dict:
