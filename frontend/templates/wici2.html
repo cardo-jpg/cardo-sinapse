@@ -419,6 +419,7 @@
       <button class="wici-tab"        data-tab="cria"     onclick="setTab(this)">Criativos</button>
       <button class="wici-tab"        data-tab="pesquisa" onclick="setTab(this)">Pesquisa</button>
       <button class="wici-tab"        data-tab="lp"       onclick="setTab(this)">LP</button>
+      <button class="wici-tab"        data-tab="teste"    onclick="setTab(this)">Teste</button>
     </div>
 
     <div id="viewDashboard">
@@ -777,6 +778,11 @@
 
     </div>
 
+    <!-- Tab: Teste -->
+    <div id="viewTeste" style="display:none;">
+      <div style="padding:60px 0;text-align:center;color:rgba(255,255,255,.5);font-size:1.1rem;">Aba de teste funcionando ✓</div>
+    </div>
+
   </div><!-- /page -->
   </main>
 </div>
@@ -949,7 +955,7 @@ function setTab(btn) {
   state.tab = tab;
 
   // hide all views
-  ['viewDashboard','viewCamp','viewPubl','viewCria','viewPesquisa','viewLP'].forEach(id => {
+  ['viewDashboard','viewCamp','viewPubl','viewCria','viewPesquisa','viewLP','viewTeste'].forEach(id => {
     const el = document.getElementById(id); if (el) el.style.display = 'none';
   });
 
