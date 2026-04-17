@@ -2694,6 +2694,9 @@ async def get_wici2_lp(
 
 # ── Hire Funis Contínuos ──────────────────────────────────────────────────────
 HIRE_FUNIS_SHEET_ID   = "1l6_bsucWh3CZKhBZpqBykPJuYT3GQ5ZehAR5IAXd8kg"
+HIRE_MALU_TRACKER_ID  = "1SVz6Eti4E6hkOpgVjOeYkQ3XvDuYuVYmSWOj_cWYvPM"
+# Row 1 (index 1) of Sheet2 "dados" = 05/02/2023 (daily sequential from there)
+HIRE_MALU_TRACKER_BASE = datetime(2023, 2, 5).date()
 HIRE_FUNIS_BUDGETS_PATH = BASE_DIR / "data" / "hire_funis_budgets.json"
 
 def _hf_load_budgets() -> dict:
@@ -2758,14 +2761,30 @@ def _hf_fetch_audiencia(date_start=None, date_end=None) -> dict:
         som_vendas += _hf_parse_num(row[3]) if len(row) > 3 else 0.0
         som_fat    += _hf_parse_num(row[4]) if len(row) > 4 else 0.0
 
-    # ── IG Malu: Date | Investido | Seguidores | Vendas | Faturamento ────────
+    # ── IG Malu ───────────────────────────────────────────────────────────────
+    # Investido/Vendas/Faturamento: Sheet1 "IG Malu" (dd/mm/yyyy)
+    # Novos Seguidores: Sheet2 "dados" (daily rows from 05/02/2023, dates as dd/mm)
     malu_invest = malu_seg = malu_vendas = malu_fat = 0.0
     for row in _get("IG Malu")[1:]:
         if len(row) < 2 or not _in_range(row): continue
         malu_invest += _hf_parse_num(row[1])
-        malu_seg    += _hf_parse_num(row[2]) if len(row) > 2 else 0.0
+        # col 2 (Seguidores) is always empty in Sheet1 — read from tracker below
         malu_vendas += _hf_parse_num(row[3]) if len(row) > 3 else 0.0
         malu_fat    += _hf_parse_num(row[4]) if len(row) > 4 else 0.0
+
+    # Read Novos Seguidores from dedicated tracker (sequential daily rows)
+    try:
+        tracker_rows = svc.spreadsheets().values().get(
+            spreadsheetId=HIRE_MALU_TRACKER_ID, range="dados"
+        ).execute().get("values", [])
+        for i, row in enumerate(tracker_rows[1:]):  # row index 1+ = data
+            row_date = HIRE_MALU_TRACKER_BASE + timedelta(days=i)
+            if date_start and row_date < date_start: continue
+            if date_end   and row_date > date_end:   continue
+            if len(row) > 1:
+                malu_seg += _hf_parse_num(row[1])   # "Novos Seguidores"
+    except Exception:
+        pass
 
     # ── IG Hire: Date | Investido | Seguidores | Vendas | Faturamento ────────
     hire_invest = hire_seg = hire_vendas = hire_fat = 0.0
