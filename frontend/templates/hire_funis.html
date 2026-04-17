@@ -695,7 +695,10 @@ function drPickDay(ds) {
 
 document.addEventListener('click', e => {
   const wrap = document.getElementById('drWrap');
-  if (wrap && !wrap.contains(e.target)) closeDatePicker();
+  if (!wrap) return;
+  // Use composedPath so the check survives DOM re-renders (drPickDay rebuilds cal-day nodes)
+  const path = e.composedPath ? e.composedPath() : (e.path || [e.target]);
+  if (!path.includes(wrap)) closeDatePicker();
 });
 
 // ── State & presets ───────────────────────────────────────────────────────────
