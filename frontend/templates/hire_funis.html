@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Funis Contínuos — Hire Brazil</title>
+  <link rel="stylesheet" href="/static/style.css?v=3">
+  <style>
+    :root {
+      --teal:        #0ea5e9;
+      --teal-dark:   #0369a1;
+      --teal-deep:   #082f49;
+      --teal-card:   #0c1a2e;
+      --teal-light:  #38bdf8;
+      --green: #c4f135;
+      --red:   #ef4444;
+      --amber: #f59e0b;
+    }
+
+    .page { max-width:1400px; margin:0 auto; padding:28px 20px; }
+
+    /* ── Top bar ── */
+    .top-bar { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:24px; }
+    .top-title { display:flex; flex-direction:column; gap:2px; }
+    .top-brand { display:flex; align-items:center; gap:10px; margin-bottom:4px; }
+    .top-brand-name { font-size:1.25rem; font-weight:800; color:#fff; letter-spacing:-.01em; }
+    .top-brand-tag  { font-size:.7rem; font-weight:700; background:var(--teal); color:#fff; border-radius:5px; padding:2px 7px; letter-spacing:.04em; }
+    .top-subtitles { display:flex; align-items:center; gap:10px; margin-top:2px; }
+
+    /* ── Client / dash-type switcher ── */
+    .cs-wrap { position:relative; display:inline-block; }
+    .cs-btn {
+      display:flex; align-items:center; gap:4px;
+      background:none; border:none; padding:0; cursor:pointer;
+      color:var(--muted); font-size:.82rem; transition:color .15s;
+    }
+    .cs-btn:hover { color:var(--text); }
+    .cs-btn::after { content:'▾'; font-size:.65rem; }
+    .cs-dropdown {
+      display:none; position:absolute; top:calc(100% + 6px); left:0; z-index:60;
+      background:var(--bg); border:1px solid var(--border); border-radius:10px;
+      box-shadow:0 8px 24px #00000066; min-width:160px; overflow:hidden;
+    }
+    .cs-dropdown.open { display:block; }
+    .cs-item {
+      display:flex; align-items:center; gap:8px;
+      padding:9px 14px; font-size:.83rem; cursor:pointer;
+      transition:background .1s; text-decoration:none; color:var(--text);
+    }
+    .cs-item:hover { background:#ffffff09; }
+    .cs-item.active { color:var(--teal-light); }
+    .cs-badge { font-size:.6rem; background:var(--teal-dark); color:#fff; padding:2px 6px; border-radius:4px; font-weight:700; }
+    .cs-sep { color:var(--muted); font-size:.75rem; }
+
+    /* ── Controls ── */
+    .controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .preset-tabs { display:flex; background:var(--surface); border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+    .preset-tab { padding:7px 12px; font-size:.8rem; cursor:pointer; color:var(--muted); border:none; background:none; transition:background .15s,color .15s; white-space:nowrap; }
+    .preset-tab.active { background:var(--teal-dark); color:#fff; }
+    .preset-tab:hover:not(.active) { background:var(--border); color:var(--text); }
+
+    /* date range */
+    .dr-wrap { position:relative; }
+    .dr-btn {
+      display:flex; align-items:center; gap:6px;
+      background:var(--surface); border:1px solid var(--border); border-radius:8px;
+      color:var(--text); padding:7px 14px; font-size:.82rem; cursor:pointer;
+      white-space:nowrap; transition:border-color .15s;
+    }
+    .dr-btn:hover, .dr-btn.open { border-color:var(--teal-light); }
+    .dr-arrow { color:var(--muted); font-size:.7rem; }
+    .dr-picker {
+      display:none; position:absolute; top:calc(100% + 8px); right:0; z-index:60;
+      background:var(--bg); border:1px solid var(--border); border-radius:14px;
+      box-shadow:0 12px 40px #00000099; padding:20px;
+      flex-direction:column; gap:16px;
+    }
+    .dr-picker.open { display:flex; }
+    .cal-row { display:flex; gap:0; }
+    .cal-sep { width:1px; background:var(--border); margin:0 20px; }
+    .cal-panel { min-width:210px; }
+    .cal-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+    .cal-month-lbl { font-size:.78rem; font-weight:700; color:var(--text); text-transform:uppercase; letter-spacing:.07em; }
+    .cal-nav-btn {
+      background:none; border:1px solid var(--border); color:var(--muted);
+      border-radius:6px; width:26px; height:26px; cursor:pointer; font-size:1rem;
+      display:flex; align-items:center; justify-content:center; line-height:1; transition:all .15s;
+    }
+    .cal-nav-btn:hover { border-color:var(--teal-light); color:var(--text); }
+    .cal-wdays { display:grid; grid-template-columns:repeat(7,1fr); text-align:center; font-size:.65rem; color:var(--muted); letter-spacing:.04em; margin-bottom:4px; }
+    .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:1px; }
+    .cal-day {
+      height:30px; display:flex; align-items:center; justify-content:center;
+      font-size:.78rem; border-radius:5px; cursor:pointer; transition:background .08s, color .08s; user-select:none;
+    }
+    .cal-day.empty { pointer-events:none; }
+    .cal-day:not(.empty):not(.sel-start):not(.sel-end):not(.in-range):hover { background:rgba(56,189,248,.25); color:#fff; }
+    .cal-day.in-range  { background:rgba(14,165,233,.28); border-radius:0; color:#ddd; }
+    .cal-day.sel-start { background:var(--teal-dark); color:#fff; border-radius:5px 0 0 5px; }
+    .cal-day.sel-end   { background:var(--teal-dark); color:#fff; border-radius:0 5px 5px 0; }
+    .cal-day.sel-start.sel-end { border-radius:5px; }
+    .cal-day.today:not(.sel-start):not(.sel-end) { font-weight:700; color:var(--teal-light); }
+    .dr-actions { display:flex; justify-content:flex-end; gap:8px; border-top:1px solid var(--border); padding-top:14px; }
+    .dr-cancel { background:none; border:1px solid var(--border); color:var(--muted); border-radius:8px; padding:7px 16px; font-size:.83rem; cursor:pointer; transition:all .15s; }
+    .dr-cancel:hover { border-color:var(--teal-light); color:var(--text); }
+    .dr-apply  { background:var(--teal-dark); color:#fff; border:none; border-radius:8px; padding:7px 18px; font-size:.83rem; font-weight:600; cursor:pointer; transition:background .15s; }
+    .dr-apply:hover { background:var(--teal-light); }
+
+    .btn-refresh {
+      display:flex; align-items:center; gap:6px;
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:8px; color:var(--muted); padding:7px 14px;
+      font-size:.83rem; cursor:pointer; transition:all .15s;
+    }
+    .btn-refresh:hover { border-color:var(--teal-light); color:var(--text); }
+    .btn-refresh.loading { opacity:.5; pointer-events:none; }
+    .last-update { font-size:.75rem; color:var(--muted); }
+
+    /* ── Error banner ── */
+    .error-banner {
+      background:#3a0a0a; border:1px solid #7a2020; border-radius:10px;
+      padding:14px 18px; color:#ff8080; font-size:.85rem; margin-bottom:16px; display:none;
+    }
+
+    /* ── Tabs ── */
+    .hf-tabs { display:flex; gap:2px; margin-bottom:20px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:3px; width:fit-content; }
+    .hf-tab {
+      padding:7px 18px; border-radius:7px; font-size:.83rem; font-weight:600;
+      cursor:pointer; border:none; background:transparent;
+      color:rgba(255,255,255,.5); transition:all .15s;
+    }
+    .hf-tab:hover:not(.active) { color:rgba(255,255,255,.8); background:rgba(255,255,255,.05); }
+    .hf-tab.active { background:var(--teal-dark); color:#fff; }
+
+    /* ── KPI Strip ── */
+    .hf-kpi-strip {
+      display:grid; grid-template-columns:repeat(6,1fr);
+      gap:2px; border-radius:14px; overflow:hidden;
+      margin-bottom:24px; border:1px solid var(--teal-dark);
+    }
+    .hf-kpi {
+      background:linear-gradient(145deg, var(--teal-dark) 0%, #051829 100%);
+      padding:16px 18px; display:flex; flex-direction:column; gap:4px;
+    }
+    .hf-kpi:first-child { background:linear-gradient(145deg,#0a3050 0%,#051829 100%); border-right:2px solid rgba(255,255,255,.08); }
+    .hf-kpi-label { font-size:.75rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:rgba(255,255,255,.6); }
+    .hf-kpi-value { font-size:1.5rem; font-weight:800; color:#fff; letter-spacing:-.01em; }
+    .hf-kpi-value.dash { color:rgba(255,255,255,.3); font-size:1.2rem; }
+    .hf-kpi-value.good { color:var(--green); }
+
+    /* ── Channels grid ── */
+    .hf-channels { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; }
+
+    /* ── Channel card ── */
+    .hf-ch {
+      background:var(--teal-card); border:1px solid rgba(14,165,233,.25);
+      border-radius:16px; overflow:hidden; transition:border-color .15s;
+    }
+    .hf-ch:hover { border-color:rgba(56,189,248,.4); }
+
+    .hf-ch-head {
+      display:flex; align-items:flex-start; justify-content:space-between;
+      padding:16px 20px 12px; border-bottom:1px solid rgba(14,165,233,.15);
+      background:rgba(14,165,233,.06);
+    }
+    .hf-ch-name { display:flex; align-items:center; gap:8px; }
+    .hf-ch-icon { font-size:1.3rem; line-height:1; }
+    .hf-ch-label { font-size:1rem; font-weight:700; color:#fff; }
+
+    /* Budget section */
+    .hf-budget { text-align:right; }
+    .hf-budget-lbl { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:rgba(255,255,255,.45); margin-bottom:4px; }
+    .hf-budget-row { display:flex; align-items:center; gap:6px; justify-content:flex-end; }
+    .hf-budget-prefix { font-size:.8rem; color:rgba(255,255,255,.5); }
+    .hf-budget-input {
+      font-size:1.05rem; font-weight:700; color:#fff;
+      background:none; border:none; border-bottom:1px dashed rgba(56,189,248,.4);
+      text-align:right; width:110px; outline:none; padding:2px 0;
+      transition:border-color .15s, background .15s; border-radius:4px 4px 0 0;
+    }
+    .hf-budget-input:focus {
+      border-bottom-color:var(--teal-light); background:rgba(56,189,248,.08);
+      padding:2px 4px;
+    }
+    .hf-budget-input::placeholder { color:rgba(255,255,255,.2); }
+    .hf-budget-save-indicator { font-size:.65rem; color:var(--green); display:none; }
+
+    /* Metrics grid */
+    .hf-ch-metrics {
+      display:grid; padding:16px 20px; gap:16px;
+    }
+    .hf-ch-metrics.has-seg  { grid-template-columns:repeat(4,1fr); }
+    .hf-ch-metrics.no-seg-3 { grid-template-columns:repeat(3,1fr); }
+    .hf-ch-metrics.no-seg-4 { grid-template-columns:repeat(4,1fr); }
+
+    .hf-ch-metric { display:flex; flex-direction:column; gap:3px; }
+    .hf-ch-metric-lbl { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:rgba(255,255,255,.45); }
+    .hf-ch-metric-val { font-size:1.1rem; font-weight:700; color:#fff; }
+    .hf-ch-metric-val.good { color:var(--green); }
+    .hf-ch-metric-val.warn { color:var(--amber); }
+    .hf-ch-metric-val.dim  { color:rgba(255,255,255,.5); font-size:.95rem; }
+
+    /* bottom strip: vendas + fat */
+    .hf-ch-bottom {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:10px 20px 14px; border-top:1px solid rgba(14,165,233,.12);
+      font-size:.82rem;
+    }
+    .hf-ch-bottom-item { display:flex; align-items:center; gap:6px; }
+    .hf-ch-bottom-lbl { color:rgba(255,255,255,.5); font-weight:600; letter-spacing:.03em; }
+    .hf-ch-bottom-val { color:#fff; font-weight:700; }
+
+    /* util */
+    .good { color:var(--green); }
+    .bad  { color:var(--red); }
+
+    @media (max-width:900px) {
+      .hf-kpi-strip { grid-template-columns:repeat(3,1fr); }
+      .hf-channels  { grid-template-columns:1fr; }
+    }
+    @media (max-width:560px) {
+      .hf-kpi-strip { grid-template-columns:repeat(2,1fr); }
+    }
+  </style>
+</head>
+<body>
+{% if not public_mode %}
+{% include "_sidebar.html" %}
+{% endif %}
+<main class="{% if not public_mode %}main-content{% endif %}" style="{% if public_mode %}width:100%;min-height:100vh;background:var(--bg);{% endif %}">
+<div class="page">
+
+  <!-- Top bar -->
+  <div class="top-bar">
+    <div class="top-title">
+      <div class="top-brand">
+        <span class="top-brand-name">Hire Brazil</span>
+        <span class="top-brand-tag">FUNIS</span>
+      </div>
+      <div class="top-subtitles">
+        <!-- Client -->
+        <div class="cs-wrap">
+          <button class="cs-btn" onclick="toggleDrop('clientDrop')">Hire Brazil</button>
+          <div class="cs-dropdown" id="clientDrop">
+            <a class="cs-item active" href="/dashboard-hire-funis"><span class="cs-badge">HIRE</span> Hire Brazil</a>
+          </div>
+        </div>
+        <span class="cs-sep">·</span>
+        <!-- Dash type -->
+        <div class="cs-wrap">
+          <button class="cs-btn" onclick="toggleDrop('dashDrop')">Funis</button>
+          <div class="cs-dropdown" id="dashDrop">
+            <span class="cs-item active" style="pointer-events:none;cursor:default;">📊 Funis</span>
+            <a class="cs-item" href="/wici2">🚀 WICI 2</a>
+            <a class="cs-item" href="/trafego?client=HIRE">📘 Meta Ads</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <!-- Presets -->
+      <div class="preset-tabs" id="presetTabs">
+        <button class="preset-tab" data-preset="today"     onclick="setPreset(this)">Hoje</button>
+        <button class="preset-tab" data-preset="7d"        onclick="setPreset(this)">7 dias</button>
+        <button class="preset-tab" data-preset="30d"       onclick="setPreset(this)">30 dias</button>
+        <button class="preset-tab active" data-preset="month" onclick="setPreset(this)">Este mês</button>
+        <button class="preset-tab" data-preset="lastmonth" onclick="setPreset(this)">Mês passado</button>
+        <button class="preset-tab" data-preset="all"       onclick="setPreset(this)">Tudo</button>
+      </div>
+
+      <!-- Date range picker -->
+      <div class="dr-wrap" id="drWrap">
+        <button class="dr-btn" id="drBtn" onclick="toggleDatePicker()">
+          <span id="drLabel">Este mês</span>
+          <span class="dr-arrow">▾</span>
+        </button>
+        <div class="dr-picker" id="drPicker">
+          <div class="cal-row">
+            <div class="cal-panel">
+              <div class="cal-hdr">
+                <button class="cal-nav-btn" onclick="drNavMonth('start',-1)">‹</button>
+                <span class="cal-month-lbl" id="drStartMonth"></span>
+                <button class="cal-nav-btn" onclick="drNavMonth('start',1)">›</button>
+              </div>
+              <div class="cal-wdays"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
+              <div class="cal-grid" id="drStartDays"></div>
+            </div>
+            <div class="cal-sep"></div>
+            <div class="cal-panel">
+              <div class="cal-hdr">
+                <button class="cal-nav-btn" onclick="drNavMonth('end',-1)">‹</button>
+                <span class="cal-month-lbl" id="drEndMonth"></span>
+                <button class="cal-nav-btn" onclick="drNavMonth('end',1)">›</button>
+              </div>
+              <div class="cal-wdays"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
+              <div class="cal-grid" id="drEndDays"></div>
+            </div>
+          </div>
+          <div class="dr-actions">
+            <button class="dr-cancel" onclick="closeDatePicker()">Cancelar</button>
+            <button class="dr-apply"  onclick="applyDatePicker()">Aplicar</button>
+          </div>
+        </div>
+      </div>
+
+      <span class="last-update" id="lastUpdate"></span>
+      <button class="btn-refresh" id="btnRefresh" onclick="loadAudiencia()">
+        <span id="refreshIcon">↻</span> Atualizar
+      </button>
+    </div>
+  </div>
+
+  <div class="error-banner" id="errorBanner"></div>
+
+  <!-- Tabs -->
+  <div class="hf-tabs">
+    <button class="hf-tab active" data-tab="audiencia" onclick="setTab(this)">Audiência</button>
+  </div>
+
+  <!-- ── Audiência ── -->
+  <div id="viewAudiencia">
+
+    <!-- KPI Strip -->
+    <div class="hf-kpi-strip">
+      <div class="hf-kpi">
+        <div class="hf-kpi-label">Investido</div>
+        <div class="hf-kpi-value dash" id="kpiInvestido">—</div>
+      </div>
+      <div class="hf-kpi">
+        <div class="hf-kpi-label">Faturamento</div>
+        <div class="hf-kpi-value dash" id="kpiFaturamento">—</div>
+      </div>
+      <div class="hf-kpi">
+        <div class="hf-kpi-label">Vendas</div>
+        <div class="hf-kpi-value dash" id="kpiVendas">—</div>
+      </div>
+      <div class="hf-kpi">
+        <div class="hf-kpi-label">Ticket Médio</div>
+        <div class="hf-kpi-value dash" id="kpiTicket">—</div>
+      </div>
+      <div class="hf-kpi">
+        <div class="hf-kpi-label">CAC</div>
+        <div class="hf-kpi-value dash" id="kpiCac">—</div>
+      </div>
+      <div class="hf-kpi">
+        <div class="hf-kpi-label">ROAS</div>
+        <div class="hf-kpi-value dash" id="kpiRoas">—</div>
+      </div>
+    </div>
+
+    <!-- Channel Cards -->
+    <div class="hf-channels">
+
+      <!-- IG Malu -->
+      <div class="hf-ch">
+        <div class="hf-ch-head">
+          <div class="hf-ch-name">
+            <span class="hf-ch-icon">📱</span>
+            <span class="hf-ch-label">IG Malu</span>
+          </div>
+          <div class="hf-budget">
+            <div class="hf-budget-lbl">Budget Mensal</div>
+            <div class="hf-budget-row">
+              <span class="hf-budget-prefix">R$</span>
+              <input class="hf-budget-input" id="budgetIgMalu" type="text" inputmode="decimal"
+                     placeholder="0,00"
+                     onblur="saveBudget('ig_malu',this)"
+                     onkeydown="if(event.key==='Enter')this.blur()">
+            </div>
+            <div class="hf-budget-save-indicator" id="saveIgMalu">Salvo ✓</div>
+          </div>
+        </div>
+        <div class="hf-ch-metrics has-seg" id="metricsIgMalu">
+          <div class="hf-ch-metric">
+            <div class="hf-ch-metric-lbl">Investido</div>
+            <div class="hf-ch-metric-val dash" id="malu_invest">—</div>
+          </div>
+          <div class="hf-ch-metric">
+            <div class="hf-ch-metric-lbl">Seguidores</div>
+            <div class="hf-ch-metric-val dash" id="malu_seg">—</div>
+          </div>
+          <div class="hf-ch-metric">
+            <div class="hf-ch-metric-lbl">Custo/Seguidor</div>
+            <div class="hf-ch-metric-val dash" id="malu_cpl">—</div>
+          </div>
+          <div class="hf-ch-metric">
+            <div class="hf-ch-metric-lbl">ROAS</div>
+            <div class="hf-ch-metric-val dash" id="malu_roas">—</div>
+          </div>
+        </div>
+        <div class="hf-ch-bottom">
+          <div class="hf-ch-bottom-item">
+            <span class="hf-ch-bottom-lbl">Vendas</span>
+            <span class="hf-ch-bottom-val" id="malu_vendas">—</span>
+          </div>
+          <div class="hf-ch-bottom-item">
+            <span class="hf-ch-bottom-lbl">Faturamento</span>
+            <span class="hf-ch-bottom-val" id="malu_fat">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- IG Hire -->
+      <div class="hf-ch">
+        <div class="hf-ch-head">
+          <div class="hf-ch-name">
+            <span class="hf-ch-icon">📸</span>
+            <span class="hf-ch-label">IG Hire</span>
+          </div>
+          <div class="hf-budget">
+            <div class="hf-budget-lbl">Budget Mensal</div>
+            <div class="hf-budget-row">
+              <span class="hf-budget-prefix">R$</span>
+              <input class="hf-budget-input" id="budgetIgHire" type="text" inputmode="decimal"
+                     placeholder="0,00"
+                     onblur="saveBudget('ig_hire',this)"
+                     onkeydown="if(event.key==='Enter')this.blur()">
+            </div>
+            <div class="hf-budget-save-indicator" id="saveIgHire">Salvo ✓</div>
+          </div>
+        </div>
+        <div class="hf-ch-metrics has-seg" id="metricsIgHire">
+          <div class="hf-ch-metric">
+            <div class="hf-ch-metric-lbl">Investido</div>
+            <div class="hf-ch-metric-val dash" id="hire_invest">—</div>
+          </div>
+          <div class="hf-ch-metric">
+            <div class="hf-ch-metric-lbl">Seguidores</div>
+            <div class="hf-ch-metric-val dash" id="hire_seg">—</div>
+          </div>
+          <div class="hf-ch-metric">
+            <div class="hf-ch-metric-lbl">Custo/Seguidor</div>
+            <div class="hf-ch-metric-val dash" id="hire_cpl">—</div>
+          </div>
+          <div class="hf-ch-metric">
+            <div class="hf-ch-metric-lbl">ROAS</div>
+            <div class="hf-ch-metric-val dash" id="hire_roas">—</div>
+          </div>
+        </div>
+        <div class="hf-ch-bottom">
+          <div class="hf-ch-bottom-item">
+            <span class="hf-ch-bottom-lbl">Vendas</span>
+            <span class="hf-ch-bottom-val" id="hire_vendas">—</span>
+          </div>
+          <div class="hf-ch-bottom-item">
+            <span class="hf-ch-bottom-lbl">Faturamento</span>
+            <span class="hf-ch-bottom-val" id="hire_fat">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- YouTube -->
+      <div class="hf-ch">
+        <div class="hf-ch-head">
+          <div class="hf-ch-name">
+            <span class="hf-ch-icon">🎥</span>
+            <span class="hf-ch-label">YouTube</span>
+          </div>
+          <div class="hf-budget">
+            <div class="hf-budget-lbl">Budget Mensal</div>
+            <div class="hf-budget-row">
+              <span class="hf-budget-prefix">R$</span>
+              <input class="hf-budget-input" id="budgetYoutube" type="text" inputmode="decimal"
+                     placeholder="0,00"
+                     onblur="saveBudget('youtube',this)"
+                     onkeydown="if(event.key==='Enter')this.blur()">
+            </div>
+            <div class="hf-budget-save-indicator" id="saveYoutube">Salvo ✓</div>
+          </div>
+        </div>
+        <div class="hf-ch-metrics no-seg-3" id="metricsYoutube">
+          <div class="hf-ch-metric">
+            <div class="hf-ch-metric-lbl">Investido</div>
+            <div class="hf-ch-metric-val dash" id="yt_invest">—</div>
+          </div>
+          <div class="hf-ch-metric">
+            <div class="hf-ch-metric-lbl">Custo/Venda</div>
+            <div class="hf-ch-metric-val dash" id="yt_cpl">—</div>
+          </div>
+          <div class="hf-ch-metric">
+            <div class="hf-ch-metric-lbl">ROAS</div>
+            <div class="hf-ch-metric-val dash" id="yt_roas">—</div>
+          </div>
+        </div>
+        <div class="hf-ch-bottom">
+          <div class="hf-ch-bottom-item">
+            <span class="hf-ch-bottom-lbl">Vendas</span>
+            <span class="hf-ch-bottom-val" id="yt_vendas">—</span>
+          </div>
+          <div class="hf-ch-bottom-item">
+            <span class="hf-ch-bottom-lbl">Faturamento</span>
+            <span class="hf-ch-bottom-val" id="yt_fat">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Site -->
+      <div class="hf-ch">
+        <div class="hf-ch-head">
+          <div class="hf-ch-name">
+            <span class="hf-ch-icon">🌐</span>
+            <span class="hf-ch-label">Site</span>
+          </div>
+          <div class="hf-budget">
+            <div class="hf-budget-lbl">Budget Mensal</div>
+            <div class="hf-budget-row">
+              <span class="hf-budget-prefix">R$</span>
+              <input class="hf-budget-input" id="budgetSite" type="text" inputmode="decimal"
+                     placeholder="0,00"
+                     onblur="saveBudget('site',this)"
+                     onkeydown="if(event.key==='Enter')this.blur()">
+            </div>
+            <div class="hf-budget-save-indicator" id="saveSite">Salvo ✓</div>
+          </div>
+        </div>
+        <div class="hf-ch-metrics no-seg-4" id="metricsSite">
+          <div class="hf-ch-metric">
+            <div class="hf-ch-metric-lbl">Investido</div>
+            <div class="hf-ch-metric-val dash" id="site_invest">—</div>
+          </div>
+          <div class="hf-ch-metric">
+            <div class="hf-ch-metric-lbl">Leads</div>
+            <div class="hf-ch-metric-val dash" id="site_leads">—</div>
+          </div>
+          <div class="hf-ch-metric">
+            <div class="hf-ch-metric-lbl">Custo/Lead</div>
+            <div class="hf-ch-metric-val dash" id="site_cpl">—</div>
+          </div>
+          <div class="hf-ch-metric">
+            <div class="hf-ch-metric-lbl">ROAS</div>
+            <div class="hf-ch-metric-val dash" id="site_roas">—</div>
+          </div>
+        </div>
+        <div class="hf-ch-bottom">
+          <div class="hf-ch-bottom-item">
+            <span class="hf-ch-bottom-lbl">Vendas</span>
+            <span class="hf-ch-bottom-val" id="site_vendas">—</span>
+          </div>
+          <div class="hf-ch-bottom-item">
+            <span class="hf-ch-bottom-lbl">Faturamento</span>
+            <span class="hf-ch-bottom-val" id="site_fat">—</span>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /channels -->
+  </div><!-- /viewAudiencia -->
+
+</div><!-- /page -->
+</main>
+
+<script>
+// ── Formatters ────────────────────────────────────────────────────────────────
+const BRL  = v => v == null || v === 0 ? '—' : 'R$\u00a0' + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const NUM  = v => v == null ? '—' : v.toLocaleString('pt-BR');
+const ROAS = v => v == null ? '—' : v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+function setEl(id, html) { const el=document.getElementById(id); if(el) el.innerHTML=html; }
+function setVal(id, val, cls) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = val;
+  el.className = el.className.replace(/\bdash\b|\bgood\b|\bwarn\b/g, '').trim();
+  if (cls) el.classList.add(cls);
+}
+
+// ── Dropdown helpers ──────────────────────────────────────────────────────────
+function toggleDrop(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const isOpen = el.classList.contains('open');
+  document.querySelectorAll('.cs-dropdown').forEach(d => d.classList.remove('open'));
+  if (!isOpen) {
+    el.classList.add('open');
+    setTimeout(() => {
+      document.addEventListener('click', function _c(e) {
+        if (!el.contains(e.target)) { el.classList.remove('open'); document.removeEventListener('click', _c); }
+      });
+    }, 0);
+  }
+}
+
+// ── Date range picker ─────────────────────────────────────────────────────────
+const MONTHS_PT_ABR  = ['jan.','fev.','mar.','abr.','mai.','jun.','jul.','ago.','set.','out.','nov.','dez.'];
+const MONTHS_PT_CAPS = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+
+let _drSince = null, _drUntil = null, _drStep = 0;
+let _drSV = { year:0, month:0 }, _drEV = { year:0, month:0 };
+
+function todayStr() { return new Date().toISOString().slice(0,10); }
+
+function fmtDateLabel(iso) {
+  if (!iso) return '—';
+  const [y,m,d] = iso.split('-').map(Number);
+  return `${d} de ${MONTHS_PT_ABR[m-1]} de ${y}`;
+}
+
+function updateDrLabel() {
+  const el = document.getElementById('drLabel');
+  if (!el) return;
+  if (state.dateStart && state.dateEnd)
+    el.textContent = `${fmtDateLabel(state.dateStart)} – ${fmtDateLabel(state.dateEnd)}`;
+  else if (state.preset === 'all')
+    el.textContent = 'Todo o período';
+  else
+    el.textContent = 'Este mês';
+}
+
+function drAdvMonth(v, dir) {
+  let { year, month } = v;
+  month += dir;
+  if (month > 12) { month = 1; year++; }
+  if (month < 1)  { month = 12; year--; }
+  return { year, month };
+}
+
+function openDatePicker() {
+  const ref = todayStr();
+  _drSince = state.dateStart || ref;
+  _drUntil = state.dateEnd   || ref;
+  _drStep  = 0;
+  const [sy, sm] = _drSince.split('-').map(Number);
+  const [uy, um] = _drUntil.split('-').map(Number);
+  _drSV = { year:sy, month:sm };
+  _drEV = { year:uy, month:um };
+  if (_drSV.year === _drEV.year && _drSV.month === _drEV.month)
+    _drEV = drAdvMonth(_drEV, 1);
+  renderDrCals();
+  document.getElementById('drPicker').classList.add('open');
+  document.getElementById('drBtn').classList.add('open');
+}
+
+function toggleDatePicker() {
+  const open = document.getElementById('drPicker').classList.contains('open');
+  if (open) closeDatePicker(); else openDatePicker();
+}
+
+function closeDatePicker() {
+  document.getElementById('drPicker').classList.remove('open');
+  document.getElementById('drBtn').classList.remove('open');
+}
+
+function applyDatePicker() {
+  if (!_drSince) return;
+  const until = _drUntil || _drSince;
+  state.dateStart = _drSince <= until ? _drSince : until;
+  state.dateEnd   = _drSince <= until ? until    : _drSince;
+  document.querySelectorAll('#presetTabs .preset-tab').forEach(b => b.classList.remove('active'));
+  state.preset = 'custom';
+  closeDatePicker();
+  updateDrLabel();
+  loadAudiencia();
+}
+
+function drNavMonth(which, dir) {
+  if (which === 'start') _drSV = drAdvMonth(_drSV, dir);
+  else                   _drEV = drAdvMonth(_drEV, dir);
+  renderDrCals();
+}
+
+function renderDrCals() {
+  renderDrCal(_drSV, 'drStartMonth', 'drStartDays');
+  renderDrCal(_drEV, 'drEndMonth',   'drEndDays');
+}
+
+function renderDrCal(view, monthId, daysId) {
+  const { year, month } = view;
+  document.getElementById(monthId).textContent = `${MONTHS_PT_CAPS[month-1]}. DE ${year}`;
+  const today    = todayStr();
+  const firstDay = new Date(year, month - 1, 1).getDay();
+  const numDays  = new Date(year, month, 0).getDate();
+  let html = '';
+  for (let i = 0; i < firstDay; i++) html += '<div class="cal-day empty"></div>';
+  for (let d = 1; d <= numDays; d++) {
+    const ds    = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const since = _drSince, until = _drUntil || _drSince;
+    const [lo, hi] = since <= until ? [since, until] : [until, since];
+    let cls = 'cal-day';
+    if (ds === today) cls += ' today';
+    if      (ds === lo && ds === hi) cls += ' sel-start sel-end';
+    else if (ds === lo)              cls += ' sel-start';
+    else if (ds === hi)              cls += ' sel-end';
+    else if (ds > lo && ds < hi)    cls += ' in-range';
+    html += `<div class="${cls}" onclick="drPickDay('${ds}')">${d}</div>`;
+  }
+  document.getElementById(daysId).innerHTML = html;
+}
+
+function drPickDay(ds) {
+  if (_drStep === 0) { _drSince = ds; _drUntil = null; _drStep = 1; }
+  else               { _drUntil = ds; _drStep  = 0; }
+  renderDrCals();
+}
+
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('drWrap');
+  if (wrap && !wrap.contains(e.target)) closeDatePicker();
+});
+
+// ── State & presets ───────────────────────────────────────────────────────────
+const today0 = new Date();
+const _firstOfMonth = new Date(today0.getFullYear(), today0.getMonth(), 1);
+const _fmt = d => d.toISOString().slice(0,10);
+
+const state = {
+  preset:    'month',
+  dateStart: _fmt(_firstOfMonth),
+  dateEnd:   _fmt(today0),
+  tab:       'audiencia',
+};
+
+function setPreset(btn) {
+  document.querySelectorAll('#presetTabs .preset-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  state.preset = btn.dataset.preset;
+  const today = new Date();
+  const fmt = d => d.toISOString().slice(0,10);
+  if      (state.preset === 'today')     { state.dateStart = fmt(today); state.dateEnd = fmt(today); }
+  else if (state.preset === '7d')        { const s=new Date(today); s.setDate(s.getDate()-6);  state.dateStart=fmt(s); state.dateEnd=fmt(today); }
+  else if (state.preset === '30d')       { const s=new Date(today); s.setDate(s.getDate()-29); state.dateStart=fmt(s); state.dateEnd=fmt(today); }
+  else if (state.preset === 'month')     { state.dateStart=fmt(new Date(today.getFullYear(),today.getMonth(),1)); state.dateEnd=fmt(today); }
+  else if (state.preset === 'lastmonth') { state.dateStart=fmt(new Date(today.getFullYear(),today.getMonth()-1,1)); state.dateEnd=fmt(new Date(today.getFullYear(),today.getMonth(),0)); }
+  else                                   { state.dateStart=null; state.dateEnd=null; }
+  updateDrLabel();
+  loadAudiencia();
+}
+
+function setTab(btn) {
+  document.querySelectorAll('.hf-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  state.tab = btn.dataset.tab;
+  loadAudiencia();
+}
+
+// ── Budget month key ──────────────────────────────────────────────────────────
+function getBudgetMonth() {
+  const ref = state.dateEnd || todayStr();
+  return ref.slice(0, 7); // "YYYY-MM"
+}
+
+// ── Budget save ───────────────────────────────────────────────────────────────
+async function saveBudget(channel, input) {
+  const raw = input.value.replace(',', '.').replace(/[^\d.]/g, '');
+  const budget = parseFloat(raw) || 0;
+  const month  = getBudgetMonth();
+  const indId  = 'save' + channel.split('_').map(p => p[0].toUpperCase() + p.slice(1)).join('');
+  try {
+    const r = await fetch('/api/hire/funis/budget', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channel, month, budget }),
+    });
+    if (r.ok) {
+      const ind = document.getElementById(indId);
+      if (ind) { ind.style.display = 'block'; setTimeout(() => ind.style.display = 'none', 2000); }
+    }
+  } catch(e) { console.error('Budget save failed', e); }
+}
+
+function loadBudgetInputs(budgets) {
+  const month = getBudgetMonth();
+  const channels = {
+    ig_malu: 'budgetIgMalu',
+    ig_hire: 'budgetIgHire',
+    youtube: 'budgetYoutube',
+    site:    'budgetSite',
+  };
+  for (const [ch, inputId] of Object.entries(channels)) {
+    const el = document.getElementById(inputId);
+    if (!el) continue;
+    const val = (budgets[ch] || {})[month] || 0;
+    el.value = val ? val.toLocaleString('pt-BR', {minimumFractionDigits:2,maximumFractionDigits:2}) : '';
+  }
+}
+
+// ── Load data ─────────────────────────────────────────────────────────────────
+let _loading = false;
+
+async function loadAudiencia() {
+  if (_loading) return;
+  _loading = true;
+  const btn = document.getElementById('btnRefresh');
+  const icon = document.getElementById('refreshIcon');
+  if (btn) btn.classList.add('loading');
+  if (icon) icon.textContent = '↻';
+
+  document.getElementById('errorBanner').style.display = 'none';
+
+  const params = new URLSearchParams();
+  if (state.dateStart) params.set('date_start', state.dateStart);
+  if (state.dateEnd)   params.set('date_end',   state.dateEnd);
+
+  try {
+    const r = await fetch('/api/hire/funis/audiencia?' + params.toString());
+    if (!r.ok) throw new Error(await r.text());
+    const d = await r.json();
+    renderAudiencia(d);
+    document.getElementById('lastUpdate').textContent = 'Atualizado ' + new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  } catch(e) {
+    const banner = document.getElementById('errorBanner');
+    banner.textContent = 'Erro ao carregar dados: ' + e.message;
+    banner.style.display = 'block';
+  } finally {
+    _loading = false;
+    if (btn)  btn.classList.remove('loading');
+    if (icon) icon.textContent = '↻';
+  }
+}
+
+function renderAudiencia(d) {
+  const s = d.somatorio || {};
+  const ch = d.channels || {};
+
+  // KPI Strip
+  setEl('kpiInvestido',   BRL(s.investido));
+  setEl('kpiFaturamento', BRL(s.faturamento));
+  setEl('kpiVendas',      NUM(s.vendas));
+  setEl('kpiTicket',      BRL(s.ticket_medio));
+  setEl('kpiCac',         BRL(s.cac));
+  setEl('kpiRoas',        ROAS(s.roas));
+
+  // Remove dash class from KPIs that have real data
+  ['kpiInvestido','kpiFaturamento','kpiVendas','kpiTicket','kpiCac','kpiRoas'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && el.textContent !== '—') el.classList.remove('dash');
+  });
+
+  // ROAS color
+  const kpiRoasEl = document.getElementById('kpiRoas');
+  if (kpiRoasEl && s.roas) {
+    if (s.roas >= 3)      kpiRoasEl.classList.add('good');
+    else if (s.roas < 1)  kpiRoasEl.classList.add('warn');
+  }
+
+  // IG Malu
+  const m = ch.ig_malu || {};
+  setEl('malu_invest',  BRL(m.investido));
+  setEl('malu_seg',     NUM(m.seguidores));
+  setEl('malu_cpl',     BRL(m.custo_seguidor));
+  setEl('malu_roas',    ROAS(m.roas));
+  setEl('malu_vendas',  NUM(m.vendas));
+  setEl('malu_fat',     BRL(m.faturamento));
+
+  // IG Hire
+  const h = ch.ig_hire || {};
+  setEl('hire_invest',  BRL(h.investido));
+  setEl('hire_seg',     NUM(h.seguidores));
+  setEl('hire_cpl',     BRL(h.custo_seguidor));
+  setEl('hire_roas',    ROAS(h.roas));
+  setEl('hire_vendas',  NUM(h.vendas));
+  setEl('hire_fat',     BRL(h.faturamento));
+
+  // YouTube
+  const y = ch.youtube || {};
+  setEl('yt_invest',  BRL(y.investido));
+  setEl('yt_cpl',     BRL(y.custo_venda));
+  setEl('yt_roas',    ROAS(y.roas));
+  setEl('yt_vendas',  NUM(y.vendas));
+  setEl('yt_fat',     BRL(y.faturamento));
+
+  // Site
+  const si = ch.site || {};
+  setEl('site_invest',  BRL(si.investido));
+  setEl('site_leads',   NUM(si.leads));
+  setEl('site_cpl',     BRL(si.custo_lead));
+  setEl('site_roas',    ROAS(si.roas));
+  setEl('site_vendas',  NUM(si.vendas));
+  setEl('site_fat',     BRL(si.faturamento));
+
+  // Budgets
+  loadBudgetInputs(d.budgets || {});
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+updateDrLabel();
+loadAudiencia();
+</script>
+</body>
+</html>

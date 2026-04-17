@@ -2692,6 +2692,204 @@ async def get_wici2_lp(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# ── Hire Funis Contínuos ──────────────────────────────────────────────────────
+HIRE_FUNIS_SHEET_ID   = "1l6_bsucWh3CZKhBZpqBykPJuYT3GQ5ZehAR5IAXd8kg"
+HIRE_FUNIS_BUDGETS_PATH = BASE_DIR / "data" / "hire_funis_budgets.json"
+
+def _hf_load_budgets() -> dict:
+    try:
+        return json.loads(HIRE_FUNIS_BUDGETS_PATH.read_text())
+    except Exception:
+        return {}
+
+def _hf_save_budgets(data: dict):
+    HIRE_FUNIS_BUDGETS_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+
+def _hf_parse_num(s) -> float:
+    if s is None:
+        return 0.0
+    s = str(s).strip().replace("R$", "").replace("\xa0", "").strip()
+    if not s:
+        return 0.0
+    if "," in s and "." in s:
+        s = s.replace(".", "").replace(",", ".")
+    elif "," in s:
+        s = s.replace(",", ".")
+    s = re.sub(r"[^\d.\-]", "", s)
+    try:
+        return float(s)
+    except Exception:
+        return 0.0
+
+def _hf_parse_date(s):
+    if not s:
+        return None
+    s = str(s).strip()
+    for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d/%m/%Y %H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+        try:
+            return datetime.strptime(s, fmt).date()
+        except ValueError:
+            pass
+    return None
+
+def _hf_fetch_audiencia(date_start=None, date_end=None) -> dict:
+    sa_path = BASE_DIR / "service_account.json"
+    creds = service_account.Credentials.from_service_account_file(
+        str(sa_path), scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
+    )
+    svc    = gapi_build("sheets", "v4", credentials=creds)
+    sheets = svc.spreadsheets().values()
+
+    def _get(aba):
+        return sheets.get(spreadsheetId=HIRE_FUNIS_SHEET_ID, range=aba).execute().get("values", [])
+
+    def _in_range(row):
+        d = _hf_parse_date(row[0]) if row else None
+        if date_start and d and d < date_start: return False
+        if date_end   and d and d > date_end:   return False
+        return True
+
+    # ── Somatório: Date | Investido | Leads | Vendas | Faturamento | Roas ────
+    som_invest = som_leads = som_vendas = som_fat = 0.0
+    for row in _get("Somatório")[1:]:
+        if len(row) < 2 or not _in_range(row): continue
+        som_invest += _hf_parse_num(row[1]) if len(row) > 1 else 0.0
+        som_leads  += _hf_parse_num(row[2]) if len(row) > 2 else 0.0
+        som_vendas += _hf_parse_num(row[3]) if len(row) > 3 else 0.0
+        som_fat    += _hf_parse_num(row[4]) if len(row) > 4 else 0.0
+
+    # ── IG Malu: Date | Investido | Seguidores | Vendas | Faturamento ────────
+    malu_invest = malu_seg = malu_vendas = malu_fat = 0.0
+    for row in _get("IG Malu")[1:]:
+        if len(row) < 2 or not _in_range(row): continue
+        malu_invest += _hf_parse_num(row[1])
+        malu_seg    += _hf_parse_num(row[2]) if len(row) > 2 else 0.0
+        malu_vendas += _hf_parse_num(row[3]) if len(row) > 3 else 0.0
+        malu_fat    += _hf_parse_num(row[4]) if len(row) > 4 else 0.0
+
+    # ── IG Hire: Date | Investido | Seguidores | Vendas | Faturamento ────────
+    hire_invest = hire_seg = hire_vendas = hire_fat = 0.0
+    for row in _get("IG Hire")[1:]:
+        if len(row) < 2 or not _in_range(row): continue
+        hire_invest += _hf_parse_num(row[1])
+        hire_seg    += _hf_parse_num(row[2]) if len(row) > 2 else 0.0
+        hire_vendas += _hf_parse_num(row[3]) if len(row) > 3 else 0.0
+        hire_fat    += _hf_parse_num(row[4]) if len(row) > 4 else 0.0
+
+    # ── YouTube: Date | Campanha | Investido | Vendas | Faturamento ──────────
+    yt_invest = yt_vendas = yt_fat = 0.0
+    for row in _get("Youtube")[1:]:
+        if len(row) < 3 or not _in_range(row): continue
+        yt_invest += _hf_parse_num(row[2])
+        yt_vendas += _hf_parse_num(row[3]) if len(row) > 3 else 0.0
+        yt_fat    += _hf_parse_num(row[4]) if len(row) > 4 else 0.0
+
+    # ── Site: Date | Campanha | Investido | Leads | Vendas | Faturamento ─────
+    site_invest = site_leads = site_vendas = site_fat = 0.0
+    for row in _get("Site")[1:]:
+        if len(row) < 3 or not _in_range(row): continue
+        site_invest += _hf_parse_num(row[2])
+        site_leads  += _hf_parse_num(row[3]) if len(row) > 3 else 0.0
+        site_vendas += _hf_parse_num(row[4]) if len(row) > 4 else 0.0
+        site_fat    += _hf_parse_num(row[5]) if len(row) > 5 else 0.0
+
+    def _roas(fat, inv):  return round(fat / inv, 2)  if inv  else 0.0
+    def _unit(inv, n):    return round(inv / n,   2)  if n    else 0.0
+
+    som_ticket = som_fat / som_vendas if som_vendas else 0.0
+    som_cac    = som_invest / som_vendas if som_vendas else 0.0
+    som_roas   = _roas(som_fat, som_invest)
+
+    return {
+        "somatorio": {
+            "investido":    round(som_invest, 2),
+            "faturamento":  round(som_fat, 2),
+            "vendas":       int(som_vendas),
+            "leads":        int(som_leads),
+            "ticket_medio": round(som_ticket, 2),
+            "cac":          round(som_cac, 2),
+            "roas":         som_roas,
+        },
+        "channels": {
+            "ig_malu": {
+                "investido":      round(malu_invest, 2),
+                "seguidores":     int(malu_seg),
+                "custo_seguidor": _unit(malu_invest, malu_seg),
+                "vendas":         int(malu_vendas),
+                "faturamento":    round(malu_fat, 2),
+                "roas":           _roas(malu_fat, malu_invest),
+            },
+            "ig_hire": {
+                "investido":      round(hire_invest, 2),
+                "seguidores":     int(hire_seg),
+                "custo_seguidor": _unit(hire_invest, hire_seg),
+                "vendas":         int(hire_vendas),
+                "faturamento":    round(hire_fat, 2),
+                "roas":           _roas(hire_fat, hire_invest),
+            },
+            "youtube": {
+                "investido":   round(yt_invest, 2),
+                "vendas":      int(yt_vendas),
+                "custo_venda": _unit(yt_invest, yt_vendas),
+                "faturamento": round(yt_fat, 2),
+                "roas":        _roas(yt_fat, yt_invest),
+            },
+            "site": {
+                "investido":   round(site_invest, 2),
+                "leads":       int(site_leads),
+                "custo_lead":  _unit(site_invest, site_leads),
+                "vendas":      int(site_vendas),
+                "faturamento": round(site_fat, 2),
+                "roas":        _roas(site_fat, site_invest),
+            },
+        },
+    }
+
+@app.get("/dashboard-hire-funis", response_class=HTMLResponse)
+async def dashboard_hire_funis_page(request: Request):
+    """Public — Funis Contínuos da Hire, no login required."""
+    return templates.TemplateResponse("hire_funis.html", {
+        "request": request,
+        "nav_username": "", "active_page": "hire_funis",
+        "nav_clients": None, "nav_current_client": None, "public_mode": True,
+    })
+
+@app.get("/api/hire/funis/audiencia")
+async def get_hire_funis_audiencia(
+    request: Request,
+    date_start: str = None,
+    date_end:   str = None,
+):
+    try:
+        ds = datetime.strptime(date_start, "%Y-%m-%d").date() if date_start else None
+        de = datetime.strptime(date_end,   "%Y-%m-%d").date() if date_end   else None
+        data = await asyncio.to_thread(_hf_fetch_audiencia, ds, de)
+        data["budgets"] = _hf_load_budgets()
+        return JSONResponse(data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/hire/funis/budget")
+async def put_hire_funis_budget(request: Request):
+    try:
+        body    = await request.json()
+        channel = str(body.get("channel", ""))
+        month   = str(body.get("month", ""))
+        budget  = float(body.get("budget", 0))
+        if not channel or not month:
+            raise HTTPException(status_code=400, detail="channel e month são obrigatórios")
+        budgets = _hf_load_budgets()
+        if channel not in budgets:
+            budgets[channel] = {}
+        budgets[channel][month] = budget
+        _hf_save_budgets(budgets)
+        return JSONResponse({"ok": True})
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/logs", response_class=HTMLResponse)
 async def view_logs(request: Request):
     if not verify_session(request):
