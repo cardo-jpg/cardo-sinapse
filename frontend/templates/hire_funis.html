@@ -185,22 +185,23 @@
     .hf-budget-input::placeholder { color:rgba(255,255,255,.2); }
     .hf-budget-save-indicator { font-size:.65rem; color:var(--green); display:none; }
 
-    /* Metrics grid — tudo em uma linha */
+    /* Metrics grid — tudo em uma linha, distribuído igualmente */
     .hf-ch-metrics {
-      display:grid; padding:16px 20px 18px; gap:10px;
+      display:grid; padding:16px 20px 20px; gap:6px; align-items:end;
     }
-    .hf-ch-metrics.cols-6 { grid-template-columns:repeat(6,1fr); }
-    .hf-ch-metrics.cols-5 { grid-template-columns:repeat(5,1fr); }
+    /* minmax(0,1fr) força colunas verdadeiramente iguais mesmo com nowrap */
+    .hf-ch-metrics.cols-6 { grid-template-columns:repeat(6,minmax(0,1fr)); }
+    .hf-ch-metrics.cols-5 { grid-template-columns:repeat(5,minmax(0,1fr)); }
 
     .hf-ch-metric { display:flex; flex-direction:column; gap:3px; }
-    .hf-ch-metric-lbl { font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:rgba(255,255,255,.45); white-space:nowrap; }
+    .hf-ch-metric-lbl { font-size:.63rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:rgba(255,255,255,.4); white-space:nowrap; }
     .hf-ch-metric-val { font-size:1.05rem; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    /* Vendas e Faturamento (primeiras 2 colunas) ligeiramente em destaque */
+    /* Vendas e Faturamento em destaque */
     .hf-ch-metrics .hf-ch-metric:nth-child(1) .hf-ch-metric-val,
-    .hf-ch-metrics .hf-ch-metric:nth-child(2) .hf-ch-metric-val { font-size:1.3rem; font-weight:800; }
+    .hf-ch-metrics .hf-ch-metric:nth-child(2) .hf-ch-metric-val { font-size:1.35rem; font-weight:800; }
     .hf-ch-metric-val.good { color:var(--green); }
     .hf-ch-metric-val.warn { color:var(--amber); }
-    .hf-ch-metric-val.dim  { color:rgba(255,255,255,.5); }
+    .hf-ch-metric-val.dim  { color:rgba(255,255,255,.55); font-size:.95rem; }
 
     /* util */
     .good { color:var(--green); }
