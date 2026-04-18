@@ -200,15 +200,16 @@
     .hf-ch-metric-val.warn { color:var(--amber); }
     .hf-ch-metric-val.dim  { color:rgba(255,255,255,.5); font-size:.95rem; }
 
-    /* bottom strip: vendas + fat */
-    .hf-ch-bottom {
-      display:flex; align-items:center; justify-content:space-between;
-      padding:10px 20px 14px; border-top:1px solid rgba(123,45,139,.2);
-      font-size:.82rem;
+    /* hero: vendas + faturamento em destaque */
+    .hf-ch-hero {
+      display:grid; grid-template-columns:1fr 1fr;
+      padding:14px 20px 12px; gap:8px;
+      border-bottom:1px solid rgba(123,45,139,.2);
+      background:rgba(123,45,139,.08);
     }
-    .hf-ch-bottom-item { display:flex; align-items:center; gap:6px; }
-    .hf-ch-bottom-lbl { color:rgba(255,255,255,.5); font-weight:600; letter-spacing:.03em; }
-    .hf-ch-bottom-val { color:#fff; font-weight:700; }
+    .hf-ch-hero-item { display:flex; flex-direction:column; gap:3px; }
+    .hf-ch-hero-lbl { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:rgba(255,255,255,.5); }
+    .hf-ch-hero-val { font-size:1.55rem; font-weight:800; color:#fff; letter-spacing:-.01em; line-height:1.1; }
 
     /* util */
     .good { color:var(--green); }
@@ -371,7 +372,17 @@
             <div class="hf-budget-save-indicator" id="saveIgMalu">Salvo ✓</div>
           </div>
         </div>
-        <div class="hf-ch-metrics has-seg" id="metricsIgMalu">
+        <div class="hf-ch-hero">
+          <div class="hf-ch-hero-item">
+            <div class="hf-ch-hero-lbl">Vendas</div>
+            <div class="hf-ch-hero-val" id="malu_vendas">—</div>
+          </div>
+          <div class="hf-ch-hero-item">
+            <div class="hf-ch-hero-lbl">Faturamento</div>
+            <div class="hf-ch-hero-val" id="malu_fat">—</div>
+          </div>
+        </div>
+        <div class="hf-ch-metrics has-seg">
           <div class="hf-ch-metric">
             <div class="hf-ch-metric-lbl">Investido</div>
             <div class="hf-ch-metric-val dash" id="malu_invest">—</div>
@@ -387,16 +398,6 @@
           <div class="hf-ch-metric">
             <div class="hf-ch-metric-lbl">ROAS</div>
             <div class="hf-ch-metric-val dash" id="malu_roas">—</div>
-          </div>
-        </div>
-        <div class="hf-ch-bottom">
-          <div class="hf-ch-bottom-item">
-            <span class="hf-ch-bottom-lbl">Vendas</span>
-            <span class="hf-ch-bottom-val" id="malu_vendas">—</span>
-          </div>
-          <div class="hf-ch-bottom-item">
-            <span class="hf-ch-bottom-lbl">Faturamento</span>
-            <span class="hf-ch-bottom-val" id="malu_fat">—</span>
           </div>
         </div>
       </div>
@@ -420,7 +421,17 @@
             <div class="hf-budget-save-indicator" id="saveIgHire">Salvo ✓</div>
           </div>
         </div>
-        <div class="hf-ch-metrics has-seg" id="metricsIgHire">
+        <div class="hf-ch-hero">
+          <div class="hf-ch-hero-item">
+            <div class="hf-ch-hero-lbl">Vendas</div>
+            <div class="hf-ch-hero-val" id="hire_vendas">—</div>
+          </div>
+          <div class="hf-ch-hero-item">
+            <div class="hf-ch-hero-lbl">Faturamento</div>
+            <div class="hf-ch-hero-val" id="hire_fat">—</div>
+          </div>
+        </div>
+        <div class="hf-ch-metrics has-seg">
           <div class="hf-ch-metric">
             <div class="hf-ch-metric-lbl">Investido</div>
             <div class="hf-ch-metric-val dash" id="hire_invest">—</div>
@@ -436,16 +447,6 @@
           <div class="hf-ch-metric">
             <div class="hf-ch-metric-lbl">ROAS</div>
             <div class="hf-ch-metric-val dash" id="hire_roas">—</div>
-          </div>
-        </div>
-        <div class="hf-ch-bottom">
-          <div class="hf-ch-bottom-item">
-            <span class="hf-ch-bottom-lbl">Vendas</span>
-            <span class="hf-ch-bottom-val" id="hire_vendas">—</span>
-          </div>
-          <div class="hf-ch-bottom-item">
-            <span class="hf-ch-bottom-lbl">Faturamento</span>
-            <span class="hf-ch-bottom-val" id="hire_fat">—</span>
           </div>
         </div>
       </div>
@@ -469,7 +470,17 @@
             <div class="hf-budget-save-indicator" id="saveYoutube">Salvo ✓</div>
           </div>
         </div>
-        <div class="hf-ch-metrics no-seg-3" id="metricsYoutube">
+        <div class="hf-ch-hero">
+          <div class="hf-ch-hero-item">
+            <div class="hf-ch-hero-lbl">Vendas</div>
+            <div class="hf-ch-hero-val" id="yt_vendas">—</div>
+          </div>
+          <div class="hf-ch-hero-item">
+            <div class="hf-ch-hero-lbl">Faturamento</div>
+            <div class="hf-ch-hero-val" id="yt_fat">—</div>
+          </div>
+        </div>
+        <div class="hf-ch-metrics no-seg-3">
           <div class="hf-ch-metric">
             <div class="hf-ch-metric-lbl">Investido</div>
             <div class="hf-ch-metric-val dash" id="yt_invest">—</div>
@@ -481,16 +492,6 @@
           <div class="hf-ch-metric">
             <div class="hf-ch-metric-lbl">ROAS</div>
             <div class="hf-ch-metric-val dash" id="yt_roas">—</div>
-          </div>
-        </div>
-        <div class="hf-ch-bottom">
-          <div class="hf-ch-bottom-item">
-            <span class="hf-ch-bottom-lbl">Vendas</span>
-            <span class="hf-ch-bottom-val" id="yt_vendas">—</span>
-          </div>
-          <div class="hf-ch-bottom-item">
-            <span class="hf-ch-bottom-lbl">Faturamento</span>
-            <span class="hf-ch-bottom-val" id="yt_fat">—</span>
           </div>
         </div>
       </div>
@@ -514,7 +515,17 @@
             <div class="hf-budget-save-indicator" id="saveSite">Salvo ✓</div>
           </div>
         </div>
-        <div class="hf-ch-metrics no-seg-4" id="metricsSite">
+        <div class="hf-ch-hero">
+          <div class="hf-ch-hero-item">
+            <div class="hf-ch-hero-lbl">Vendas</div>
+            <div class="hf-ch-hero-val" id="site_vendas">—</div>
+          </div>
+          <div class="hf-ch-hero-item">
+            <div class="hf-ch-hero-lbl">Faturamento</div>
+            <div class="hf-ch-hero-val" id="site_fat">—</div>
+          </div>
+        </div>
+        <div class="hf-ch-metrics no-seg-4">
           <div class="hf-ch-metric">
             <div class="hf-ch-metric-lbl">Investido</div>
             <div class="hf-ch-metric-val dash" id="site_invest">—</div>
@@ -530,16 +541,6 @@
           <div class="hf-ch-metric">
             <div class="hf-ch-metric-lbl">ROAS</div>
             <div class="hf-ch-metric-val dash" id="site_roas">—</div>
-          </div>
-        </div>
-        <div class="hf-ch-bottom">
-          <div class="hf-ch-bottom-item">
-            <span class="hf-ch-bottom-lbl">Vendas</span>
-            <span class="hf-ch-bottom-val" id="site_vendas">—</span>
-          </div>
-          <div class="hf-ch-bottom-item">
-            <span class="hf-ch-bottom-lbl">Faturamento</span>
-            <span class="hf-ch-bottom-val" id="site_fat">—</span>
           </div>
         </div>
       </div>
