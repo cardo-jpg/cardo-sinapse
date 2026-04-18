@@ -2695,8 +2695,11 @@ async def get_wici2_lp(
 # ── Hire Funis Contínuos ──────────────────────────────────────────────────────
 HIRE_FUNIS_SHEET_ID   = "1l6_bsucWh3CZKhBZpqBykPJuYT3GQ5ZehAR5IAXd8kg"
 HIRE_MALU_TRACKER_ID  = "1SVz6Eti4E6hkOpgVjOeYkQ3XvDuYuVYmSWOj_cWYvPM"
-# Row 1 (index 1) of Sheet2 "dados" = 05/02/2024 (daily sequential; last data row 777 = 22/03/2026)
+# Row 1 (index 1) of IG Malu tracker "dados" = 05/02/2024 (daily sequential; last data row 777 = 22/03/2026)
 HIRE_MALU_TRACKER_BASE = datetime(2024, 2, 5).date()
+HIRE_HIRE_TRACKER_ID  = "1XWIvqBx1TXjoFtiIViW_lW4L0EpbXAQsmU6vbvUMVIk"
+# Row 1 (index 1) of IG Hire tracker "dados" = 01/01/2026 (daily sequential)
+HIRE_HIRE_TRACKER_BASE = datetime(2026, 1, 1).date()
 HIRE_FUNIS_BUDGETS_PATH = BASE_DIR / "data" / "hire_funis_budgets.json"
 
 def _hf_load_budgets() -> dict:
@@ -2786,14 +2789,30 @@ def _hf_fetch_audiencia(date_start=None, date_end=None) -> dict:
     except Exception:
         pass
 
-    # ── IG Hire: Date | Investido | Seguidores | Vendas | Faturamento ────────
+    # ── IG Hire ───────────────────────────────────────────────────────────────
+    # Investido/Vendas/Faturamento: tab "IG Hire" (dd/mm/yyyy)
+    # Novos Seguidores: tracker sheet "dados" (daily rows from 01/01/2026, dates as dd/mm)
     hire_invest = hire_seg = hire_vendas = hire_fat = 0.0
     for row in _get("IG Hire")[1:]:
         if len(row) < 2 or not _in_range(row): continue
         hire_invest += _hf_parse_num(row[1])
-        hire_seg    += _hf_parse_num(row[2]) if len(row) > 2 else 0.0
+        # col 2 (Seguidores) is always empty in main tab — read from tracker below
         hire_vendas += _hf_parse_num(row[3]) if len(row) > 3 else 0.0
         hire_fat    += _hf_parse_num(row[4]) if len(row) > 4 else 0.0
+
+    # Read Novos Seguidores from dedicated tracker (sequential daily rows)
+    try:
+        hire_tracker_rows = svc.spreadsheets().values().get(
+            spreadsheetId=HIRE_HIRE_TRACKER_ID, range="dados"
+        ).execute().get("values", [])
+        for i, row in enumerate(hire_tracker_rows[1:]):  # row index 1+ = data
+            row_date = HIRE_HIRE_TRACKER_BASE + timedelta(days=i)
+            if date_start and row_date < date_start: continue
+            if date_end   and row_date > date_end:   continue
+            if len(row) > 1:
+                hire_seg += _hf_parse_num(row[1])   # "Novos Seguidores"
+    except Exception:
+        pass
 
     # ── YouTube: Date | Campanha | Investido | Vendas | Faturamento ──────────
     yt_invest = yt_vendas = yt_fat = 0.0
