@@ -189,9 +189,9 @@
     .hf-ch-metrics {
       display:grid; padding:16px 20px 20px; gap:6px; align-items:end;
     }
-    /* minmax(0,1fr) força colunas verdadeiramente iguais mesmo com nowrap */
-    .hf-ch-metrics.cols-6 { grid-template-columns:repeat(6,minmax(0,1fr)); }
-    .hf-ch-metrics.cols-5 { grid-template-columns:repeat(5,minmax(0,1fr)); }
+    /* Vendas=compact, Faturamento=wide, resto=igual */
+    .hf-ch-metrics.cols-6 { grid-template-columns:0.6fr 1.9fr 1fr 1fr 1fr 1fr; }
+    .hf-ch-metrics.cols-5 { grid-template-columns:0.6fr 1.9fr 1fr 1fr 1fr; }
 
     .hf-ch-metric { display:flex; flex-direction:column; gap:3px; }
     .hf-ch-metric-lbl { font-size:.63rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:rgba(255,255,255,.4); white-space:nowrap; }
