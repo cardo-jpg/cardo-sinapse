@@ -185,31 +185,22 @@
     .hf-budget-input::placeholder { color:rgba(255,255,255,.2); }
     .hf-budget-save-indicator { font-size:.65rem; color:var(--green); display:none; }
 
-    /* Metrics grid */
+    /* Metrics grid — tudo em uma linha */
     .hf-ch-metrics {
-      display:grid; padding:16px 20px; gap:16px;
+      display:grid; padding:16px 20px 18px; gap:10px;
     }
-    .hf-ch-metrics.has-seg  { grid-template-columns:repeat(4,1fr); }
-    .hf-ch-metrics.no-seg-3 { grid-template-columns:repeat(3,1fr); }
-    .hf-ch-metrics.no-seg-4 { grid-template-columns:repeat(4,1fr); }
+    .hf-ch-metrics.cols-6 { grid-template-columns:repeat(6,1fr); }
+    .hf-ch-metrics.cols-5 { grid-template-columns:repeat(5,1fr); }
 
     .hf-ch-metric { display:flex; flex-direction:column; gap:3px; }
-    .hf-ch-metric-lbl { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:rgba(255,255,255,.45); }
-    .hf-ch-metric-val { font-size:1.1rem; font-weight:700; color:#fff; }
+    .hf-ch-metric-lbl { font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:rgba(255,255,255,.45); white-space:nowrap; }
+    .hf-ch-metric-val { font-size:1.05rem; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    /* Vendas e Faturamento (primeiras 2 colunas) ligeiramente em destaque */
+    .hf-ch-metrics .hf-ch-metric:nth-child(1) .hf-ch-metric-val,
+    .hf-ch-metrics .hf-ch-metric:nth-child(2) .hf-ch-metric-val { font-size:1.3rem; font-weight:800; }
     .hf-ch-metric-val.good { color:var(--green); }
     .hf-ch-metric-val.warn { color:var(--amber); }
-    .hf-ch-metric-val.dim  { color:rgba(255,255,255,.5); font-size:.95rem; }
-
-    /* hero: vendas + faturamento em destaque */
-    .hf-ch-hero {
-      display:grid; grid-template-columns:1fr 1fr;
-      padding:14px 20px 12px; gap:8px;
-      border-bottom:1px solid rgba(123,45,139,.2);
-      background:rgba(123,45,139,.08);
-    }
-    .hf-ch-hero-item { display:flex; flex-direction:column; gap:3px; }
-    .hf-ch-hero-lbl { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:rgba(255,255,255,.5); }
-    .hf-ch-hero-val { font-size:1.55rem; font-weight:800; color:#fff; letter-spacing:-.01em; line-height:1.1; }
+    .hf-ch-metric-val.dim  { color:rgba(255,255,255,.5); }
 
     /* util */
     .good { color:var(--green); }
@@ -372,32 +363,30 @@
             <div class="hf-budget-save-indicator" id="saveIgMalu">Salvo ✓</div>
           </div>
         </div>
-        <div class="hf-ch-hero">
-          <div class="hf-ch-hero-item">
-            <div class="hf-ch-hero-lbl">Vendas</div>
-            <div class="hf-ch-hero-val" id="malu_vendas">—</div>
+        <div class="hf-ch-metrics cols-6">
+          <div class="hf-ch-metric">
+            <div class="hf-ch-metric-lbl">Vendas</div>
+            <div class="hf-ch-metric-val" id="malu_vendas">—</div>
           </div>
-          <div class="hf-ch-hero-item">
-            <div class="hf-ch-hero-lbl">Faturamento</div>
-            <div class="hf-ch-hero-val" id="malu_fat">—</div>
+          <div class="hf-ch-metric">
+            <div class="hf-ch-metric-lbl">Faturamento</div>
+            <div class="hf-ch-metric-val" id="malu_fat">—</div>
           </div>
-        </div>
-        <div class="hf-ch-metrics has-seg">
           <div class="hf-ch-metric">
             <div class="hf-ch-metric-lbl">Investido</div>
-            <div class="hf-ch-metric-val dash" id="malu_invest">—</div>
+            <div class="hf-ch-metric-val dim" id="malu_invest">—</div>
           </div>
           <div class="hf-ch-metric">
             <div class="hf-ch-metric-lbl">Novos Seg.</div>
-            <div class="hf-ch-metric-val dash" id="malu_seg">—</div>
+            <div class="hf-ch-metric-val dim" id="malu_seg">—</div>
           </div>
           <div class="hf-ch-metric">
-            <div class="hf-ch-metric-lbl">Custo/Seguidor</div>
-            <div class="hf-ch-metric-val dash" id="malu_cpl">—</div>
+            <div class="hf-ch-metric-lbl">Custo/Seg.</div>
+            <div class="hf-ch-metric-val dim" id="malu_cpl">—</div>
           </div>
           <div class="hf-ch-metric">
             <div class="hf-ch-metric-lbl">ROAS</div>
-            <div class="hf-ch-metric-val dash" id="malu_roas">—</div>
+            <div class="hf-ch-metric-val dim" id="malu_roas">—</div>
           </div>
         </div>
       </div>
@@ -421,32 +410,30 @@
             <div class="hf-budget-save-indicator" id="saveIgHire">Salvo ✓</div>
           </div>
         </div>
-        <div class="hf-ch-hero">
-          <div class="hf-ch-hero-item">
-            <div class="hf-ch-hero-lbl">Vendas</div>
-            <div class="hf-ch-hero-val" id="hire_vendas">—</div>
+        <div class="hf-ch-metrics cols-6">
+          <div class="hf-ch-metric">
+            <div class="hf-ch-metric-lbl">Vendas</div>
+            <div class="hf-ch-metric-val" id="hire_vendas">—</div>
           </div>
-          <div class="hf-ch-hero-item">
-            <div class="hf-ch-hero-lbl">Faturamento</div>
-            <div class="hf-ch-hero-val" id="hire_fat">—</div>
+          <div class="hf-ch-metric">
+            <div class="hf-ch-metric-lbl">Faturamento</div>
+            <div class="hf-ch-metric-val" id="hire_fat">—</div>
           </div>
-        </div>
-        <div class="hf-ch-metrics has-seg">
           <div class="hf-ch-metric">
             <div class="hf-ch-metric-lbl">Investido</div>
-            <div class="hf-ch-metric-val dash" id="hire_invest">—</div>
+            <div class="hf-ch-metric-val dim" id="hire_invest">—</div>
           </div>
           <div class="hf-ch-metric">
             <div class="hf-ch-metric-lbl">Novos Seg.</div>
-            <div class="hf-ch-metric-val dash" id="hire_seg">—</div>
+            <div class="hf-ch-metric-val dim" id="hire_seg">—</div>
           </div>
           <div class="hf-ch-metric">
-            <div class="hf-ch-metric-lbl">Custo/Seguidor</div>
-            <div class="hf-ch-metric-val dash" id="hire_cpl">—</div>
+            <div class="hf-ch-metric-lbl">Custo/Seg.</div>
+            <div class="hf-ch-metric-val dim" id="hire_cpl">—</div>
           </div>
           <div class="hf-ch-metric">
             <div class="hf-ch-metric-lbl">ROAS</div>
-            <div class="hf-ch-metric-val dash" id="hire_roas">—</div>
+            <div class="hf-ch-metric-val dim" id="hire_roas">—</div>
           </div>
         </div>
       </div>
@@ -470,28 +457,26 @@
             <div class="hf-budget-save-indicator" id="saveYoutube">Salvo ✓</div>
           </div>
         </div>
-        <div class="hf-ch-hero">
-          <div class="hf-ch-hero-item">
-            <div class="hf-ch-hero-lbl">Vendas</div>
-            <div class="hf-ch-hero-val" id="yt_vendas">—</div>
+        <div class="hf-ch-metrics cols-5">
+          <div class="hf-ch-metric">
+            <div class="hf-ch-metric-lbl">Vendas</div>
+            <div class="hf-ch-metric-val" id="yt_vendas">—</div>
           </div>
-          <div class="hf-ch-hero-item">
-            <div class="hf-ch-hero-lbl">Faturamento</div>
-            <div class="hf-ch-hero-val" id="yt_fat">—</div>
+          <div class="hf-ch-metric">
+            <div class="hf-ch-metric-lbl">Faturamento</div>
+            <div class="hf-ch-metric-val" id="yt_fat">—</div>
           </div>
-        </div>
-        <div class="hf-ch-metrics no-seg-3">
           <div class="hf-ch-metric">
             <div class="hf-ch-metric-lbl">Investido</div>
-            <div class="hf-ch-metric-val dash" id="yt_invest">—</div>
+            <div class="hf-ch-metric-val dim" id="yt_invest">—</div>
           </div>
           <div class="hf-ch-metric">
             <div class="hf-ch-metric-lbl">Custo/Venda</div>
-            <div class="hf-ch-metric-val dash" id="yt_cpl">—</div>
+            <div class="hf-ch-metric-val dim" id="yt_cpl">—</div>
           </div>
           <div class="hf-ch-metric">
             <div class="hf-ch-metric-lbl">ROAS</div>
-            <div class="hf-ch-metric-val dash" id="yt_roas">—</div>
+            <div class="hf-ch-metric-val dim" id="yt_roas">—</div>
           </div>
         </div>
       </div>
@@ -515,32 +500,30 @@
             <div class="hf-budget-save-indicator" id="saveSite">Salvo ✓</div>
           </div>
         </div>
-        <div class="hf-ch-hero">
-          <div class="hf-ch-hero-item">
-            <div class="hf-ch-hero-lbl">Vendas</div>
-            <div class="hf-ch-hero-val" id="site_vendas">—</div>
+        <div class="hf-ch-metrics cols-6">
+          <div class="hf-ch-metric">
+            <div class="hf-ch-metric-lbl">Vendas</div>
+            <div class="hf-ch-metric-val" id="site_vendas">—</div>
           </div>
-          <div class="hf-ch-hero-item">
-            <div class="hf-ch-hero-lbl">Faturamento</div>
-            <div class="hf-ch-hero-val" id="site_fat">—</div>
+          <div class="hf-ch-metric">
+            <div class="hf-ch-metric-lbl">Faturamento</div>
+            <div class="hf-ch-metric-val" id="site_fat">—</div>
           </div>
-        </div>
-        <div class="hf-ch-metrics no-seg-4">
           <div class="hf-ch-metric">
             <div class="hf-ch-metric-lbl">Investido</div>
-            <div class="hf-ch-metric-val dash" id="site_invest">—</div>
+            <div class="hf-ch-metric-val dim" id="site_invest">—</div>
           </div>
           <div class="hf-ch-metric">
             <div class="hf-ch-metric-lbl">Leads</div>
-            <div class="hf-ch-metric-val dash" id="site_leads">—</div>
+            <div class="hf-ch-metric-val dim" id="site_leads">—</div>
           </div>
           <div class="hf-ch-metric">
             <div class="hf-ch-metric-lbl">Custo/Lead</div>
-            <div class="hf-ch-metric-val dash" id="site_cpl">—</div>
+            <div class="hf-ch-metric-val dim" id="site_cpl">—</div>
           </div>
           <div class="hf-ch-metric">
             <div class="hf-ch-metric-lbl">ROAS</div>
-            <div class="hf-ch-metric-val dash" id="site_roas">—</div>
+            <div class="hf-ch-metric-val dim" id="site_roas">—</div>
           </div>
         </div>
       </div>
