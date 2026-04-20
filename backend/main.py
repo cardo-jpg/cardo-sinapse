@@ -3374,21 +3374,22 @@ def _hf_fetch_youtube_tab(date_start=None, date_end=None) -> dict:
     serie_gads_map: dict = {}
 
     if all([GADS_DEVELOPER_TOKEN, GADS_CLIENT_ID, GADS_CLIENT_SECRET, GADS_REFRESH_TOKEN]):
-        try:
-            from google.ads.googleads.client import GoogleAdsClient
-            gads_cfg = {
-                "developer_token": GADS_DEVELOPER_TOKEN,
-                "client_id":       GADS_CLIENT_ID,
-                "client_secret":   GADS_CLIENT_SECRET,
-                "refresh_token":   GADS_REFRESH_TOKEN,
-                "use_proto_plus":  True,
-            }
-            client = GoogleAdsClient.load_from_dict(gads_cfg)
-            ga_svc = client.get_service("GoogleAdsService")
-            dc = f"segments.date BETWEEN '{ds}' AND '{de}'"
-            yf = "campaign.name LIKE '%YOUTUBE%'"
+        from google.ads.googleads.client import GoogleAdsClient
+        gads_cfg = {
+            "developer_token": GADS_DEVELOPER_TOKEN,
+            "client_id":       GADS_CLIENT_ID,
+            "client_secret":   GADS_CLIENT_SECRET,
+            "refresh_token":   GADS_REFRESH_TOKEN,
+            "use_proto_plus":  True,
+        }
+        client = GoogleAdsClient.load_from_dict(gads_cfg)
+        ga_svc = client.get_service("GoogleAdsService")
+        dc = f"segments.date BETWEEN '{ds}' AND '{de}'"
+        yf = "campaign.name LIKE '%YOUTUBE%'"
 
-            # Q1: Daily cost + impressions + clicks (no conversion segment)
+        # ── Q1 + Q2: KPIs — try independently so table errors never zero KPIs ──
+        try:
+            # Q1: Daily cost + impressions + clicks
             q1 = f"""
                 SELECT segments.date, metrics.cost_micros, metrics.impressions, metrics.clicks
                 FROM campaign
@@ -3418,51 +3419,6 @@ def _hf_fetch_youtube_tab(date_start=None, date_end=None) -> dict:
                 sg = serie_gads_map.setdefault(day, {"inv": 0.0, "ins": 0})
                 sg["ins"] += cnt
 
-            # Q3: Per-ad performance (cost + impressions + clicks + video views)
-            q3 = f"""
-                SELECT
-                    ad_group_ad.ad.id,
-                    ad_group_ad.ad.name,
-                    ad_group_ad.status,
-                    metrics.cost_micros,
-                    metrics.impressions,
-                    metrics.clicks,
-                    metrics.conversions,
-                    metrics.video_views
-                FROM ad_group_ad
-                WHERE {dc} AND {yf} AND metrics.impressions > 0
-            """
-            STATUS_PT = {"ENABLED": "Ativo", "PAUSED": "Pausado", "REMOVED": "Removido"}
-            ads_map: dict = {}
-            for r in ga_svc.search(customer_id=GADS_HIRE_CUSTOMER_ID, query=q3):
-                aid = str(r.ad_group_ad.ad.id)
-                if aid not in ads_map:
-                    ads_map[aid] = {
-                        "nome":   r.ad_group_ad.ad.name,
-                        "status": STATUS_PT.get(r.ad_group_ad.status.name, "—"),
-                        "cost": 0, "imp": 0, "cli": 0, "conv": 0.0, "vv": 0,
-                    }
-                ads_map[aid]["cost"] += r.metrics.cost_micros
-                ads_map[aid]["imp"]  += r.metrics.impressions
-                ads_map[aid]["cli"]  += r.metrics.clicks
-                ads_map[aid]["conv"] += r.metrics.conversions
-                ads_map[aid]["vv"]   += r.metrics.video_views
-
-            for v in ads_map.values():
-                valor = round(v["cost"] / 1_000_000, 2)
-                conv  = int(v["conv"])
-                taxa  = round(v["vv"] / v["imp"] * 100, 1) if v["imp"] else 0.0
-                anuncios.append({
-                    "nome":       v["nome"],
-                    "status":     v["status"],
-                    "conversoes": conv,
-                    "impressoes": int(v["imp"]),
-                    "valor":      valor,
-                    "custo_conv": round(valor / conv, 2) if conv else 0.0,
-                    "taxa":       taxa,
-                })
-            anuncios.sort(key=lambda x: x["valor"], reverse=True)
-
             investido = tot_cost / 1_000_000
             cpm = round(investido / tot_imp * 1000, 2) if tot_imp else 0.0
             kpis = {
@@ -3475,6 +3431,53 @@ def _hf_fetch_youtube_tab(date_start=None, date_end=None) -> dict:
             }
         except Exception as e:
             kpis["gads_error"] = str(e)
+
+        # ── Q3: Per-ad table — separate try; failure only empties the table ────
+        try:
+            # video_views not used (incompatible with some ad types); taxa = CTR
+            q3 = f"""
+                SELECT
+                    ad_group_ad.ad.id,
+                    ad_group_ad.ad.name,
+                    ad_group_ad.status,
+                    metrics.cost_micros,
+                    metrics.impressions,
+                    metrics.clicks,
+                    metrics.conversions
+                FROM ad_group_ad
+                WHERE {dc} AND {yf} AND metrics.impressions > 0
+            """
+            STATUS_PT = {"ENABLED": "Ativo", "PAUSED": "Pausado", "REMOVED": "Removido"}
+            ads_map: dict = {}
+            for r in ga_svc.search(customer_id=GADS_HIRE_CUSTOMER_ID, query=q3):
+                aid = str(r.ad_group_ad.ad.id)
+                if aid not in ads_map:
+                    ads_map[aid] = {
+                        "nome":   r.ad_group_ad.ad.name,
+                        "status": STATUS_PT.get(r.ad_group_ad.status.name, "—"),
+                        "cost": 0, "imp": 0, "cli": 0, "conv": 0.0,
+                    }
+                ads_map[aid]["cost"] += r.metrics.cost_micros
+                ads_map[aid]["imp"]  += r.metrics.impressions
+                ads_map[aid]["cli"]  += r.metrics.clicks
+                ads_map[aid]["conv"] += r.metrics.conversions
+
+            for v in ads_map.values():
+                valor = round(v["cost"] / 1_000_000, 2)
+                conv  = int(v["conv"])
+                ctr   = round(v["cli"] / v["imp"] * 100, 2) if v["imp"] else 0.0
+                anuncios.append({
+                    "nome":       v["nome"],
+                    "status":     v["status"],
+                    "conversoes": conv,
+                    "impressoes": int(v["imp"]),
+                    "valor":      valor,
+                    "custo_conv": round(valor / conv, 2) if conv else 0.0,
+                    "taxa":       ctr,
+                })
+            anuncios.sort(key=lambda x: x["valor"], reverse=True)
+        except Exception:
+            pass  # ads table stays empty; KPIs unaffected
 
     serie_gads = [
         {"date": k, "inv": round(v["inv"], 2), "ins": v["ins"]}
