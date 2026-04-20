@@ -205,7 +205,7 @@
     .hf-v2-wrap { margin-top:24px; }
     .hf-v2-label {
       font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
-      color:rgba(255,255,255,.35); margin-bottom:10px; display:flex; align-items:center; gap:8px;
+      color:#fff; margin-bottom:10px; display:flex; align-items:center; gap:8px;
     }
     .hf-v2-label::after { content:''; flex:1; height:1px; background:rgba(255,255,255,.08); }
 
@@ -340,7 +340,7 @@
       </div>
 
       <span class="last-update" id="lastUpdate"></span>
-      <button class="btn-refresh" id="btnRefresh" onclick="loadAudiencia()">
+      <button class="btn-refresh" id="btnRefresh" onclick="loadCurrent()">
         <span id="refreshIcon">↻</span> Atualizar
       </button>
     </div>
@@ -351,6 +351,7 @@
   <!-- Tabs -->
   <div class="hf-tabs">
     <button class="hf-tab active" data-tab="audiencia" onclick="setTab(this)">Audiência</button>
+    <button class="hf-tab" data-tab="ebooks" onclick="setTab(this)">E-books</button>
   </div>
 
   <!-- ── Audiência ── -->
@@ -640,6 +641,159 @@
 
   </div><!-- /viewAudiencia -->
 
+  <!-- ── E-books ── -->
+  <div id="viewEbooks" style="display:none">
+
+    <!-- KPI Strip -->
+    <div class="hf-kpi-strip">
+      <div class="hf-kpi">
+        <div class="hf-kpi-label">Investido</div>
+        <div class="hf-kpi-value dash" id="eb_kpiInvestido">—</div>
+      </div>
+      <div class="hf-kpi">
+        <div class="hf-kpi-label">Faturamento</div>
+        <div class="hf-kpi-value dash" id="eb_kpiFaturamento">—</div>
+      </div>
+      <div class="hf-kpi">
+        <div class="hf-kpi-label">Vendas</div>
+        <div class="hf-kpi-value dash" id="eb_kpiVendas">—</div>
+      </div>
+      <div class="hf-kpi">
+        <div class="hf-kpi-label">Ticket Médio</div>
+        <div class="hf-kpi-value dash" id="eb_kpiTicket">—</div>
+      </div>
+      <div class="hf-kpi">
+        <div class="hf-kpi-label">CAC</div>
+        <div class="hf-kpi-value dash" id="eb_kpiCac">—</div>
+      </div>
+      <div class="hf-kpi">
+        <div class="hf-kpi-label">ROAS</div>
+        <div class="hf-kpi-value dash" id="eb_kpiRoas">—</div>
+      </div>
+    </div>
+
+    <!-- E-book Cards -->
+    <div class="hf-channels">
+
+      <!-- Ebook 5 Oportunidades -->
+      <div class="hf-ch">
+        <div class="hf-ch-head">
+          <div class="hf-ch-name">
+            <span class="hf-ch-icon">📗</span>
+            <span class="hf-ch-label">Ebook 5 Formas</span>
+          </div>
+          <div class="hf-budget">
+            <div class="hf-budget-lbl">Budget Mensal</div>
+            <div class="hf-budget-row">
+              <span class="hf-budget-prefix">R$</span>
+              <input class="hf-budget-input" id="budgetEb5op" type="text" inputmode="decimal"
+                     placeholder="0,00"
+                     onblur="saveBudget('eb_5op',this)"
+                     onkeydown="if(event.key==='Enter')this.blur()">
+            </div>
+            <div class="hf-budget-save-indicator" id="saveEb5op">Salvo ✓</div>
+          </div>
+        </div>
+        <div class="hf-ch-metrics cols-6">
+          <div class="hf-ch-metric"><div class="hf-ch-metric-lbl">Vendas</div><div class="hf-ch-metric-val" id="eb5op_vendas">—</div></div>
+          <div class="hf-ch-metric"><div class="hf-ch-metric-lbl">Faturamento</div><div class="hf-ch-metric-val" id="eb5op_fat">—</div></div>
+          <div class="hf-ch-metric"><div class="hf-ch-metric-lbl">Investido</div><div class="hf-ch-metric-val dim" id="eb5op_invest">—</div></div>
+          <div class="hf-ch-metric"><div class="hf-ch-metric-lbl">Leads</div><div class="hf-ch-metric-val dim" id="eb5op_leads">—</div></div>
+          <div class="hf-ch-metric"><div class="hf-ch-metric-lbl">CPL</div><div class="hf-ch-metric-val dim" id="eb5op_cpl">—</div></div>
+          <div class="hf-ch-metric"><div class="hf-ch-metric-lbl">ROAS</div><div class="hf-ch-metric-val dim" id="eb5op_roas">—</div></div>
+        </div>
+      </div>
+
+      <!-- Ebook 7 Erros -->
+      <div class="hf-ch">
+        <div class="hf-ch-head">
+          <div class="hf-ch-name">
+            <span class="hf-ch-icon">📘</span>
+            <span class="hf-ch-label">Ebook 7 Erros</span>
+          </div>
+          <div class="hf-budget">
+            <div class="hf-budget-lbl">Budget Mensal</div>
+            <div class="hf-budget-row">
+              <span class="hf-budget-prefix">R$</span>
+              <input class="hf-budget-input" id="budgetEb7erros" type="text" inputmode="decimal"
+                     placeholder="0,00"
+                     onblur="saveBudget('eb_7erros',this)"
+                     onkeydown="if(event.key==='Enter')this.blur()">
+            </div>
+            <div class="hf-budget-save-indicator" id="saveEb7erros">Salvo ✓</div>
+          </div>
+        </div>
+        <div class="hf-ch-metrics cols-6">
+          <div class="hf-ch-metric"><div class="hf-ch-metric-lbl">Vendas</div><div class="hf-ch-metric-val" id="eb7erros_vendas">—</div></div>
+          <div class="hf-ch-metric"><div class="hf-ch-metric-lbl">Faturamento</div><div class="hf-ch-metric-val" id="eb7erros_fat">—</div></div>
+          <div class="hf-ch-metric"><div class="hf-ch-metric-lbl">Investido</div><div class="hf-ch-metric-val dim" id="eb7erros_invest">—</div></div>
+          <div class="hf-ch-metric"><div class="hf-ch-metric-lbl">Leads</div><div class="hf-ch-metric-val dim" id="eb7erros_leads">—</div></div>
+          <div class="hf-ch-metric"><div class="hf-ch-metric-lbl">CPL</div><div class="hf-ch-metric-val dim" id="eb7erros_cpl">—</div></div>
+          <div class="hf-ch-metric"><div class="hf-ch-metric-lbl">ROAS</div><div class="hf-ch-metric-val dim" id="eb7erros_roas">—</div></div>
+        </div>
+      </div>
+
+      <!-- Ebook Remoto (CR) -->
+      <div class="hf-ch">
+        <div class="hf-ch-head">
+          <div class="hf-ch-name">
+            <span class="hf-ch-icon">📙</span>
+            <span class="hf-ch-label">Ebook Remoto</span>
+          </div>
+          <div class="hf-budget">
+            <div class="hf-budget-lbl">Budget Mensal</div>
+            <div class="hf-budget-row">
+              <span class="hf-budget-prefix">R$</span>
+              <input class="hf-budget-input" id="budgetEbCr" type="text" inputmode="decimal"
+                     placeholder="0,00"
+                     onblur="saveBudget('eb_cr',this)"
+                     onkeydown="if(event.key==='Enter')this.blur()">
+            </div>
+            <div class="hf-budget-save-indicator" id="saveEbCr">Salvo ✓</div>
+          </div>
+        </div>
+        <div class="hf-ch-metrics cols-6">
+          <div class="hf-ch-metric"><div class="hf-ch-metric-lbl">Vendas</div><div class="hf-ch-metric-val" id="ebcr_vendas">—</div></div>
+          <div class="hf-ch-metric"><div class="hf-ch-metric-lbl">Faturamento</div><div class="hf-ch-metric-val" id="ebcr_fat">—</div></div>
+          <div class="hf-ch-metric"><div class="hf-ch-metric-lbl">Investido</div><div class="hf-ch-metric-val dim" id="ebcr_invest">—</div></div>
+          <div class="hf-ch-metric"><div class="hf-ch-metric-lbl">Leads</div><div class="hf-ch-metric-val dim" id="ebcr_leads">—</div></div>
+          <div class="hf-ch-metric"><div class="hf-ch-metric-lbl">CPL</div><div class="hf-ch-metric-val dim" id="ebcr_cpl">—</div></div>
+          <div class="hf-ch-metric"><div class="hf-ch-metric-lbl">ROAS</div><div class="hf-ch-metric-val dim" id="ebcr_roas">—</div></div>
+        </div>
+      </div>
+
+      <!-- Ebook 10 Empresas -->
+      <div class="hf-ch">
+        <div class="hf-ch-head">
+          <div class="hf-ch-name">
+            <span class="hf-ch-icon">📕</span>
+            <span class="hf-ch-label">Ebook 10 Empresas</span>
+          </div>
+          <div class="hf-budget">
+            <div class="hf-budget-lbl">Budget Mensal</div>
+            <div class="hf-budget-row">
+              <span class="hf-budget-prefix">R$</span>
+              <input class="hf-budget-input" id="budgetEb10emp" type="text" inputmode="decimal"
+                     placeholder="0,00"
+                     onblur="saveBudget('eb_10emp',this)"
+                     onkeydown="if(event.key==='Enter')this.blur()">
+            </div>
+            <div class="hf-budget-save-indicator" id="saveEb10emp">Salvo ✓</div>
+          </div>
+        </div>
+        <div class="hf-ch-metrics cols-6">
+          <div class="hf-ch-metric"><div class="hf-ch-metric-lbl">Vendas</div><div class="hf-ch-metric-val" id="eb10emp_vendas">—</div></div>
+          <div class="hf-ch-metric"><div class="hf-ch-metric-lbl">Faturamento</div><div class="hf-ch-metric-val" id="eb10emp_fat">—</div></div>
+          <div class="hf-ch-metric"><div class="hf-ch-metric-lbl">Investido</div><div class="hf-ch-metric-val dim" id="eb10emp_invest">—</div></div>
+          <div class="hf-ch-metric"><div class="hf-ch-metric-lbl">Leads</div><div class="hf-ch-metric-val dim" id="eb10emp_leads">—</div></div>
+          <div class="hf-ch-metric"><div class="hf-ch-metric-lbl">CPL</div><div class="hf-ch-metric-val dim" id="eb10emp_cpl">—</div></div>
+          <div class="hf-ch-metric"><div class="hf-ch-metric-lbl">ROAS</div><div class="hf-ch-metric-val dim" id="eb10emp_roas">—</div></div>
+        </div>
+      </div>
+
+    </div><!-- /ebook cards -->
+  </div><!-- /viewEbooks -->
+
 </div><!-- /page -->
 </main>
 
@@ -743,7 +897,7 @@ function applyDatePicker() {
   state.preset = 'custom';
   closeDatePicker();
   updateDrLabel();
-  loadAudiencia();
+  loadCurrent();
 }
 
 function drNavMonth(which, dir) {
@@ -819,14 +973,21 @@ function setPreset(btn) {
   else if (state.preset === 'lastmonth') { state.dateStart=fmt(new Date(today.getFullYear(),today.getMonth()-1,1)); state.dateEnd=fmt(new Date(today.getFullYear(),today.getMonth(),0)); }
   else                                   { state.dateStart=null; state.dateEnd=null; }
   updateDrLabel();
-  loadAudiencia();
+  loadCurrent();
 }
 
 function setTab(btn) {
   document.querySelectorAll('.hf-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   state.tab = btn.dataset.tab;
-  loadAudiencia();
+  document.getElementById('viewAudiencia').style.display = state.tab === 'audiencia' ? '' : 'none';
+  document.getElementById('viewEbooks').style.display    = state.tab === 'ebooks'    ? '' : 'none';
+  loadCurrent();
+}
+
+function loadCurrent() {
+  if (state.tab === 'ebooks') loadEbooks();
+  else loadAudiencia();
 }
 
 // ── Budget month key ──────────────────────────────────────────────────────────
@@ -836,7 +997,10 @@ function getBudgetMonth() {
 }
 
 // ── Budget localStorage helpers ───────────────────────────────────────────────
-const BUDGET_CHANNELS = { ig_malu:'budgetIgMalu', ig_hire:'budgetIgHire', youtube:'budgetYoutube', site:'budgetSite' };
+const BUDGET_CHANNELS = {
+  ig_malu:'budgetIgMalu', ig_hire:'budgetIgHire', youtube:'budgetYoutube', site:'budgetSite',
+  eb_5op:'budgetEb5op', eb_7erros:'budgetEb7erros', eb_cr:'budgetEbCr', eb_10emp:'budgetEb10emp',
+};
 
 function _budgetKey(channel, month) { return `hf_budget_${channel}_${month}`; }
 
@@ -1019,6 +1183,75 @@ function renderAudiencia(d) {
     setEl(`v2_${k}_vend`,  NUM(ch.vendas));
     setEl(`v2_${k}_fat`,   BRL(ch.faturamento));
     setEl(`v2_${k}_roas`,  ROAS(ch.roas));
+  });
+
+  // Budgets
+  loadBudgetInputs(d.budgets || {});
+}
+
+// ── E-books ───────────────────────────────────────────────────────────────────
+let _loadingEb = false;
+
+async function loadEbooks() {
+  if (_loadingEb) return;
+  _loadingEb = true;
+  const btn  = document.getElementById('btnRefresh');
+  const icon = document.getElementById('refreshIcon');
+  if (btn)  btn.classList.add('loading');
+  if (icon) icon.textContent = '↻';
+  document.getElementById('errorBanner').style.display = 'none';
+
+  const params = new URLSearchParams();
+  if (state.dateStart) params.set('date_start', state.dateStart);
+  if (state.dateEnd)   params.set('date_end',   state.dateEnd);
+
+  try {
+    const r = await fetch('/api/hire/funis/ebooks?' + params.toString());
+    if (!r.ok) throw new Error(await r.text());
+    const d = await r.json();
+    renderEbooks(d);
+    document.getElementById('lastUpdate').textContent =
+      'Atualizado ' + new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  } catch(e) {
+    const banner = document.getElementById('errorBanner');
+    banner.textContent = 'Erro ao carregar e-books: ' + e.message;
+    banner.style.display = 'block';
+  } finally {
+    _loadingEb = false;
+    if (btn)  btn.classList.remove('loading');
+    if (icon) icon.textContent = '↻';
+  }
+}
+
+function renderEbooks(d) {
+  const s = d.somatorio || {};
+  // KPI Strip
+  setEl('eb_kpiInvestido',   BRL(s.investido));
+  setEl('eb_kpiFaturamento', BRL(s.faturamento));
+  setEl('eb_kpiVendas',      NUM(s.vendas));
+  setEl('eb_kpiTicket',      BRL(s.ticket_medio));
+  setEl('eb_kpiCac',         BRL(s.cac));
+  setEl('eb_kpiRoas',        ROAS(s.roas));
+  ['eb_kpiInvestido','eb_kpiFaturamento','eb_kpiVendas','eb_kpiTicket','eb_kpiCac','eb_kpiRoas'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && el.textContent !== '—') el.classList.remove('dash');
+  });
+
+  const eb = d.ebooks || {};
+  const MAP = [
+    ['eb5op',   eb.eb_5op],
+    ['eb7erros', eb.eb_7erros],
+    ['ebcr',    eb.eb_cr],
+    ['eb10emp', eb.eb_10emp],
+  ];
+  MAP.forEach(([pfx, ch]) => {
+    if (!ch) return;
+    setEl(`${pfx}_vendas`,  NUM(ch.vendas));
+    setEl(`${pfx}_fat`,     BRL(ch.faturamento));
+    setEl(`${pfx}_invest`,  BRL(ch.investido));
+    setEl(`${pfx}_leads`,   NUM(ch.leads));
+    setEl(`${pfx}_cpl`,     BRL(ch.cpl));
+    setEl(`${pfx}_roas`,    ROAS(ch.roas));
   });
 
   // Budgets

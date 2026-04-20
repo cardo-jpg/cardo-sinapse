@@ -3033,6 +3033,68 @@ def _hf_fetch_audiencia(date_start=None, date_end=None) -> dict:
         },
     }
 
+def _hf_fetch_ebooks(date_start=None, date_end=None) -> dict:
+    """Agrega dados das 4 abas de e-books (Ebook - 5 op., 7 erros, CR, 10 empresas)."""
+    sa_path = BASE_DIR / "service_account.json"
+    creds = service_account.Credentials.from_service_account_file(
+        str(sa_path), scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
+    )
+    sheets = gapi_build("sheets", "v4", credentials=creds).spreadsheets().values()
+
+    def _get(aba):
+        return sheets.get(spreadsheetId=HIRE_FUNIS_SHEET_ID, range=f"'{aba}'").execute().get("values", [])
+
+    def _in_range(row):
+        d = _hf_parse_date(row[0]) if row else None
+        if date_start and d and d < date_start: return False
+        if date_end   and d and d > date_end:   return False
+        return True
+
+    # col layout: Date | Campanha | Investido | Leads | Vendas | Faturamento
+    EBOOK_TABS = [
+        ("eb_5op",    "Ebook - 5 op."),
+        ("eb_7erros", "Ebook - 7 erros"),
+        ("eb_cr",     "Ebook - CR"),
+        ("eb_10emp",  "Ebook - 10 empresas"),
+    ]
+
+    ebooks: dict = {}
+    som_invest = som_leads = som_vendas = som_fat = 0.0
+
+    for key, aba in EBOOK_TABS:
+        inv = leads = vend = fat = 0.0
+        for row in _get(aba)[1:]:
+            if len(row) < 3 or not _in_range(row): continue
+            inv   += _hf_parse_num(row[2])
+            leads += _hf_parse_num(row[3]) if len(row) > 3 else 0.0
+            vend  += _hf_parse_num(row[4]) if len(row) > 4 else 0.0
+            fat   += _hf_parse_num(row[5]) if len(row) > 5 else 0.0
+        som_invest += inv
+        som_leads  += leads
+        som_vendas += vend
+        som_fat    += fat
+        ebooks[key] = {
+            "investido":   round(inv,   2),
+            "leads":       int(leads),
+            "vendas":      int(vend),
+            "faturamento": round(fat,   2),
+            "cpl":         round(inv / leads, 2) if leads else 0.0,
+            "roas":        round(fat / inv,   2) if inv   else 0.0,
+        }
+
+    return {
+        "somatorio": {
+            "investido":    round(som_invest, 2),
+            "faturamento":  round(som_fat,    2),
+            "vendas":       int(som_vendas),
+            "leads":        int(som_leads),
+            "ticket_medio": round(som_fat / som_vendas, 2) if som_vendas else 0.0,
+            "cac":          round(som_invest / som_vendas, 2) if som_vendas else 0.0,
+            "roas":         round(som_fat / som_invest,   2) if som_invest else 0.0,
+        },
+        "ebooks": ebooks,
+    }
+
 @app.get("/dashboard-hire-funis", response_class=HTMLResponse)
 async def dashboard_hire_funis_page(request: Request):
     """Public — Funis Contínuos da Hire, no login required."""
@@ -3052,6 +3114,21 @@ async def get_hire_funis_audiencia(
         ds = datetime.strptime(date_start, "%Y-%m-%d").date() if date_start else None
         de = datetime.strptime(date_end,   "%Y-%m-%d").date() if date_end   else None
         data = await asyncio.to_thread(_hf_fetch_audiencia, ds, de)
+        data["budgets"] = _hf_load_budgets()
+        return JSONResponse(data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/hire/funis/ebooks")
+async def get_hire_funis_ebooks(
+    request: Request,
+    date_start: str = None,
+    date_end:   str = None,
+):
+    try:
+        ds = datetime.strptime(date_start, "%Y-%m-%d").date() if date_start else None
+        de = datetime.strptime(date_end,   "%Y-%m-%d").date() if date_end   else None
+        data = await asyncio.to_thread(_hf_fetch_ebooks, ds, de)
         data["budgets"] = _hf_load_budgets()
         return JSONResponse(data)
     except Exception as e:
