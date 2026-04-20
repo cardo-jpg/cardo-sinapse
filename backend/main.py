@@ -2883,11 +2883,18 @@ def _hf_fetch_audiencia(date_start=None, date_end=None) -> dict:
     except Exception:
         pass
 
-    # ── YouTube: Google Ads API (Inscritos + Investido) ───────────────────────
+    # ── YouTube ───────────────────────────────────────────────────────────────
+    # Inscritos + Investido: Google Ads API (conversion action "YouTube channel subscriptions")
+    # Vendas + Faturamento:  Sheet tab "Youtube" (col 3 e 4)
     yt_gads = _hf_fetch_yt_gads(date_start, date_end)
-    yt_invest   = yt_gads["investido"]
+    yt_invest    = yt_gads["investido"]
     yt_inscritos = yt_gads["inscritos"]
     yt_custo_ins = yt_gads["custo_inscrito"]
+    yt_vendas = yt_fat = 0.0
+    for row in _get("Youtube")[1:]:
+        if len(row) < 3 or not _in_range(row): continue
+        yt_vendas += _hf_parse_num(row[3]) if len(row) > 3 else 0.0
+        yt_fat    += _hf_parse_num(row[4]) if len(row) > 4 else 0.0
 
     # ── Site: Date | Campanha | Investido | Leads | Vendas | Faturamento ─────
     site_invest = site_leads = site_vendas = site_fat = 0.0
@@ -2936,6 +2943,9 @@ def _hf_fetch_audiencia(date_start=None, date_end=None) -> dict:
                 "investido":      round(yt_invest, 2),
                 "inscritos":      yt_inscritos,
                 "custo_inscrito": yt_custo_ins,
+                "vendas":         int(yt_vendas),
+                "faturamento":    round(yt_fat, 2),
+                "roas":           _roas(yt_fat, yt_invest),
             },
             "site": {
                 "investido":   round(site_invest, 2),
