@@ -2761,14 +2761,10 @@ def _hf_fetch_yt_gads(date_start=None, date_end=None) -> dict:
         client = GoogleAdsClient.load_from_dict(gads_cfg)
         ga_service = client.get_service("GoogleAdsService")
 
-        if date_start and date_end:
-            date_clause = f"segments.date BETWEEN '{date_start}' AND '{date_end}'"
-        elif date_start:
-            date_clause = f"segments.date >= '{date_start}'"
-        elif date_end:
-            date_clause = f"segments.date <= '{date_end}'"
-        else:
-            date_clause = "segments.date DURING ALL_TIME"
+        today = datetime.today().date()
+        ds = date_start.isoformat() if date_start else "2020-01-01"
+        de = date_end.isoformat()   if date_end   else today.isoformat()
+        date_clause = f"segments.date BETWEEN '{ds}' AND '{de}'"
 
         query = f"""
             SELECT
