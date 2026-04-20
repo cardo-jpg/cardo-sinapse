@@ -2707,6 +2707,7 @@ HIRE_MALU_TRACKER_BASE = datetime(2024, 2, 5).date()
 HIRE_HIRE_TRACKER_ID  = "1XWIvqBx1TXjoFtiIViW_lW4L0EpbXAQsmU6vbvUMVIk"
 # Row 1 (index 1) of IG Hire tracker "dados" = 01/01/2026 (daily sequential)
 HIRE_HIRE_TRACKER_BASE = datetime(2026, 1, 1).date()
+HIRE_FUNIS_SHEET2_ID   = "1VfZIM9f4-EixdQtQgrgaH-BUeIWUFEaxLJRerWCAuxw"  # resultado comercial
 HIRE_FUNIS_BUDGETS_PATH = BASE_DIR / "data" / "hire_funis_budgets.json"
 
 def _hf_load_budgets() -> dict:
@@ -2905,6 +2906,36 @@ def _hf_fetch_audiencia(date_start=None, date_end=None) -> dict:
         site_vendas += _hf_parse_num(row[4]) if len(row) > 4 else 0.0
         site_fat    += _hf_parse_num(row[5]) if len(row) > 5 else 0.0
 
+    # ── Sheet2: Resultado Comercial (planilha alternativa de atribuição) ──────
+    # Somatório v2: Date | Investido | Leads | Vendas | Faturamento | Roas
+    # IG Malu/Hire v2: Date | Investido | Seguidores | Vendas | Faturamento
+    # Youtube v2: Date | Campanha | Investido | Vendas | Faturamento
+    # Site v2: Date | Campanha | Investido | Leads | Vendas | Faturamento
+    def _get2(aba):
+        return sheets.get(spreadsheetId=HIRE_FUNIS_SHEET2_ID, range=aba).execute().get("values", [])
+
+    s2_invest = s2_leads = s2_vendas = s2_fat = 0.0
+    for row in _get2("Somatório")[1:]:
+        if len(row) < 2 or not _in_range(row): continue
+        s2_invest += _hf_parse_num(row[1])
+        s2_leads  += _hf_parse_num(row[2]) if len(row) > 2 else 0.0
+        s2_vendas += _hf_parse_num(row[3]) if len(row) > 3 else 0.0
+        s2_fat    += _hf_parse_num(row[4]) if len(row) > 4 else 0.0
+
+    def _agg2_ch(rows_data, inv_col, vend_col, fat_col):
+        inv = vend = fat = 0.0
+        for row in rows_data[1:]:
+            if not _in_range(row): continue
+            inv  += _hf_parse_num(row[inv_col])              if len(row) > inv_col  else 0.0
+            vend += _hf_parse_num(row[vend_col])             if len(row) > vend_col else 0.0
+            fat  += _hf_parse_num(row[fat_col])              if len(row) > fat_col  else 0.0
+        return round(inv, 2), int(vend), round(fat, 2)
+
+    v2_malu_inv,  v2_malu_vend,  v2_malu_fat  = _agg2_ch(_get2("IG Malu"),  1, 3, 4)
+    v2_hire_inv,  v2_hire_vend,  v2_hire_fat  = _agg2_ch(_get2("IG Hire"),  1, 3, 4)
+    v2_yt_inv,    v2_yt_vend,    v2_yt_fat    = _agg2_ch(_get2("Youtube"),  2, 3, 4)
+    v2_site_inv,  v2_site_vend,  v2_site_fat  = _agg2_ch(_get2("Site"),     2, 4, 5)
+
     def _roas(fat, inv):  return round(fat / inv, 2)  if inv  else 0.0
     def _unit(inv, n):    return round(inv / n,   2)  if n    else 0.0
 
@@ -2955,6 +2986,21 @@ def _hf_fetch_audiencia(date_start=None, date_end=None) -> dict:
                 "faturamento": round(site_fat, 2),
                 "roas":        _roas(site_fat, site_invest),
             },
+        },
+        "somatorio_v2": {
+            "investido":    s2_invest,
+            "faturamento":  round(s2_fat, 2),
+            "vendas":       int(s2_vendas),
+            "leads":        int(s2_leads),
+            "ticket_medio": round(s2_fat / s2_vendas, 2) if s2_vendas else 0.0,
+            "cac":          round(s2_invest / s2_vendas, 2) if s2_vendas else 0.0,
+            "roas":         _roas(s2_fat, s2_invest),
+        },
+        "channels_v2": {
+            "ig_malu": {"investido": v2_malu_inv, "vendas": v2_malu_vend, "faturamento": v2_malu_fat, "roas": _roas(v2_malu_fat, v2_malu_inv)},
+            "ig_hire": {"investido": v2_hire_inv, "vendas": v2_hire_vend, "faturamento": v2_hire_fat, "roas": _roas(v2_hire_fat, v2_hire_inv)},
+            "youtube": {"investido": v2_yt_inv,   "vendas": v2_yt_vend,   "faturamento": v2_yt_fat,   "roas": _roas(v2_yt_fat,   v2_yt_inv)},
+            "site":    {"investido": v2_site_inv,  "vendas": v2_site_vend, "faturamento": v2_site_fat,  "roas": _roas(v2_site_fat,  v2_site_inv)},
         },
     }
 

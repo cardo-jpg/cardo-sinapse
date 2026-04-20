@@ -201,6 +201,50 @@
     .hf-ch-metric-val.warn { color:var(--amber); }
     .hf-ch-metric-val.dim  { color:rgba(255,255,255,.55); font-size:.95rem; }
 
+    /* ── Resultado Comercial (v2) ── */
+    .hf-v2-wrap { margin-top:24px; }
+    .hf-v2-label {
+      font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
+      color:rgba(255,255,255,.35); margin-bottom:10px; display:flex; align-items:center; gap:8px;
+    }
+    .hf-v2-label::after { content:''; flex:1; height:1px; background:rgba(255,255,255,.08); }
+
+    /* second KPI strip — same as hf-kpi-strip but slightly darker */
+    .hf-kpi-strip-v2 {
+      display:grid; grid-template-columns:repeat(6,1fr);
+      gap:2px; border-radius:14px; overflow:hidden;
+      margin-bottom:16px; border:1px solid rgba(123,45,139,.2);
+    }
+    .hf-kpi-v2 {
+      background:linear-gradient(145deg,rgba(123,45,139,.45) 0%,rgba(90,30,104,.45) 100%);
+      padding:14px 18px; display:flex; flex-direction:column; gap:4px;
+    }
+    .hf-kpi-v2:first-child { border-right:2px solid rgba(255,255,255,.07); }
+    .hf-kpi-v2 .hf-kpi-label { font-size:.7rem; }
+    .hf-kpi-v2 .hf-kpi-value { font-size:1.25rem; }
+
+    /* compact 4-column channel grid */
+    .hf-v2-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+    .hf-v2-ch {
+      background:rgba(123,45,139,.12); border:1px solid rgba(123,45,139,.2);
+      border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:10px;
+    }
+    .hf-v2-ch-name { font-size:.78rem; font-weight:700; color:rgba(255,255,255,.55); display:flex; align-items:center; gap:6px; }
+    .hf-v2-metric { display:flex; flex-direction:column; gap:2px; }
+    .hf-v2-metric-lbl { font-size:.6rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:rgba(255,255,255,.35); }
+    .hf-v2-metric-val { font-size:1.05rem; font-weight:700; color:#fff; }
+    .hf-v2-metric-val.big { font-size:1.25rem; font-weight:800; }
+    .hf-v2-metric-val.dim { font-size:.9rem; color:rgba(255,255,255,.5); font-weight:600; }
+
+    @media (max-width:900px) {
+      .hf-kpi-strip-v2 { grid-template-columns:repeat(3,1fr); }
+      .hf-v2-grid      { grid-template-columns:repeat(2,1fr); }
+    }
+    @media (max-width:560px) {
+      .hf-kpi-strip-v2 { grid-template-columns:repeat(2,1fr); }
+      .hf-v2-grid      { grid-template-columns:1fr 1fr; }
+    }
+
     /* util */
     .good { color:var(--green); }
     .bad  { color:var(--red); }
@@ -532,6 +576,68 @@
       </div>
 
     </div><!-- /channels -->
+
+    <!-- Resultado Comercial v2 -->
+    <div class="hf-v2-wrap">
+      <div class="hf-v2-label">Resultado Comercial</div>
+
+      <!-- KPI Strip v2 -->
+      <div class="hf-kpi-strip-v2">
+        <div class="hf-kpi-v2">
+          <div class="hf-kpi-label">Investido</div>
+          <div class="hf-kpi-value dash" id="v2_kpiInvestido">—</div>
+        </div>
+        <div class="hf-kpi-v2">
+          <div class="hf-kpi-label">Faturamento</div>
+          <div class="hf-kpi-value dash" id="v2_kpiFaturamento">—</div>
+        </div>
+        <div class="hf-kpi-v2">
+          <div class="hf-kpi-label">Vendas</div>
+          <div class="hf-kpi-value dash" id="v2_kpiVendas">—</div>
+        </div>
+        <div class="hf-kpi-v2">
+          <div class="hf-kpi-label">Ticket Médio</div>
+          <div class="hf-kpi-value dash" id="v2_kpiTicket">—</div>
+        </div>
+        <div class="hf-kpi-v2">
+          <div class="hf-kpi-label">CAC</div>
+          <div class="hf-kpi-value dash" id="v2_kpiCac">—</div>
+        </div>
+        <div class="hf-kpi-v2">
+          <div class="hf-kpi-label">ROAS</div>
+          <div class="hf-kpi-value dash" id="v2_kpiRoas">—</div>
+        </div>
+      </div>
+
+      <!-- Compact 4-channel grid -->
+      <div class="hf-v2-grid">
+        <div class="hf-v2-ch">
+          <div class="hf-v2-ch-name">📱 IG Malu</div>
+          <div class="hf-v2-metric"><div class="hf-v2-metric-lbl">Vendas</div><div class="hf-v2-metric-val big" id="v2_malu_vend">—</div></div>
+          <div class="hf-v2-metric"><div class="hf-v2-metric-lbl">Faturamento</div><div class="hf-v2-metric-val big" id="v2_malu_fat">—</div></div>
+          <div class="hf-v2-metric"><div class="hf-v2-metric-lbl">ROAS</div><div class="hf-v2-metric-val dim" id="v2_malu_roas">—</div></div>
+        </div>
+        <div class="hf-v2-ch">
+          <div class="hf-v2-ch-name">📸 IG Hire</div>
+          <div class="hf-v2-metric"><div class="hf-v2-metric-lbl">Vendas</div><div class="hf-v2-metric-val big" id="v2_hire_vend">—</div></div>
+          <div class="hf-v2-metric"><div class="hf-v2-metric-lbl">Faturamento</div><div class="hf-v2-metric-val big" id="v2_hire_fat">—</div></div>
+          <div class="hf-v2-metric"><div class="hf-v2-metric-lbl">ROAS</div><div class="hf-v2-metric-val dim" id="v2_hire_roas">—</div></div>
+        </div>
+        <div class="hf-v2-ch">
+          <div class="hf-v2-ch-name">🎥 YouTube</div>
+          <div class="hf-v2-metric"><div class="hf-v2-metric-lbl">Vendas</div><div class="hf-v2-metric-val big" id="v2_yt_vend">—</div></div>
+          <div class="hf-v2-metric"><div class="hf-v2-metric-lbl">Faturamento</div><div class="hf-v2-metric-val big" id="v2_yt_fat">—</div></div>
+          <div class="hf-v2-metric"><div class="hf-v2-metric-lbl">ROAS</div><div class="hf-v2-metric-val dim" id="v2_yt_roas">—</div></div>
+        </div>
+        <div class="hf-v2-ch">
+          <div class="hf-v2-ch-name">🌐 Site</div>
+          <div class="hf-v2-metric"><div class="hf-v2-metric-lbl">Vendas</div><div class="hf-v2-metric-val big" id="v2_site_vend">—</div></div>
+          <div class="hf-v2-metric"><div class="hf-v2-metric-lbl">Faturamento</div><div class="hf-v2-metric-val big" id="v2_site_fat">—</div></div>
+          <div class="hf-v2-metric"><div class="hf-v2-metric-lbl">ROAS</div><div class="hf-v2-metric-val dim" id="v2_site_roas">—</div></div>
+        </div>
+      </div>
+    </div><!-- /v2 -->
+
   </div><!-- /viewAudiencia -->
 
 </div><!-- /page -->
@@ -858,6 +964,29 @@ function renderAudiencia(d) {
   setEl('site_roas',    ROAS(si.roas));
   setEl('site_vendas',  NUM(si.vendas));
   setEl('site_fat',     BRL(si.faturamento));
+
+  // Resultado Comercial v2
+  const s2 = d.somatorio_v2 || {};
+  const c2 = d.channels_v2  || {};
+  setEl('v2_kpiInvestido',   BRL(s2.investido));
+  setEl('v2_kpiFaturamento', BRL(s2.faturamento));
+  setEl('v2_kpiVendas',      NUM(s2.vendas));
+  setEl('v2_kpiTicket',      BRL(s2.ticket_medio));
+  setEl('v2_kpiCac',         BRL(s2.cac));
+  setEl('v2_kpiRoas',        ROAS(s2.roas));
+  ['v2_kpiInvestido','v2_kpiFaturamento','v2_kpiVendas','v2_kpiTicket','v2_kpiCac','v2_kpiRoas'].forEach(id => {
+    const el = document.getElementById(id); if (el && el.textContent !== '—') el.classList.remove('dash');
+  });
+
+  const v2ch = [
+    ['malu', c2.ig_malu], ['hire', c2.ig_hire], ['yt', c2.youtube], ['site', c2.site]
+  ];
+  v2ch.forEach(([k, ch]) => {
+    if (!ch) return;
+    setEl(`v2_${k}_vend`,  NUM(ch.vendas));
+    setEl(`v2_${k}_fat`,   BRL(ch.faturamento));
+    setEl(`v2_${k}_roas`,  ROAS(ch.roas));
+  });
 
   // Budgets
   loadBudgetInputs(d.budgets || {});
