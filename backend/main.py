@@ -2746,7 +2746,13 @@ def _hf_parse_date(s):
     return None
 
 def _hf_fetch_yt_gads(date_start=None, date_end=None) -> dict:
-    """Busca métricas YouTube direto do Google Ads API (Inscritos, Investido)."""
+    """Busca métricas YouTube direto do Google Ads API (Inscritos, Investido).
+
+    GAQL não permite cost_micros + segments.conversion_action_name na mesma query,
+    então usa 2 queries separadas:
+      1. Inscritos: filtra por 'YouTube channel subscriptions' (sem cost_micros)
+      2. Investido: cost_micros das campanhas YouTube (sem segmento de conversão)
+    """
     if not all([GADS_DEVELOPER_TOKEN, GADS_CLIENT_ID, GADS_CLIENT_SECRET, GADS_REFRESH_TOKEN]):
         return {"investido": 0.0, "inscritos": 0, "custo_inscrito": 0.0}
     try:
@@ -2759,28 +2765,42 @@ def _hf_fetch_yt_gads(date_start=None, date_end=None) -> dict:
             "use_proto_plus":  True,
         }
         client = GoogleAdsClient.load_from_dict(gads_cfg)
-        ga_service = client.get_service("GoogleAdsService")
+        ga_svc = client.get_service("GoogleAdsService")
 
         today = datetime.today().date()
         ds = date_start.isoformat() if date_start else "2020-01-01"
         de = date_end.isoformat()   if date_end   else today.isoformat()
         date_clause = f"segments.date BETWEEN '{ds}' AND '{de}'"
+        yt_filter   = "campaign.name LIKE '%YOUTUBE%'"
 
-        query = f"""
-            SELECT
-              metrics.cost_micros,
-              metrics.conversions
+        # Query 1: Inscritos — conversion_action_name deve aparecer no SELECT
+        q_ins = f"""
+            SELECT segments.conversion_action_name, metrics.conversions
             FROM campaign
             WHERE {date_clause}
-              AND campaign.name LIKE '%YOUTUBE%'
+              AND {yt_filter}
+              AND segments.conversion_action_name = 'YouTube channel subscriptions'
         """
-        rows = list(ga_service.search(customer_id=GADS_HIRE_CUSTOMER_ID, query=query))
-        total_cost     = sum(r.metrics.cost_micros for r in rows) / 1_000_000
-        total_inscritos = sum(r.metrics.conversions for r in rows)
-        custo_inscrito  = round(total_cost / total_inscritos, 2) if total_inscritos else 0.0
+        inscritos = sum(
+            r.metrics.conversions
+            for r in ga_svc.search(customer_id=GADS_HIRE_CUSTOMER_ID, query=q_ins)
+        )
+
+        # Query 2: Investido — cost_micros sem segmento de conversão
+        q_inv = f"""
+            SELECT metrics.cost_micros
+            FROM campaign
+            WHERE {date_clause} AND {yt_filter}
+        """
+        investido = sum(
+            r.metrics.cost_micros
+            for r in ga_svc.search(customer_id=GADS_HIRE_CUSTOMER_ID, query=q_inv)
+        ) / 1_000_000
+
+        custo_inscrito = round(investido / inscritos, 2) if inscritos else 0.0
         return {
-            "investido":      round(total_cost, 2),
-            "inscritos":      int(total_inscritos),
+            "investido":      round(investido, 2),
+            "inscritos":      int(inscritos),
             "custo_inscrito": custo_inscrito,
         }
     except Exception:
