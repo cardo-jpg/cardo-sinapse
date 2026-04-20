@@ -185,17 +185,15 @@
     .hf-budget-input::placeholder { color:rgba(255,255,255,.2); }
     .hf-budget-save-indicator { font-size:.65rem; color:var(--green); display:none; }
 
-    /* Metrics grid — tudo em uma linha, distribuído igualmente */
+    /* Metrics — flex space-between: cada item ocupa seu tamanho natural,
+       gaps se distribuem automaticamente. Sempre proporcional. */
     .hf-ch-metrics {
-      display:grid; padding:16px 20px 20px; gap:6px; align-items:end;
+      display:flex; justify-content:space-between; align-items:flex-end;
+      padding:16px 20px 20px; gap:8px; flex-wrap:nowrap; overflow:hidden;
     }
-    /* Vendas=compact, Faturamento=wide, resto=igual */
-    .hf-ch-metrics.cols-6 { grid-template-columns:0.6fr 1.9fr 1fr 1fr 1fr 1fr; }
-    .hf-ch-metrics.cols-5 { grid-template-columns:0.6fr 1.9fr 1fr 1fr 1fr; }
-
-    .hf-ch-metric { display:flex; flex-direction:column; gap:3px; }
+    .hf-ch-metric { flex:0 0 auto; display:flex; flex-direction:column; gap:3px; }
     .hf-ch-metric-lbl { font-size:.63rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:rgba(255,255,255,.4); white-space:nowrap; }
-    .hf-ch-metric-val { font-size:1.05rem; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .hf-ch-metric-val { font-size:1.05rem; font-weight:700; color:#fff; white-space:nowrap; }
     /* Vendas e Faturamento em destaque */
     .hf-ch-metrics .hf-ch-metric:nth-child(1) .hf-ch-metric-val,
     .hf-ch-metrics .hf-ch-metric:nth-child(2) .hf-ch-metric-val { font-size:1.35rem; font-weight:800; }
@@ -458,26 +456,18 @@
             <div class="hf-budget-save-indicator" id="saveYoutube">Salvo ✓</div>
           </div>
         </div>
-        <div class="hf-ch-metrics cols-5">
+        <div class="hf-ch-metrics">
           <div class="hf-ch-metric">
-            <div class="hf-ch-metric-lbl">Vendas</div>
-            <div class="hf-ch-metric-val" id="yt_vendas">—</div>
-          </div>
-          <div class="hf-ch-metric">
-            <div class="hf-ch-metric-lbl">Faturamento</div>
-            <div class="hf-ch-metric-val" id="yt_fat">—</div>
+            <div class="hf-ch-metric-lbl">Inscritos</div>
+            <div class="hf-ch-metric-val" id="yt_inscritos">—</div>
           </div>
           <div class="hf-ch-metric">
             <div class="hf-ch-metric-lbl">Investido</div>
-            <div class="hf-ch-metric-val dim" id="yt_invest">—</div>
+            <div class="hf-ch-metric-val" id="yt_invest">—</div>
           </div>
           <div class="hf-ch-metric">
-            <div class="hf-ch-metric-lbl">Custo/Venda</div>
-            <div class="hf-ch-metric-val dim" id="yt_cpl">—</div>
-          </div>
-          <div class="hf-ch-metric">
-            <div class="hf-ch-metric-lbl">ROAS</div>
-            <div class="hf-ch-metric-val dim" id="yt_roas">—</div>
+            <div class="hf-ch-metric-lbl">Custo/Inscrito</div>
+            <div class="hf-ch-metric-val dim" id="yt_custo_ins">—</div>
           </div>
         </div>
       </div>
@@ -841,11 +831,9 @@ function renderAudiencia(d) {
 
   // YouTube
   const y = ch.youtube || {};
-  setEl('yt_invest',  BRL(y.investido));
-  setEl('yt_cpl',     BRL(y.custo_venda));
-  setEl('yt_roas',    ROAS(y.roas));
-  setEl('yt_vendas',  NUM(y.vendas));
-  setEl('yt_fat',     BRL(y.faturamento));
+  setEl('yt_inscritos',  NUM(y.inscritos));
+  setEl('yt_invest',     BRL(y.investido));
+  setEl('yt_custo_ins',  BRL(y.custo_inscrito));
 
   // Site
   const si = ch.site || {};

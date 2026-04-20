@@ -2693,6 +2693,13 @@ async def get_wici2_lp(
         raise HTTPException(status_code=500, detail=str(e))
 
 # ── Hire Funis Contínuos ──────────────────────────────────────────────────────
+# ── Google Ads credentials (env vars set in Railway) ─────────────────────────
+GADS_DEVELOPER_TOKEN = os.getenv("GADS_DEVELOPER_TOKEN", "")
+GADS_CLIENT_ID       = os.getenv("GADS_CLIENT_ID", "")
+GADS_CLIENT_SECRET   = os.getenv("GADS_CLIENT_SECRET", "")
+GADS_REFRESH_TOKEN   = os.getenv("GADS_REFRESH_TOKEN", "")
+GADS_CUSTOMER_ID     = os.getenv("GADS_CUSTOMER_ID", "1045573188")  # Hire / History Makers
+
 HIRE_FUNIS_SHEET_ID   = "1l6_bsucWh3CZKhBZpqBykPJuYT3GQ5ZehAR5IAXd8kg"
 HIRE_MALU_TRACKER_ID  = "1SVz6Eti4E6hkOpgVjOeYkQ3XvDuYuVYmSWOj_cWYvPM"
 # Row 1 (index 1) of IG Malu tracker "dados" = 05/02/2024 (daily sequential; last data row 777 = 22/03/2026)
@@ -2737,6 +2744,52 @@ def _hf_parse_date(s):
         except ValueError:
             pass
     return None
+
+def _hf_fetch_yt_gads(date_start=None, date_end=None) -> dict:
+    """Busca métricas YouTube direto do Google Ads API (Inscritos, Investido)."""
+    if not all([GADS_DEVELOPER_TOKEN, GADS_CLIENT_ID, GADS_CLIENT_SECRET, GADS_REFRESH_TOKEN]):
+        return {"investido": 0.0, "inscritos": 0, "custo_inscrito": 0.0}
+    try:
+        from google.ads.googleads.client import GoogleAdsClient
+        gads_cfg = {
+            "developer_token": GADS_DEVELOPER_TOKEN,
+            "client_id":       GADS_CLIENT_ID,
+            "client_secret":   GADS_CLIENT_SECRET,
+            "refresh_token":   GADS_REFRESH_TOKEN,
+            "use_proto_plus":  True,
+        }
+        client = GoogleAdsClient.load_from_dict(gads_cfg)
+        ga_service = client.get_service("GoogleAdsService")
+
+        if date_start and date_end:
+            date_clause = f"segments.date BETWEEN '{date_start}' AND '{date_end}'"
+        elif date_start:
+            date_clause = f"segments.date >= '{date_start}'"
+        elif date_end:
+            date_clause = f"segments.date <= '{date_end}'"
+        else:
+            date_clause = "segments.date DURING ALL_TIME"
+
+        query = f"""
+            SELECT
+              metrics.cost_micros,
+              metrics.conversions
+            FROM campaign
+            WHERE {date_clause}
+              AND campaign.name LIKE '%YOUTUBE%'
+        """
+        rows = list(ga_service.search(customer_id=GADS_CUSTOMER_ID, query=query))
+        total_cost     = sum(r.metrics.cost_micros for r in rows) / 1_000_000
+        total_inscritos = sum(r.metrics.conversions for r in rows)
+        custo_inscrito  = round(total_cost / total_inscritos, 2) if total_inscritos else 0.0
+        return {
+            "investido":      round(total_cost, 2),
+            "inscritos":      int(total_inscritos),
+            "custo_inscrito": custo_inscrito,
+        }
+    except Exception:
+        return {"investido": 0.0, "inscritos": 0, "custo_inscrito": 0.0}
+
 
 def _hf_fetch_audiencia(date_start=None, date_end=None) -> dict:
     sa_path = BASE_DIR / "service_account.json"
@@ -2814,13 +2867,11 @@ def _hf_fetch_audiencia(date_start=None, date_end=None) -> dict:
     except Exception:
         pass
 
-    # ── YouTube: Date | Campanha | Investido | Vendas | Faturamento ──────────
-    yt_invest = yt_vendas = yt_fat = 0.0
-    for row in _get("Youtube")[1:]:
-        if len(row) < 3 or not _in_range(row): continue
-        yt_invest += _hf_parse_num(row[2])
-        yt_vendas += _hf_parse_num(row[3]) if len(row) > 3 else 0.0
-        yt_fat    += _hf_parse_num(row[4]) if len(row) > 4 else 0.0
+    # ── YouTube: Google Ads API (Inscritos + Investido) ───────────────────────
+    yt_gads = _hf_fetch_yt_gads(date_start, date_end)
+    yt_invest   = yt_gads["investido"]
+    yt_inscritos = yt_gads["inscritos"]
+    yt_custo_ins = yt_gads["custo_inscrito"]
 
     # ── Site: Date | Campanha | Investido | Leads | Vendas | Faturamento ─────
     site_invest = site_leads = site_vendas = site_fat = 0.0
@@ -2866,11 +2917,9 @@ def _hf_fetch_audiencia(date_start=None, date_end=None) -> dict:
                 "roas":           _roas(hire_fat, hire_invest),
             },
             "youtube": {
-                "investido":   round(yt_invest, 2),
-                "vendas":      int(yt_vendas),
-                "custo_venda": _unit(yt_invest, yt_vendas),
-                "faturamento": round(yt_fat, 2),
-                "roas":        _roas(yt_fat, yt_invest),
+                "investido":      round(yt_invest, 2),
+                "inscritos":      yt_inscritos,
+                "custo_inscrito": yt_custo_ins,
             },
             "site": {
                 "investido":   round(site_invest, 2),
