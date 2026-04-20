@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Funis Contínuos — Hire Brazil</title>
   <link rel="stylesheet" href="/static/style.css?v=3">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     :root {
       --purple:       #7b2d8b;
@@ -245,6 +246,60 @@
       .hf-v2-grid      { grid-template-columns:1fr 1fr; }
     }
 
+    /* ── Corredor ── */
+    .hf-kpi-strip.cols-7 { grid-template-columns:repeat(7,1fr); }
+
+    .hf-chart-wrap {
+      background:var(--purple-card); border:1px solid rgba(123,45,139,.3);
+      border-radius:16px; padding:20px 20px 12px; margin-bottom:20px;
+    }
+    .hf-chart-title { font-size:.72rem; font-weight:700; text-transform:uppercase;
+      letter-spacing:.07em; color:rgba(255,255,255,.5); margin-bottom:14px; }
+    .hf-chart-canvas { width:100%; height:200px; }
+
+    .hf-table-section { margin-bottom:20px; }
+    .hf-table-label {
+      font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
+      color:#fff; margin-bottom:10px; display:flex; align-items:center; gap:8px;
+    }
+    .hf-table-label::after { content:''; flex:1; height:1px; background:rgba(255,255,255,.08); }
+    .hf-table-wrap { overflow-x:auto; border-radius:12px; border:1px solid rgba(123,45,139,.25); }
+    .hf-table {
+      width:100%; border-collapse:collapse; font-size:.82rem;
+    }
+    .hf-table thead tr { background:rgba(123,45,139,.35); }
+    .hf-table thead th {
+      padding:10px 14px; text-align:left; font-size:.68rem; font-weight:700;
+      text-transform:uppercase; letter-spacing:.06em; color:rgba(255,255,255,.55);
+      white-space:nowrap;
+    }
+    .hf-table thead th.num { text-align:right; }
+    .hf-table tbody tr { border-top:1px solid rgba(123,45,139,.15); transition:background .1s; }
+    .hf-table tbody tr:hover { background:rgba(123,45,139,.12); }
+    .hf-table tbody tr.total-row { background:rgba(123,45,139,.2); font-weight:700; border-top:1px solid rgba(123,45,139,.5); }
+    .hf-table td { padding:9px 14px; color:var(--text); white-space:nowrap; }
+    .hf-table td.num { text-align:right; }
+    .hf-table td.camp-name { max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.79rem; color:rgba(255,255,255,.75); }
+    .hf-table td.cri-name  { max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.79rem; color:rgba(255,255,255,.75); }
+
+    .acao-badge {
+      display:inline-block; padding:2px 8px; border-radius:4px; font-size:.68rem;
+      font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+    }
+    .acao-ruim     { background:rgba(239,68,68,.2);  color:#f87171; }
+    .acao-amostra  { background:rgba(100,100,120,.2); color:rgba(255,255,255,.45); }
+    .acao-aguardar { background:rgba(245,158,11,.15); color:#fbbf24; }
+    .acao-escalar  { background:rgba(196,241,53,.15); color:var(--green); }
+
+    .link-anuncio-btn {
+      display:inline-flex; align-items:center; gap:5px;
+      background:rgba(123,45,139,.3); border:1px solid rgba(168,85,200,.3);
+      color:var(--purple-light); border-radius:6px; padding:3px 10px;
+      font-size:.72rem; font-weight:600; text-decoration:none;
+      transition:background .15s, border-color .15s;
+    }
+    .link-anuncio-btn:hover { background:rgba(123,45,139,.5); border-color:var(--purple-light); }
+
     /* util */
     .good { color:var(--green); }
     .bad  { color:var(--red); }
@@ -352,6 +407,7 @@
   <div class="hf-tabs">
     <button class="hf-tab active" data-tab="audiencia" onclick="setTab(this)">Audiência</button>
     <button class="hf-tab" data-tab="ebooks" onclick="setTab(this)">E-books</button>
+    <button class="hf-tab" data-tab="corredor" onclick="setTab(this)">Corredor</button>
   </div>
 
   <!-- ── Audiência ── -->
@@ -838,6 +894,73 @@
 
   </div><!-- /viewEbooks -->
 
+  <!-- ── Corredor Polonês ── -->
+  <div id="viewCorredor" style="display:none">
+
+    <!-- 7-col KPI strip -->
+    <div class="hf-kpi-strip cols-7">
+      <div class="hf-kpi"><div class="hf-kpi-label">Investido</div><div class="hf-kpi-value dash" id="cor_kpiInv">—</div></div>
+      <div class="hf-kpi"><div class="hf-kpi-label">Visualizações</div><div class="hf-kpi-value dash" id="cor_kpiVis">—</div></div>
+      <div class="hf-kpi"><div class="hf-kpi-label">Hooke Rate</div><div class="hf-kpi-value dash" id="cor_kpiHooke">—</div></div>
+      <div class="hf-kpi"><div class="hf-kpi-label">Retenção</div><div class="hf-kpi-value dash" id="cor_kpiRet">—</div></div>
+      <div class="hf-kpi"><div class="hf-kpi-label">Impressões</div><div class="hf-kpi-value dash" id="cor_kpiImp">—</div></div>
+      <div class="hf-kpi"><div class="hf-kpi-label">Cliques</div><div class="hf-kpi-value dash" id="cor_kpiCli">—</div></div>
+      <div class="hf-kpi"><div class="hf-kpi-label">CPM</div><div class="hf-kpi-value dash" id="cor_kpiCpm">—</div></div>
+    </div>
+
+    <!-- Line chart -->
+    <div class="hf-chart-wrap">
+      <div class="hf-chart-title">Visualizações</div>
+      <canvas id="corredorChart" class="hf-chart-canvas"></canvas>
+    </div>
+
+    <!-- Tabela por Campanha -->
+    <div class="hf-table-section">
+      <div class="hf-table-label">Campanha</div>
+      <div class="hf-table-wrap">
+        <table class="hf-table">
+          <thead>
+            <tr>
+              <th>Campanha</th>
+              <th class="num">Investido</th>
+              <th class="num">Alcance</th>
+              <th class="num">Vis. 3s</th>
+              <th class="num">Cliques</th>
+              <th class="num">CPM</th>
+              <th class="num">Retenção</th>
+            </tr>
+          </thead>
+          <tbody id="campTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tabela por Criativo -->
+    <div class="hf-table-section">
+      <div class="hf-table-label">Criativo</div>
+      <div class="hf-table-wrap">
+        <table class="hf-table">
+          <thead>
+            <tr>
+              <th>Criativo</th>
+              <th class="num">Investido</th>
+              <th class="num">Alcance</th>
+              <th class="num">Vis. 3s</th>
+              <th class="num">Cliques</th>
+              <th class="num">CPM</th>
+              <th class="num">Hooke</th>
+              <th class="num">Retenção</th>
+              <th>Ação</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="criTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /viewCorredor -->
+
 </div><!-- /page -->
 </main>
 
@@ -1026,12 +1149,14 @@ function setTab(btn) {
   state.tab = btn.dataset.tab;
   document.getElementById('viewAudiencia').style.display = state.tab === 'audiencia' ? '' : 'none';
   document.getElementById('viewEbooks').style.display    = state.tab === 'ebooks'    ? '' : 'none';
+  document.getElementById('viewCorredor').style.display  = state.tab === 'corredor'  ? '' : 'none';
   loadCurrent();
 }
 
 function loadCurrent() {
-  if (state.tab === 'ebooks') loadEbooks();
-  else loadAudiencia();
+  if      (state.tab === 'ebooks')   loadEbooks();
+  else if (state.tab === 'corredor') loadCorredor();
+  else                               loadAudiencia();
 }
 
 // ── Budget month key ──────────────────────────────────────────────────────────
@@ -1326,6 +1451,159 @@ function renderEbooks(d) {
 
   // Budgets
   loadBudgetInputs(d.budgets || {});
+}
+
+// ── Corredor ─────────────────────────────────────────────────────────────────
+let _loadingCor = false, _corChart = null;
+
+async function loadCorredor() {
+  if (_loadingCor) return;
+  _loadingCor = true;
+  const btn = document.getElementById('btnRefresh'), icon = document.getElementById('refreshIcon');
+  if (btn) btn.classList.add('loading');
+  if (icon) icon.textContent = '↻';
+  document.getElementById('errorBanner').style.display = 'none';
+
+  const params = new URLSearchParams();
+  if (state.dateStart) params.set('date_start', state.dateStart);
+  if (state.dateEnd)   params.set('date_end',   state.dateEnd);
+
+  try {
+    const r = await fetch('/api/hire/funis/corredor?' + params.toString());
+    if (!r.ok) throw new Error(await r.text());
+    renderCorredor(await r.json());
+    document.getElementById('lastUpdate').textContent =
+      'Atualizado ' + new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  } catch(e) {
+    const b = document.getElementById('errorBanner');
+    b.textContent = 'Erro ao carregar corredor: ' + e.message;
+    b.style.display = 'block';
+  } finally {
+    _loadingCor = false;
+    if (btn) btn.classList.remove('loading');
+    if (icon) icon.textContent = '↻';
+  }
+}
+
+function renderCorredor(d) {
+  const k = d.kpis || {};
+  const PCT = v => v == null ? '—' : v.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}) + '%';
+
+  // KPIs
+  const kpis = [
+    ['cor_kpiInv',   BRL(k.investido)],
+    ['cor_kpiVis',   NUM(k.visualizacoes)],
+    ['cor_kpiHooke', PCT(k.hooke_rate)],
+    ['cor_kpiRet',   PCT(k.retencao)],
+    ['cor_kpiImp',   NUM(k.impressoes)],
+    ['cor_kpiCli',   NUM(k.cliques)],
+    ['cor_kpiCpm',   BRL(k.cpm)],
+  ];
+  kpis.forEach(([id, val]) => {
+    setEl(id, val);
+    const el = document.getElementById(id);
+    if (el && val !== '—') el.classList.remove('dash');
+  });
+
+  // Chart
+  const serie = d.serie_diaria || [];
+  const labels = serie.map(s => {
+    const [y,m,dd] = s.date.split('-');
+    return `${dd}/${m}`;
+  });
+  const data = serie.map(s => s.vis);
+
+  const canvas = document.getElementById('corredorChart');
+  if (_corChart) { _corChart.destroy(); _corChart = null; }
+  if (canvas && serie.length) {
+    _corChart = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          data,
+          borderColor: '#a855c8',
+          backgroundColor: 'rgba(168,85,200,.12)',
+          borderWidth: 2,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          pointBackgroundColor: '#a855c8',
+          fill: true,
+          tension: 0.3,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: {
+          callbacks: { label: ctx => ' ' + ctx.parsed.y.toLocaleString('pt-BR') + ' vis.' }
+        }},
+        scales: {
+          x: { grid: { color:'rgba(255,255,255,.05)' }, ticks: { color:'rgba(255,255,255,.4)', font:{size:10}, maxRotation:0, autoSkip:true, maxTicksLimit:14 } },
+          y: { grid: { color:'rgba(255,255,255,.05)' }, ticks: { color:'rgba(255,255,255,.4)', font:{size:10} } }
+        }
+      }
+    });
+  }
+
+  // Campanha table
+  const camps = d.por_campanha || [];
+  const totC = camps.reduce((a,r) => {
+    a.inv+=r.investido; a.vis3s+=r.vis3s; a.cli+=r.cliques; return a;
+  }, {inv:0,vis3s:0,cli:0});
+  let htmlC = camps.map(r => `
+    <tr>
+      <td class="camp-name" title="${r.campanha}">${r.campanha}</td>
+      <td class="num">${BRL(r.investido)}</td>
+      <td class="num">${NUM(r.alcance)}</td>
+      <td class="num">${NUM(r.vis3s)}</td>
+      <td class="num">${NUM(r.cliques)}</td>
+      <td class="num">${BRL(r.cpm)}</td>
+      <td class="num">${PCT(r.retencao)}</td>
+    </tr>`).join('');
+  htmlC += `<tr class="total-row">
+    <td>Total geral</td>
+    <td class="num">${BRL(totC.inv)}</td>
+    <td class="num">—</td>
+    <td class="num">${NUM(totC.vis3s)}</td>
+    <td class="num">${NUM(totC.cli)}</td>
+    <td class="num">${BRL(k.cpm)}</td>
+    <td class="num">${PCT(k.retencao)}</td>
+  </tr>`;
+  document.getElementById('campTbody').innerHTML = htmlC;
+
+  // Criativo table
+  const cris = d.por_criativo || [];
+  const totR = cris.reduce((a,r)=>{a.inv+=r.investido;a.vis3s+=r.vis3s;a.cli+=r.cliques;return a;},{inv:0,vis3s:0,cli:0});
+  const ACAO_CLS = { 'Ruim':'acao-ruim', 'Amostra básica':'acao-amostra', 'Aguardar dados':'acao-aguardar', 'Escalar':'acao-escalar' };
+  let htmlR = cris.map(r => {
+    const cls = ACAO_CLS[r.acao] || 'acao-amostra';
+    const btn = r.url ? `<a class="link-anuncio-btn" href="${r.url}" target="_blank">↗ Anúncio</a>` : '—';
+    return `<tr>
+      <td class="cri-name" title="${r.criativo}">${r.criativo}</td>
+      <td class="num">${BRL(r.investido)}</td>
+      <td class="num">${NUM(r.alcance)}</td>
+      <td class="num">${NUM(r.vis3s)}</td>
+      <td class="num">${NUM(r.cliques)}</td>
+      <td class="num">${BRL(r.cpm)}</td>
+      <td class="num">${PCT(r.hooke)}</td>
+      <td class="num">${PCT(r.retencao)}</td>
+      <td><span class="acao-badge ${cls}">${r.acao}</span></td>
+      <td>${btn}</td>
+    </tr>`;
+  }).join('');
+  htmlR += `<tr class="total-row">
+    <td>Total geral</td>
+    <td class="num">${BRL(totR.inv)}</td>
+    <td class="num">—</td>
+    <td class="num">${NUM(totR.vis3s)}</td>
+    <td class="num">${NUM(totR.cli)}</td>
+    <td class="num">${BRL(k.cpm)}</td>
+    <td class="num">${PCT(k.hooke_rate)}</td>
+    <td class="num">${PCT(k.retencao)}</td>
+    <td></td><td></td>
+  </tr>`;
+  document.getElementById('criTbody').innerHTML = htmlR;
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────

@@ -3123,6 +3123,121 @@ def _hf_fetch_ebooks(date_start=None, date_end=None) -> dict:
         "ebooks_v2": ebooks_v2,
     }
 
+def _hf_fetch_corredor(date_start=None, date_end=None) -> dict:
+    """Agrega dados do Corredor Polonês por KPI, série diária, campanha e criativo."""
+    sa_path = BASE_DIR / "service_account.json"
+    creds = service_account.Credentials.from_service_account_file(
+        str(sa_path), scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
+    )
+    sheets = gapi_build("sheets", "v4", credentials=creds).spreadsheets().values()
+    rows = sheets.get(spreadsheetId=HIRE_FUNIS_SHEET_ID, range="'Corredor'").execute().get("values", [])
+
+    # col: 0=Date,1=Camp,2=Pub,3=Cri,4=URL,5=Inv,6=Imp,7=Vis,8=Alc,9=Vis3s,10=Inter,11=25%,12=75%,13=Cli,14=CPM
+    def _in_range(d):
+        if date_start and d and d < date_start: return False
+        if date_end   and d and d > date_end:   return False
+        return True
+
+    # Aggregation buckets
+    tot_inv = tot_imp = tot_vis = tot_alc = tot_vis3s = tot_p25 = tot_p75 = tot_cli = 0.0
+    serie: dict  = {}    # date_str → {vis, inv}
+    by_camp: dict = {}   # campanha → {inv,imp,alc,vis3s,p25,p75,cli}
+    by_cri: dict  = {}   # criativo → {inv,imp,alc,vis3s,p25,p75,cli,url}
+
+    for row in rows[1:]:
+        if len(row) < 10: continue
+        d = _hf_parse_date(row[0])
+        if not _in_range(d): continue
+
+        inv   = _hf_parse_num(row[5])
+        imp   = _hf_parse_num(row[6])
+        vis   = _hf_parse_num(row[7])
+        alc   = _hf_parse_num(row[8])
+        vis3s = _hf_parse_num(row[9])
+        p25   = _hf_parse_num(row[11]) if len(row) > 11 else 0.0
+        p75   = _hf_parse_num(row[12]) if len(row) > 12 else 0.0
+        cli   = _hf_parse_num(row[13]) if len(row) > 13 else 0.0
+        camp  = row[1].strip()
+        cri   = row[3].strip()
+        url   = row[4].strip() if len(row) > 4 else ""
+
+        tot_inv   += inv;  tot_imp   += imp;  tot_vis   += vis
+        tot_alc   += alc;  tot_vis3s += vis3s; tot_p25   += p25
+        tot_p75   += p75;  tot_cli   += cli
+
+        # Daily series
+        ds = d.isoformat() if d else None
+        if ds:
+            if ds not in serie: serie[ds] = {"vis": 0.0, "inv": 0.0}
+            serie[ds]["vis"] += vis
+            serie[ds]["inv"] += inv
+
+        # By campaign
+        if camp not in by_camp:
+            by_camp[camp] = {"inv":0.0,"imp":0.0,"alc":0.0,"vis3s":0.0,"p25":0.0,"p75":0.0,"cli":0.0}
+        bc = by_camp[camp]
+        bc["inv"]+=inv; bc["imp"]+=imp; bc["alc"]+=alc
+        bc["vis3s"]+=vis3s; bc["p25"]+=p25; bc["p75"]+=p75; bc["cli"]+=cli
+
+        # By creative
+        if cri not in by_cri:
+            by_cri[cri] = {"inv":0.0,"imp":0.0,"alc":0.0,"vis3s":0.0,"p25":0.0,"p75":0.0,"cli":0.0,"url":""}
+        bc2 = by_cri[cri]
+        bc2["inv"]+=inv; bc2["imp"]+=imp; bc2["alc"]+=alc
+        bc2["vis3s"]+=vis3s; bc2["p25"]+=p25; bc2["p75"]+=p75; bc2["cli"]+=cli
+        if url and not bc2["url"]: bc2["url"] = url
+
+    def _hooke(vis3s, imp):  return round(vis3s / imp * 100, 1)  if imp   else 0.0
+    def _ret(p75, p25):      return round(p75   / p25 * 100, 1)  if p25   else 0.0
+    def _cpm(inv, imp):      return round(inv   / imp * 1000, 2) if imp   else 0.0
+
+    def _acao(vis3s, hooke, ret):
+        if vis3s < 400:  return "Amostra básica"
+        if vis3s < 1500: return "Aguardar dados"
+        if hooke < 30 or ret < 25: return "Ruim"
+        return "Escalar"
+
+    serie_sorted = [{"date": k, "vis": int(v["vis"]), "inv": round(v["inv"],2)}
+                    for k, v in sorted(serie.items())]
+
+    campanha_list = sorted(
+        [{"campanha": k,
+          "investido": round(v["inv"],2), "alcance": int(v["alc"]),
+          "vis3s": int(v["vis3s"]), "cliques": int(v["cli"]),
+          "cpm": _cpm(v["inv"],v["imp"]),
+          "retencao": _ret(v["p75"],v["p25"])}
+         for k, v in by_camp.items()],
+        key=lambda x: x["investido"], reverse=True
+    )
+
+    criativo_list = sorted(
+        [{"criativo": k,
+          "url": v["url"],
+          "investido": round(v["inv"],2), "alcance": int(v["alc"]),
+          "vis3s": int(v["vis3s"]), "cliques": int(v["cli"]),
+          "cpm": _cpm(v["inv"],v["imp"]),
+          "hooke": _hooke(v["vis3s"],v["imp"]),
+          "retencao": _ret(v["p75"],v["p25"]),
+          "acao": _acao(v["vis3s"], _hooke(v["vis3s"],v["imp"]), _ret(v["p75"],v["p25"]))}
+         for k, v in by_cri.items()],
+        key=lambda x: x["investido"], reverse=True
+    )
+
+    return {
+        "kpis": {
+            "investido":    round(tot_inv, 2),
+            "visualizacoes": int(tot_vis),
+            "hooke_rate":   _hooke(tot_vis3s, tot_imp),
+            "retencao":     _ret(tot_p75, tot_p25),
+            "impressoes":   int(tot_imp),
+            "cliques":      int(tot_cli),
+            "cpm":          _cpm(tot_inv, tot_imp),
+        },
+        "serie_diaria":  serie_sorted,
+        "por_campanha":  campanha_list,
+        "por_criativo":  criativo_list,
+    }
+
 @app.get("/dashboard-hire-funis", response_class=HTMLResponse)
 async def dashboard_hire_funis_page(request: Request):
     """Public — Funis Contínuos da Hire, no login required."""
@@ -3158,6 +3273,20 @@ async def get_hire_funis_ebooks(
         de = datetime.strptime(date_end,   "%Y-%m-%d").date() if date_end   else None
         data = await asyncio.to_thread(_hf_fetch_ebooks, ds, de)
         data["budgets"] = _hf_load_budgets()
+        return JSONResponse(data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/hire/funis/corredor")
+async def get_hire_funis_corredor(
+    request: Request,
+    date_start: str = None,
+    date_end:   str = None,
+):
+    try:
+        ds = datetime.strptime(date_start, "%Y-%m-%d").date() if date_start else None
+        de = datetime.strptime(date_end,   "%Y-%m-%d").date() if date_end   else None
+        data = await asyncio.to_thread(_hf_fetch_corredor, ds, de)
         return JSONResponse(data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
