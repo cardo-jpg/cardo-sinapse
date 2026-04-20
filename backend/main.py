@@ -2694,11 +2694,11 @@ async def get_wici2_lp(
 
 # ── Hire Funis Contínuos ──────────────────────────────────────────────────────
 # ── Google Ads credentials (env vars set in Railway) ─────────────────────────
-GADS_DEVELOPER_TOKEN = os.getenv("GADS_DEVELOPER_TOKEN", "")
-GADS_CLIENT_ID       = os.getenv("GADS_CLIENT_ID", "")
-GADS_CLIENT_SECRET   = os.getenv("GADS_CLIENT_SECRET", "")
-GADS_REFRESH_TOKEN   = os.getenv("GADS_REFRESH_TOKEN", "")
-GADS_CUSTOMER_ID     = os.getenv("GADS_CUSTOMER_ID", "1045573188")  # Hire / History Makers
+GADS_DEVELOPER_TOKEN     = os.getenv("GADS_DEVELOPER_TOKEN", "")
+GADS_CLIENT_ID           = os.getenv("GADS_CLIENT_ID", "")
+GADS_CLIENT_SECRET       = os.getenv("GADS_CLIENT_SECRET", "")
+GADS_REFRESH_TOKEN       = os.getenv("GADS_REFRESH_TOKEN", "")
+GADS_HIRE_CUSTOMER_ID    = os.getenv("GADS_HIRE_CUSTOMER_ID", "1045573188")  # Hire / History Makers
 
 HIRE_FUNIS_SHEET_ID   = "1l6_bsucWh3CZKhBZpqBykPJuYT3GQ5ZehAR5IAXd8kg"
 HIRE_MALU_TRACKER_ID  = "1SVz6Eti4E6hkOpgVjOeYkQ3XvDuYuVYmSWOj_cWYvPM"
@@ -2778,7 +2778,7 @@ def _hf_fetch_yt_gads(date_start=None, date_end=None) -> dict:
             WHERE {date_clause}
               AND campaign.name LIKE '%YOUTUBE%'
         """
-        rows = list(ga_service.search(customer_id=GADS_CUSTOMER_ID, query=query))
+        rows = list(ga_service.search(customer_id=GADS_HIRE_CUSTOMER_ID, query=query))
         total_cost     = sum(r.metrics.cost_micros for r in rows) / 1_000_000
         total_inscritos = sum(r.metrics.conversions for r in rows)
         custo_inscrito  = round(total_cost / total_inscritos, 2) if total_inscritos else 0.0
