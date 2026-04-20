@@ -3058,34 +3058,52 @@ def _hf_fetch_ebooks(date_start=None, date_end=None) -> dict:
         ("eb_10emp",  "Ebook - 10 empresas"),
     ]
 
+    def _get2(aba):
+        return sheets.get(spreadsheetId=HIRE_FUNIS_SHEET2_ID, range=f"'{aba}'").execute().get("values", [])
+
+    def _agg(rows, inv_col, leads_col, vend_col, fat_col):
+        inv = leads = vend = fat = 0.0
+        for row in rows[1:]:
+            if not _in_range(row): continue
+            inv   += _hf_parse_num(row[inv_col])              if len(row) > inv_col   else 0.0
+            leads += _hf_parse_num(row[leads_col])            if len(row) > leads_col else 0.0
+            vend  += _hf_parse_num(row[vend_col])             if len(row) > vend_col  else 0.0
+            fat   += _hf_parse_num(row[fat_col])              if len(row) > fat_col   else 0.0
+        return round(inv,2), round(leads,0), round(vend,0), round(fat,2)
+
     ebooks: dict = {}
     som_invest = som_leads = som_vendas = som_fat = 0.0
+    ebooks_v2: dict = {}
+    s2_invest = s2_leads = s2_vendas = s2_fat = 0.0
 
     for key, aba in EBOOK_TABS:
-        inv = leads = vend = fat = 0.0
-        for row in _get(aba)[1:]:
-            if len(row) < 3 or not _in_range(row): continue
-            inv   += _hf_parse_num(row[2])
-            leads += _hf_parse_num(row[3]) if len(row) > 3 else 0.0
-            vend  += _hf_parse_num(row[4]) if len(row) > 4 else 0.0
-            fat   += _hf_parse_num(row[5]) if len(row) > 5 else 0.0
-        som_invest += inv
-        som_leads  += leads
-        som_vendas += vend
-        som_fat    += fat
+        # Sheet1 — período filtrado
+        inv, leads, vend, fat = _agg(_get(aba), 2, 3, 4, 5)
+        som_invest += inv; som_leads += leads; som_vendas += vend; som_fat += fat
         ebooks[key] = {
-            "investido":   round(inv,   2),
+            "investido":   inv,
             "leads":       int(leads),
             "vendas":      int(vend),
-            "faturamento": round(fat,   2),
+            "faturamento": fat,
             "cpl":         round(inv / leads, 2) if leads else 0.0,
             "roas":        round(fat / inv,   2) if inv   else 0.0,
+        }
+        # Sheet2 — todo o período (mesma aba, sem filtro de data)
+        inv2, leads2, vend2, fat2 = _agg(_get2(aba), 2, 3, 4, 5)
+        s2_invest += inv2; s2_leads += leads2; s2_vendas += vend2; s2_fat += fat2
+        ebooks_v2[key] = {
+            "investido":   inv2,
+            "leads":       int(leads2),
+            "vendas":      int(vend2),
+            "faturamento": fat2,
+            "cpl":         round(inv2 / leads2, 2) if leads2 else 0.0,
+            "roas":        round(fat2 / inv2,   2) if inv2   else 0.0,
         }
 
     return {
         "somatorio": {
-            "investido":    round(som_invest, 2),
-            "faturamento":  round(som_fat,    2),
+            "investido":    som_invest,
+            "faturamento":  som_fat,
             "vendas":       int(som_vendas),
             "leads":        int(som_leads),
             "ticket_medio": round(som_fat / som_vendas, 2) if som_vendas else 0.0,
@@ -3093,6 +3111,16 @@ def _hf_fetch_ebooks(date_start=None, date_end=None) -> dict:
             "roas":         round(som_fat / som_invest,   2) if som_invest else 0.0,
         },
         "ebooks": ebooks,
+        "somatorio_v2": {
+            "investido":    s2_invest,
+            "faturamento":  s2_fat,
+            "vendas":       int(s2_vendas),
+            "leads":        int(s2_leads),
+            "ticket_medio": round(s2_fat / s2_vendas, 2) if s2_vendas else 0.0,
+            "cac":          round(s2_invest / s2_vendas, 2) if s2_vendas else 0.0,
+            "roas":         round(s2_fat / s2_invest,   2) if s2_invest else 0.0,
+        },
+        "ebooks_v2": ebooks_v2,
     }
 
 @app.get("/dashboard-hire-funis", response_class=HTMLResponse)

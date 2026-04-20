@@ -792,6 +792,50 @@
       </div>
 
     </div><!-- /ebook cards -->
+
+    <!-- Resultado Todo o Período v2 -->
+    <div class="hf-v2-wrap">
+      <div class="hf-v2-label">Resultado Todo o Período</div>
+
+      <!-- KPI Strip v2 -->
+      <div class="hf-kpi-strip-v2">
+        <div class="hf-kpi-v2"><div class="hf-kpi-label">Investido</div><div class="hf-kpi-value dash" id="eb_v2_kpiInvestido">—</div></div>
+        <div class="hf-kpi-v2"><div class="hf-kpi-label">Faturamento</div><div class="hf-kpi-value dash" id="eb_v2_kpiFaturamento">—</div></div>
+        <div class="hf-kpi-v2"><div class="hf-kpi-label">Vendas</div><div class="hf-kpi-value dash" id="eb_v2_kpiVendas">—</div></div>
+        <div class="hf-kpi-v2"><div class="hf-kpi-label">Ticket Médio</div><div class="hf-kpi-value dash" id="eb_v2_kpiTicket">—</div></div>
+        <div class="hf-kpi-v2"><div class="hf-kpi-label">CAC</div><div class="hf-kpi-value dash" id="eb_v2_kpiCac">—</div></div>
+        <div class="hf-kpi-v2"><div class="hf-kpi-label">ROAS</div><div class="hf-kpi-value dash" id="eb_v2_kpiRoas">—</div></div>
+      </div>
+
+      <!-- Compact 4-ebook grid -->
+      <div class="hf-v2-grid">
+        <div class="hf-v2-ch">
+          <div class="hf-v2-ch-name">📗 Ebook 5 Formas</div>
+          <div class="hf-v2-metric"><div class="hf-v2-metric-lbl">Vendas</div><div class="hf-v2-metric-val big" id="eb_v2_5op_vend">—</div></div>
+          <div class="hf-v2-metric"><div class="hf-v2-metric-lbl">Faturamento</div><div class="hf-v2-metric-val big" id="eb_v2_5op_fat">—</div></div>
+          <div class="hf-v2-metric"><div class="hf-v2-metric-lbl">ROAS</div><div class="hf-v2-metric-val dim" id="eb_v2_5op_roas">—</div></div>
+        </div>
+        <div class="hf-v2-ch">
+          <div class="hf-v2-ch-name">📘 Ebook 7 Erros</div>
+          <div class="hf-v2-metric"><div class="hf-v2-metric-lbl">Vendas</div><div class="hf-v2-metric-val big" id="eb_v2_7erros_vend">—</div></div>
+          <div class="hf-v2-metric"><div class="hf-v2-metric-lbl">Faturamento</div><div class="hf-v2-metric-val big" id="eb_v2_7erros_fat">—</div></div>
+          <div class="hf-v2-metric"><div class="hf-v2-metric-lbl">ROAS</div><div class="hf-v2-metric-val dim" id="eb_v2_7erros_roas">—</div></div>
+        </div>
+        <div class="hf-v2-ch">
+          <div class="hf-v2-ch-name">📙 Ebook Remoto</div>
+          <div class="hf-v2-metric"><div class="hf-v2-metric-lbl">Vendas</div><div class="hf-v2-metric-val big" id="eb_v2_cr_vend">—</div></div>
+          <div class="hf-v2-metric"><div class="hf-v2-metric-lbl">Faturamento</div><div class="hf-v2-metric-val big" id="eb_v2_cr_fat">—</div></div>
+          <div class="hf-v2-metric"><div class="hf-v2-metric-lbl">ROAS</div><div class="hf-v2-metric-val dim" id="eb_v2_cr_roas">—</div></div>
+        </div>
+        <div class="hf-v2-ch">
+          <div class="hf-v2-ch-name">📕 Ebook 10 Empresas</div>
+          <div class="hf-v2-metric"><div class="hf-v2-metric-lbl">Vendas</div><div class="hf-v2-metric-val big" id="eb_v2_10emp_vend">—</div></div>
+          <div class="hf-v2-metric"><div class="hf-v2-metric-lbl">Faturamento</div><div class="hf-v2-metric-val big" id="eb_v2_10emp_fat">—</div></div>
+          <div class="hf-v2-metric"><div class="hf-v2-metric-lbl">ROAS</div><div class="hf-v2-metric-val dim" id="eb_v2_10emp_roas">—</div></div>
+        </div>
+      </div>
+    </div><!-- /v2 ebooks -->
+
   </div><!-- /viewEbooks -->
 
 </div><!-- /page -->
@@ -1252,6 +1296,32 @@ function renderEbooks(d) {
     setEl(`${pfx}_leads`,   NUM(ch.leads));
     setEl(`${pfx}_cpl`,     BRL(ch.cpl));
     setEl(`${pfx}_roas`,    ROAS(ch.roas));
+  });
+
+  // Resultado Todo o Período (v2 — Sheet2)
+  const s2 = d.somatorio_v2 || {};
+  setEl('eb_v2_kpiInvestido',   BRL(s2.investido));
+  setEl('eb_v2_kpiFaturamento', BRL(s2.faturamento));
+  setEl('eb_v2_kpiVendas',      NUM(s2.vendas));
+  setEl('eb_v2_kpiTicket',      BRL(s2.ticket_medio));
+  setEl('eb_v2_kpiCac',         BRL(s2.cac));
+  setEl('eb_v2_kpiRoas',        ROAS(s2.roas));
+  ['eb_v2_kpiInvestido','eb_v2_kpiFaturamento','eb_v2_kpiVendas','eb_v2_kpiTicket','eb_v2_kpiCac','eb_v2_kpiRoas'].forEach(id => {
+    const el = document.getElementById(id); if (el && el.textContent !== '—') el.classList.remove('dash');
+  });
+
+  const eb2 = d.ebooks_v2 || {};
+  const MAP2 = [
+    ['5op',   eb2.eb_5op],
+    ['7erros', eb2.eb_7erros],
+    ['cr',    eb2.eb_cr],
+    ['10emp', eb2.eb_10emp],
+  ];
+  MAP2.forEach(([pfx, ch]) => {
+    if (!ch) return;
+    setEl(`eb_v2_${pfx}_vend`, NUM(ch.vendas));
+    setEl(`eb_v2_${pfx}_fat`,  BRL(ch.faturamento));
+    setEl(`eb_v2_${pfx}_roas`, ROAS(ch.roas));
   });
 
   // Budgets
