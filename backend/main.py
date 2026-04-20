@@ -3316,6 +3316,337 @@ async def put_hire_funis_budget(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ── YouTube Tab ───────────────────────────────────────────────────────────────
+
+def _hf_yt_creds():
+    """Load YouTube OAuth2 credentials from HF_Config sheet (yt_refresh_token row)."""
+    try:
+        import google.oauth2.credentials
+        svc = _hf_budget_svc()
+        rows = svc.get(
+            spreadsheetId=HIRE_FUNIS_SHEET_ID, range="HF_Config!A2:B"
+        ).execute().get("values", [])
+        config = {r[0]: r[1] for r in rows if len(r) >= 2}
+        rt = config.get("yt_refresh_token", "")
+        if not rt:
+            return None
+        return google.oauth2.credentials.Credentials(
+            token=None,
+            refresh_token=rt,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=GADS_CLIENT_ID,
+            client_secret=GADS_CLIENT_SECRET,
+        )
+    except Exception:
+        return None
+
+
+def _hf_yt_save_token(refresh_token: str):
+    """Persist YouTube refresh_token to HF_Config sheet (upsert by key)."""
+    svc = _hf_budget_svc()
+    try:
+        rows = svc.get(
+            spreadsheetId=HIRE_FUNIS_SHEET_ID, range="HF_Config!A2:B"
+        ).execute().get("values", [])
+    except Exception:
+        rows = []
+    new_rows = [[r[0], r[1]] for r in rows if len(r) >= 2 and r[0] != "yt_refresh_token"]
+    new_rows.append(["yt_refresh_token", refresh_token])
+    svc.clear(spreadsheetId=HIRE_FUNIS_SHEET_ID, range="HF_Config!A2:B").execute()
+    svc.update(
+        spreadsheetId=HIRE_FUNIS_SHEET_ID,
+        range="HF_Config!A2:B",
+        valueInputOption="RAW",
+        body={"values": new_rows},
+    ).execute()
+
+
+def _hf_fetch_youtube_tab(date_start=None, date_end=None) -> dict:
+    """Full YouTube tab: GADS (KPIs + ads table + daily series) + YouTube Analytics."""
+    today = datetime.today().date()
+    ds = date_start.isoformat() if date_start else "2020-01-01"
+    de = date_end.isoformat()   if date_end   else today.isoformat()
+
+    # ── Google Ads portion ────────────────────────────────────────────────────
+    kpis     = {"investido": 0.0, "inscritos": 0, "cliques": 0,
+                "custo_inscrito": 0.0, "impressoes": 0, "cpm": 0.0}
+    anuncios: list = []
+    serie_gads_map: dict = {}
+
+    if all([GADS_DEVELOPER_TOKEN, GADS_CLIENT_ID, GADS_CLIENT_SECRET, GADS_REFRESH_TOKEN]):
+        try:
+            from google.ads.googleads.client import GoogleAdsClient
+            gads_cfg = {
+                "developer_token": GADS_DEVELOPER_TOKEN,
+                "client_id":       GADS_CLIENT_ID,
+                "client_secret":   GADS_CLIENT_SECRET,
+                "refresh_token":   GADS_REFRESH_TOKEN,
+                "use_proto_plus":  True,
+            }
+            client = GoogleAdsClient.load_from_dict(gads_cfg)
+            ga_svc = client.get_service("GoogleAdsService")
+            dc = f"segments.date BETWEEN '{ds}' AND '{de}'"
+            yf = "campaign.name LIKE '%YOUTUBE%'"
+
+            # Q1: Daily cost + impressions + clicks (no conversion segment)
+            q1 = f"""
+                SELECT segments.date, metrics.cost_micros, metrics.impressions, metrics.clicks
+                FROM campaign
+                WHERE {dc} AND {yf}
+            """
+            tot_cost = tot_imp = tot_cli = 0
+            for r in ga_svc.search(customer_id=GADS_HIRE_CUSTOMER_ID, query=q1):
+                day = r.segments.date
+                tot_cost += r.metrics.cost_micros
+                tot_imp  += r.metrics.impressions
+                tot_cli  += r.metrics.clicks
+                sg = serie_gads_map.setdefault(day, {"inv": 0.0, "ins": 0})
+                sg["inv"] += r.metrics.cost_micros / 1_000_000
+
+            # Q2: Subscription conversions by day
+            q2 = f"""
+                SELECT segments.date, metrics.conversions
+                FROM campaign
+                WHERE {dc} AND {yf}
+                  AND segments.conversion_action_name = 'YouTube channel subscriptions'
+            """
+            tot_ins = 0
+            for r in ga_svc.search(customer_id=GADS_HIRE_CUSTOMER_ID, query=q2):
+                day = r.segments.date
+                cnt = int(r.metrics.conversions)
+                tot_ins += cnt
+                sg = serie_gads_map.setdefault(day, {"inv": 0.0, "ins": 0})
+                sg["ins"] += cnt
+
+            # Q3: Per-ad performance (cost + impressions + clicks + video views)
+            q3 = f"""
+                SELECT
+                    ad_group_ad.ad.id,
+                    ad_group_ad.ad.name,
+                    ad_group_ad.status,
+                    metrics.cost_micros,
+                    metrics.impressions,
+                    metrics.clicks,
+                    metrics.conversions,
+                    metrics.video_views
+                FROM ad_group_ad
+                WHERE {dc} AND {yf} AND metrics.impressions > 0
+            """
+            STATUS_PT = {"ENABLED": "Ativo", "PAUSED": "Pausado", "REMOVED": "Removido"}
+            ads_map: dict = {}
+            for r in ga_svc.search(customer_id=GADS_HIRE_CUSTOMER_ID, query=q3):
+                aid = str(r.ad_group_ad.ad.id)
+                if aid not in ads_map:
+                    ads_map[aid] = {
+                        "nome":   r.ad_group_ad.ad.name,
+                        "status": STATUS_PT.get(r.ad_group_ad.status.name, "—"),
+                        "cost": 0, "imp": 0, "cli": 0, "conv": 0.0, "vv": 0,
+                    }
+                ads_map[aid]["cost"] += r.metrics.cost_micros
+                ads_map[aid]["imp"]  += r.metrics.impressions
+                ads_map[aid]["cli"]  += r.metrics.clicks
+                ads_map[aid]["conv"] += r.metrics.conversions
+                ads_map[aid]["vv"]   += r.metrics.video_views
+
+            for v in ads_map.values():
+                valor = round(v["cost"] / 1_000_000, 2)
+                conv  = int(v["conv"])
+                taxa  = round(v["vv"] / v["imp"] * 100, 1) if v["imp"] else 0.0
+                anuncios.append({
+                    "nome":       v["nome"],
+                    "status":     v["status"],
+                    "conversoes": conv,
+                    "impressoes": int(v["imp"]),
+                    "valor":      valor,
+                    "custo_conv": round(valor / conv, 2) if conv else 0.0,
+                    "taxa":       taxa,
+                })
+            anuncios.sort(key=lambda x: x["valor"], reverse=True)
+
+            investido = tot_cost / 1_000_000
+            cpm = round(investido / tot_imp * 1000, 2) if tot_imp else 0.0
+            kpis = {
+                "investido":      round(investido, 2),
+                "inscritos":      int(tot_ins),
+                "cliques":        int(tot_cli),
+                "custo_inscrito": round(investido / tot_ins, 2) if tot_ins else 0.0,
+                "impressoes":     int(tot_imp),
+                "cpm":            cpm,
+            }
+        except Exception as e:
+            kpis["gads_error"] = str(e)
+
+    serie_gads = [
+        {"date": k, "inv": round(v["inv"], 2), "ins": v["ins"]}
+        for k, v in sorted(serie_gads_map.items())
+    ]
+
+    # ── YouTube Analytics portion ─────────────────────────────────────────────
+    analytics: dict = {"authorized": False, "serie_diaria": [], "videos": []}
+    creds = _hf_yt_creds()
+    if creds is not None:
+        try:
+            from google.auth.transport.requests import Request as GRequest
+            if not creds.valid:
+                creds.refresh(GRequest())
+
+            yt_an = gapi_build("youtubeAnalytics", "v2", credentials=creds)
+
+            resp = yt_an.reports().query(
+                ids="channel==MINE",
+                startDate=ds,
+                endDate=de,
+                metrics="subscribersGained,subscribersLost",
+                dimensions="day",
+                sort="day",
+            ).execute()
+            serie_yt = [
+                {"date": row[0], "gained": int(row[1]), "lost": int(row[2])}
+                for row in resp.get("rows", [])
+            ]
+
+            resp_v = yt_an.reports().query(
+                ids="channel==MINE",
+                startDate=ds,
+                endDate=de,
+                metrics="views,likes,shares,averageViewDuration,subscribersGained",
+                dimensions="video",
+                sort="-subscribersGained",
+                maxResults=20,
+            ).execute()
+
+            video_rows = resp_v.get("rows", [])
+            id_to_title: dict = {}
+            if video_rows:
+                yt_data = gapi_build("youtube", "v3", credentials=creds)
+                vid_ids = ",".join(row[0] for row in video_rows[:50])
+                vid_resp = yt_data.videos().list(part="snippet", id=vid_ids).execute()
+                id_to_title = {v["id"]: v["snippet"]["title"] for v in vid_resp.get("items", [])}
+
+            videos = []
+            for row in video_rows:
+                vid_id = row[0]
+                avg_sec = int(float(row[4]))
+                avg_dur = f"{avg_sec//60}:{avg_sec%60:02d}"
+                videos.append({
+                    "id":       vid_id,
+                    "titulo":   id_to_title.get(vid_id, vid_id),
+                    "link":     f"https://youtube.com/watch?v={vid_id}",
+                    "inscritos": int(row[5]),
+                    "views":    int(row[1]),
+                    "likes":    int(row[2]),
+                    "shares":   int(row[3]),
+                    "avg_dur":  avg_dur,
+                })
+            analytics = {"authorized": True, "serie_diaria": serie_yt, "videos": videos}
+        except Exception as e:
+            analytics = {"authorized": True, "serie_diaria": [], "videos": [], "yt_error": str(e)}
+
+    return {
+        "kpis":       kpis,
+        "anuncios":   anuncios,
+        "serie_gads": serie_gads,
+        "analytics":  analytics,
+    }
+
+
+@app.get("/api/hire/funis/youtube")
+async def get_hire_funis_youtube(
+    request: Request,
+    date_start: str = None,
+    date_end:   str = None,
+):
+    try:
+        ds = datetime.strptime(date_start, "%Y-%m-%d").date() if date_start else None
+        de = datetime.strptime(date_end,   "%Y-%m-%d").date() if date_end   else None
+        data = await asyncio.to_thread(_hf_fetch_youtube_tab, ds, de)
+        return JSONResponse(data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/hire/funis/youtube/auth")
+async def hire_yt_auth(request: Request):
+    """Generate YouTube OAuth2 URL.  The client passes its own redirect_uri so it
+    works both on localhost and on the Railway domain."""
+    try:
+        from google_auth_oauthlib.flow import Flow
+        # Detect base URL — Railway injects X-Forwarded-Proto
+        proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+        host  = request.headers.get("x-forwarded-host",  request.url.netloc)
+        base  = f"{proto}://{host}"
+        redirect_uri = f"{base}/api/hire/funis/youtube/callback"
+        flow = Flow.from_client_config(
+            {"web": {
+                "client_id":     GADS_CLIENT_ID,
+                "client_secret": GADS_CLIENT_SECRET,
+                "redirect_uris": [redirect_uri],
+                "auth_uri":      "https://accounts.google.com/o/oauth2/auth",
+                "token_uri":     "https://oauth2.googleapis.com/token",
+            }},
+            scopes=[
+                "https://www.googleapis.com/auth/yt-analytics.readonly",
+                "https://www.googleapis.com/auth/youtube.readonly",
+            ],
+            redirect_uri=redirect_uri,
+        )
+        auth_url, _state = flow.authorization_url(
+            access_type="offline",
+            include_granted_scopes="false",
+            prompt="consent",
+        )
+        return JSONResponse({"auth_url": auth_url, "redirect_uri": redirect_uri})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/hire/funis/youtube/callback")
+async def hire_yt_callback(request: Request, code: str = None, error: str = None):
+    """Handle YouTube OAuth2 callback — saves refresh_token to HF_Config sheet."""
+    if error:
+        return HTMLResponse(f"<html><body style='font-family:sans-serif;padding:40px'>"
+                            f"<h3>Erro: {error}</h3></body></html>")
+    if not code:
+        return HTMLResponse("<html><body style='font-family:sans-serif;padding:40px'>"
+                            "<h3>Código de autorização não recebido.</h3></body></html>")
+    try:
+        from google_auth_oauthlib.flow import Flow
+        proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+        host  = request.headers.get("x-forwarded-host",  request.url.netloc)
+        base  = f"{proto}://{host}"
+        redirect_uri = f"{base}/api/hire/funis/youtube/callback"
+        flow = Flow.from_client_config(
+            {"web": {
+                "client_id":     GADS_CLIENT_ID,
+                "client_secret": GADS_CLIENT_SECRET,
+                "redirect_uris": [redirect_uri],
+                "auth_uri":      "https://accounts.google.com/o/oauth2/auth",
+                "token_uri":     "https://oauth2.googleapis.com/token",
+            }},
+            scopes=[
+                "https://www.googleapis.com/auth/yt-analytics.readonly",
+                "https://www.googleapis.com/auth/youtube.readonly",
+            ],
+            redirect_uri=redirect_uri,
+        )
+        import os as _os
+        _os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
+        flow.fetch_token(code=code)
+        creds = flow.credentials
+        if creds.refresh_token:
+            await asyncio.to_thread(_hf_yt_save_token, creds.refresh_token)
+        return HTMLResponse("""
+            <html><body style="font-family:sans-serif;text-align:center;padding:60px;
+                               background:#1a0a28;color:#fff">
+              <h2 style="color:#4ade80">✓ YouTube Analytics autorizado!</h2>
+              <p style="color:rgba(255,255,255,.7)">Pode fechar esta aba e recarregar o dashboard.</p>
+              <script>setTimeout(()=>window.close(),3000)</script>
+            </body></html>
+        """)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/logs", response_class=HTMLResponse)
 async def view_logs(request: Request):
     if not verify_session(request):

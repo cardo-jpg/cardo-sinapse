@@ -300,6 +300,43 @@
     }
     .link-anuncio-btn:hover { background:rgba(123,45,139,.5); border-color:var(--purple-light); }
 
+    /* ── YouTube tab ── */
+    .hf-kpi-strip.cols-6 { grid-template-columns:repeat(6,1fr); }
+    .yt-setup-box {
+      display:flex; flex-direction:column; align-items:center; gap:12px;
+      background:rgba(123,45,139,.12); border:1px dashed rgba(168,85,200,.3);
+      border-radius:14px; padding:28px 24px; text-align:center; margin-bottom:20px;
+    }
+    .yt-setup-box p { margin:0; color:rgba(255,255,255,.55); font-size:.85rem; max-width:480px; }
+    .yt-auth-btn {
+      display:inline-flex; align-items:center; gap:7px;
+      background:var(--purple-dark); border:1px solid rgba(168,85,200,.4);
+      color:#fff; border-radius:8px; padding:9px 18px;
+      font-size:.85rem; font-weight:700; cursor:pointer; transition:background .15s;
+      text-decoration:none;
+    }
+    .yt-auth-btn:hover { background:var(--purple); }
+    .yt-charts-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; }
+    .yt-chart-card {
+      background:var(--surface); border:1px solid rgba(123,45,139,.25);
+      border-radius:12px; padding:16px 18px;
+    }
+    .yt-chart-title { font-size:.78rem; font-weight:700; color:rgba(255,255,255,.55);
+                      text-transform:uppercase; letter-spacing:.06em; margin-bottom:12px; }
+    .yt-chart-canvas-wrap { position:relative; height:200px; }
+    .status-ativo   { color:#4ade80; font-weight:700; font-size:.75rem; }
+    .status-pausado { color:#fbbf24; font-weight:700; font-size:.75rem; }
+    .status-removido{ color:#f87171; font-weight:700; font-size:.75rem; }
+    .hf-table td.vid-title { max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.79rem; color:rgba(255,255,255,.75); }
+    .vid-link-btn {
+      display:inline-flex; align-items:center; gap:4px;
+      background:rgba(255,0,0,.12); border:1px solid rgba(255,50,50,.25);
+      color:#f87171; border-radius:5px; padding:2px 8px;
+      font-size:.7rem; font-weight:700; text-decoration:none;
+      transition:background .15s;
+    }
+    .vid-link-btn:hover { background:rgba(255,0,0,.22); }
+
     /* util */
     .good { color:var(--green); }
     .bad  { color:var(--red); }
@@ -408,6 +445,7 @@
     <button class="hf-tab active" data-tab="audiencia" onclick="setTab(this)">Audiência</button>
     <button class="hf-tab" data-tab="ebooks" onclick="setTab(this)">E-books</button>
     <button class="hf-tab" data-tab="corredor" onclick="setTab(this)">Corredor</button>
+    <button class="hf-tab" data-tab="youtube" onclick="setTab(this)">YouTube</button>
   </div>
 
   <!-- ── Audiência ── -->
@@ -963,6 +1001,85 @@
 
   </div><!-- /viewCorredor -->
 
+  <!-- ── YouTube ── -->
+  <div id="viewYoutube" style="display:none">
+
+    <!-- KPI Strip -->
+    <div class="hf-kpi-strip cols-6">
+      <div class="hf-kpi"><div class="hf-kpi-label">Investido</div><div class="hf-kpi-value dash" id="yt_kpiInv">—</div></div>
+      <div class="hf-kpi"><div class="hf-kpi-label">Inscrições</div><div class="hf-kpi-value dash" id="yt_kpiIns">—</div></div>
+      <div class="hf-kpi"><div class="hf-kpi-label">Cliques</div><div class="hf-kpi-value dash" id="yt_kpiCli">—</div></div>
+      <div class="hf-kpi"><div class="hf-kpi-label">Custo / Inscrito</div><div class="hf-kpi-value dash" id="yt_kpiCusto">—</div></div>
+      <div class="hf-kpi"><div class="hf-kpi-label">Impressões</div><div class="hf-kpi-value dash" id="yt_kpiImp">—</div></div>
+      <div class="hf-kpi"><div class="hf-kpi-label">CPM</div><div class="hf-kpi-value dash" id="yt_kpiCpm">—</div></div>
+    </div>
+
+    <!-- Auth setup (hidden when authorized) -->
+    <div class="yt-setup-box" id="ytSetupBox">
+      <p>Para ver os gráficos de Inscritos e Performance de Vídeos, autorize o acesso ao YouTube Analytics.</p>
+      <button class="yt-auth-btn" onclick="ytAuth()">▶ Autorizar YouTube Analytics</button>
+    </div>
+
+    <!-- Charts row (2 side by side) -->
+    <div class="yt-charts-row">
+      <div class="yt-chart-card">
+        <div class="yt-chart-title">Inscritos YouTube</div>
+        <div class="yt-chart-canvas-wrap">
+          <canvas id="ytSubChart"></canvas>
+        </div>
+      </div>
+      <div class="yt-chart-card">
+        <div class="yt-chart-title">Custo por Inscritos YouTube</div>
+        <div class="yt-chart-canvas-wrap">
+          <canvas id="ytCostChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table: Anúncios (GADS) -->
+    <div class="hf-table-section">
+      <div class="hf-table-label">Performance Anúncios YouTube — Google Ads</div>
+      <div class="hf-table-wrap">
+        <table class="hf-table">
+          <thead>
+            <tr>
+              <th>Anúncio</th>
+              <th class="num">Status</th>
+              <th class="num">Inscrições</th>
+              <th class="num">Impressões</th>
+              <th class="num">Investido</th>
+              <th class="num">Custo/Inscrição</th>
+              <th class="num">View Rate</th>
+            </tr>
+          </thead>
+          <tbody id="ytAnunciosTbody"><tr><td colspan="7" style="text-align:center;color:rgba(255,255,255,.3);padding:20px">Carregando…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Table: Vídeos (YouTube Analytics) -->
+    <div class="hf-table-section" id="ytVideosSection" style="display:none">
+      <div class="hf-table-label">Performance Vídeo — YouTube Studio</div>
+      <div class="hf-table-wrap">
+        <table class="hf-table">
+          <thead>
+            <tr>
+              <th>Título</th>
+              <th class="num">Link</th>
+              <th class="num">Novos Inscritos</th>
+              <th class="num">Visualizações</th>
+              <th class="num">Curtidas</th>
+              <th class="num">Compart.</th>
+              <th class="num">Média Visualização</th>
+            </tr>
+          </thead>
+          <tbody id="ytVideosTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /viewYoutube -->
+
 </div><!-- /page -->
 </main>
 
@@ -1152,12 +1269,14 @@ function setTab(btn) {
   document.getElementById('viewAudiencia').style.display = state.tab === 'audiencia' ? '' : 'none';
   document.getElementById('viewEbooks').style.display    = state.tab === 'ebooks'    ? '' : 'none';
   document.getElementById('viewCorredor').style.display  = state.tab === 'corredor'  ? '' : 'none';
+  document.getElementById('viewYoutube').style.display   = state.tab === 'youtube'   ? '' : 'none';
   loadCurrent();
 }
 
 function loadCurrent() {
   if      (state.tab === 'ebooks')   loadEbooks();
   else if (state.tab === 'corredor') loadCorredor();
+  else if (state.tab === 'youtube')  loadYoutube();
   else                               loadAudiencia();
 }
 
@@ -1606,6 +1725,188 @@ function renderCorredor(d) {
     <td></td><td></td>
   </tr>`;
   document.getElementById('criTbody').innerHTML = htmlR;
+}
+
+// ── YouTube ───────────────────────────────────────────────────────────────────
+let _ytSubChart  = null;
+let _ytCostChart = null;
+
+function PCT(v) { return v == null ? '—' : v.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}) + '%'; }
+
+async function ytAuth() {
+  try {
+    const r   = await fetch('/api/hire/funis/youtube/auth');
+    const d   = await r.json();
+    if (d.auth_url) window.open(d.auth_url, '_blank', 'width=600,height=700');
+  } catch(e) { alert('Erro ao gerar link de autorização: ' + e); }
+}
+
+async function loadYoutube() {
+  const params = new URLSearchParams();
+  if (state.dateStart) params.set('date_start', state.dateStart);
+  if (state.dateEnd)   params.set('date_end',   state.dateEnd);
+
+  let d;
+  try {
+    const r = await fetch('/api/hire/funis/youtube?' + params.toString());
+    if (!r.ok) throw new Error(await r.text());
+    d = await r.json();
+  } catch(e) {
+    document.getElementById('errorBanner').textContent = 'Erro YouTube: ' + e;
+    return;
+  }
+
+  const k = d.kpis || {};
+  [
+    ['yt_kpiInv',   BRL(k.investido)],
+    ['yt_kpiIns',   NUM(k.inscritos)],
+    ['yt_kpiCli',   NUM(k.cliques)],
+    ['yt_kpiCusto', BRL(k.custo_inscrito)],
+    ['yt_kpiImp',   NUM(k.impressoes)],
+    ['yt_kpiCpm',   BRL(k.cpm)],
+  ].forEach(([id, val]) => {
+    setEl(id, val);
+    const el = document.getElementById(id);
+    if (el && val !== '—') el.classList.remove('dash');
+  });
+
+  // ── Auth box ────────────────────────────────────────────────────────────────
+  const analytics  = d.analytics || {};
+  const authorized = analytics.authorized;
+  document.getElementById('ytSetupBox').style.display      = authorized ? 'none' : '';
+  document.getElementById('ytVideosSection').style.display = authorized ? ''     : 'none';
+
+  // ── Chart 1: Inscritos (YouTube Analytics daily) ──────────────────────────
+  if (_ytSubChart)  { _ytSubChart.destroy();  _ytSubChart  = null; }
+  if (_ytCostChart) { _ytCostChart.destroy(); _ytCostChart = null; }
+
+  const subSerie = (analytics.serie_diaria || []);
+  const gSerie   = (d.serie_gads || []);
+
+  const c1 = document.getElementById('ytSubChart');
+  if (c1 && authorized && subSerie.length) {
+    const lbs1  = subSerie.map(s => { const [y,m,dd]=s.date.split('-'); return `${dd}/${m}`; });
+    _ytSubChart = new Chart(c1, {
+      type: 'line',
+      data: {
+        labels: lbs1,
+        datasets: [
+          {
+            label: 'Novos Inscritos',
+            data: subSerie.map(s => s.gained),
+            borderColor: '#4ade80',
+            backgroundColor: 'rgba(74,222,128,.1)',
+            borderWidth: 2, pointRadius: 2, fill: true, tension: 0.3,
+          },
+          {
+            label: 'Inscrições Removidas',
+            data: subSerie.map(s => s.lost),
+            borderColor: '#f87171',
+            backgroundColor: 'rgba(248,113,113,.08)',
+            borderWidth: 2, pointRadius: 2, fill: true, tension: 0.3,
+          },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, position: 'top', labels: { color:'rgba(255,255,255,.6)', font:{size:10}, boxWidth:10 } },
+          tooltip: { mode: 'index', intersect: false },
+        },
+        scales: {
+          x: { grid:{color:'rgba(255,255,255,.05)'}, ticks:{color:'rgba(255,255,255,.4)',font:{size:10},maxRotation:0,autoSkip:true,maxTicksLimit:12} },
+          y: { grid:{color:'rgba(255,255,255,.05)'}, ticks:{color:'rgba(255,255,255,.4)',font:{size:10}} },
+        },
+      },
+    });
+  }
+
+  // ── Chart 2: Inscritos + Custo por Inscrito (GADS daily) ──────────────────
+  const c2 = document.getElementById('ytCostChart');
+  if (c2 && gSerie.length) {
+    const lbs2 = gSerie.map(s => { const [y,m,dd]=s.date.split('-'); return `${dd}/${m}`; });
+    const insData  = gSerie.map(s => s.ins);
+    const costData = gSerie.map(s => s.ins > 0 ? parseFloat((s.inv / s.ins).toFixed(2)) : null);
+    _ytCostChart = new Chart(c2, {
+      type: 'bar',
+      data: {
+        labels: lbs2,
+        datasets: [
+          {
+            type: 'bar',
+            label: 'Inscrições (Google Ads)',
+            data: insData,
+            backgroundColor: 'rgba(168,85,200,.5)',
+            borderColor: 'rgba(168,85,200,.9)',
+            borderWidth: 1,
+            yAxisID: 'yIns',
+          },
+          {
+            type: 'line',
+            label: 'Custo por Inscrito',
+            data: costData,
+            borderColor: '#fbbf24',
+            backgroundColor: 'transparent',
+            borderWidth: 2, pointRadius: 2, tension: 0.3,
+            yAxisID: 'yCost',
+          },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, position: 'top', labels: { color:'rgba(255,255,255,.6)', font:{size:10}, boxWidth:10 } },
+          tooltip: { mode: 'index', intersect: false,
+            callbacks: {
+              label: ctx => {
+                if (ctx.datasetIndex === 0) return ` ${ctx.parsed.y} inscrições`;
+                return ctx.parsed.y != null ? ` R$ ${ctx.parsed.y.toFixed(2)}` : '';
+              }
+            }
+          },
+        },
+        scales: {
+          x: { grid:{color:'rgba(255,255,255,.05)'}, ticks:{color:'rgba(255,255,255,.4)',font:{size:10},maxRotation:0,autoSkip:true,maxTicksLimit:12} },
+          yIns:  { position:'left',  grid:{color:'rgba(255,255,255,.05)'}, ticks:{color:'rgba(255,255,255,.4)',font:{size:10}} },
+          yCost: { position:'right', grid:{drawOnChartArea:false}, ticks:{color:'#fbbf24',font:{size:10},
+            callback: v => 'R$' + v.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0}) } },
+        },
+      },
+    });
+  }
+
+  // ── Table: Anúncios ──────────────────────────────────────────────────────────
+  const STATUS_CLS = { 'Ativo':'status-ativo', 'Pausado':'status-pausado', 'Removido':'status-removido' };
+  const anuncios = d.anuncios || [];
+  let htmlA = anuncios.map(a => `
+    <tr>
+      <td class="camp-name" title="${a.nome}">${a.nome}</td>
+      <td class="num"><span class="${STATUS_CLS[a.status]||''}">${a.status}</span></td>
+      <td class="num">${NUM(a.conversoes)}</td>
+      <td class="num">${NUM(a.impressoes)}</td>
+      <td class="num">${BRL(a.valor)}</td>
+      <td class="num">${BRL(a.custo_conv)}</td>
+      <td class="num">${PCT(a.taxa)}</td>
+    </tr>`).join('');
+  if (!htmlA) htmlA = '<tr><td colspan="7" style="text-align:center;color:rgba(255,255,255,.3);padding:20px">Sem dados</td></tr>';
+  document.getElementById('ytAnunciosTbody').innerHTML = htmlA;
+
+  // ── Table: Vídeos ────────────────────────────────────────────────────────────
+  if (authorized) {
+    const videos = analytics.videos || [];
+    let htmlV = videos.map(v => `
+      <tr>
+        <td class="vid-title" title="${v.titulo}">${v.titulo}</td>
+        <td class="num"><a class="vid-link-btn" href="${v.link}" target="_blank">▶ Ver</a></td>
+        <td class="num">${NUM(v.inscritos)}</td>
+        <td class="num">${NUM(v.views)}</td>
+        <td class="num">${NUM(v.likes)}</td>
+        <td class="num">${NUM(v.shares)}</td>
+        <td class="num">${v.avg_dur}</td>
+      </tr>`).join('');
+    if (!htmlV) htmlV = '<tr><td colspan="7" style="text-align:center;color:rgba(255,255,255,.3);padding:20px">Sem dados no período</td></tr>';
+    document.getElementById('ytVideosTbody').innerHTML = htmlV;
+  }
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
