@@ -255,7 +255,7 @@
     }
     .hf-chart-title { font-size:.72rem; font-weight:700; text-transform:uppercase;
       letter-spacing:.07em; color:rgba(255,255,255,.5); margin-bottom:14px; }
-    .hf-chart-canvas { width:100%; height:200px; }
+    .hf-chart-canvas-wrap { position:relative; height:220px; }
 
     .hf-table-section { margin-bottom:20px; }
     .hf-table-label {
@@ -911,7 +911,9 @@
     <!-- Line chart -->
     <div class="hf-chart-wrap">
       <div class="hf-chart-title">Visualizações</div>
-      <canvas id="corredorChart" class="hf-chart-canvas"></canvas>
+      <div class="hf-chart-canvas-wrap">
+        <canvas id="corredorChart"></canvas>
+      </div>
     </div>
 
     <!-- Tabela por Campanha -->
