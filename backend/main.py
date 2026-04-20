@@ -2755,9 +2755,17 @@ def _hf_parse_num(s) -> float:
     if not s:
         return 0.0
     if "," in s and "." in s:
+        # PT-BR: "1.234,56" → "." = thousands, "," = decimal
         s = s.replace(".", "").replace(",", ".")
     elif "," in s:
+        # Comma only: decimal separator → "1,5" → "1.5"
         s = s.replace(",", ".")
+    elif "." in s:
+        # Period only: if followed by exactly 3 digits (once or more) → PT-BR thousands
+        # e.g. "1.174" → 1174, "1.174.256" → 1174256
+        # e.g. "8.76" → 8.76 (decimal, 2 digits → no match)
+        if re.search(r'\.\d{3}(?:\.|$)', s):
+            s = s.replace(".", "")
     s = re.sub(r"[^\d.\-]", "", s)
     try:
         return float(s)
