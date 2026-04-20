@@ -2708,16 +2708,45 @@ HIRE_HIRE_TRACKER_ID  = "1XWIvqBx1TXjoFtiIViW_lW4L0EpbXAQsmU6vbvUMVIk"
 # Row 1 (index 1) of IG Hire tracker "dados" = 01/01/2026 (daily sequential)
 HIRE_HIRE_TRACKER_BASE = datetime(2026, 1, 1).date()
 HIRE_FUNIS_SHEET2_ID   = "1VfZIM9f4-EixdQtQgrgaH-BUeIWUFEaxLJRerWCAuxw"  # resultado comercial
-HIRE_FUNIS_BUDGETS_PATH = BASE_DIR / "data" / "hire_funis_budgets.json"
+def _hf_budget_svc():
+    sa_path = BASE_DIR / "service_account.json"
+    creds = service_account.Credentials.from_service_account_file(
+        str(sa_path), scopes=["https://www.googleapis.com/auth/spreadsheets"]
+    )
+    return gapi_build("sheets", "v4", credentials=creds).spreadsheets().values()
 
 def _hf_load_budgets() -> dict:
     try:
-        return json.loads(HIRE_FUNIS_BUDGETS_PATH.read_text())
+        rows = _hf_budget_svc().get(
+            spreadsheetId=HIRE_FUNIS_SHEET_ID, range="HF_Budgets!A2:C"
+        ).execute().get("values", [])
+        budgets: dict = {}
+        for row in rows:
+            if len(row) < 3:
+                continue
+            ch, mo, val = row[0], row[1], row[2]
+            budgets.setdefault(ch, {})[mo] = float(val)
+        return budgets
     except Exception:
         return {}
 
-def _hf_save_budgets(data: dict):
-    HIRE_FUNIS_BUDGETS_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+def _hf_save_budget(channel: str, month: str, budget: float):
+    svc = _hf_budget_svc()
+    rows = svc.get(
+        spreadsheetId=HIRE_FUNIS_SHEET_ID, range="HF_Budgets!A2:C"
+    ).execute().get("values", [])
+    new_rows = [
+        [r[0], r[1], r[2]] for r in rows
+        if not (r[0] == channel and r[1] == month)
+    ]
+    new_rows.append([channel, month, budget])
+    svc.clear(spreadsheetId=HIRE_FUNIS_SHEET_ID, range="HF_Budgets!A2:C").execute()
+    svc.update(
+        spreadsheetId=HIRE_FUNIS_SHEET_ID,
+        range="HF_Budgets!A2:C",
+        valueInputOption="RAW",
+        body={"values": new_rows},
+    ).execute()
 
 def _hf_parse_num(s) -> float:
     if s is None:
@@ -3037,11 +3066,7 @@ async def put_hire_funis_budget(request: Request):
         budget  = float(body.get("budget", 0))
         if not channel or not month:
             raise HTTPException(status_code=400, detail="channel e month são obrigatórios")
-        budgets = _hf_load_budgets()
-        if channel not in budgets:
-            budgets[channel] = {}
-        budgets[channel][month] = budget
-        _hf_save_budgets(budgets)
+        _hf_save_budget(channel, month, budget)
         return JSONResponse({"ok": True})
     except HTTPException:
         raise
