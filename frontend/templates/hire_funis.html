@@ -835,12 +835,46 @@ function getBudgetMonth() {
   return ref.slice(0, 7); // "YYYY-MM"
 }
 
+// ── Budget localStorage helpers ───────────────────────────────────────────────
+const BUDGET_CHANNELS = { ig_malu:'budgetIgMalu', ig_hire:'budgetIgHire', youtube:'budgetYoutube', site:'budgetSite' };
+
+function _budgetKey(channel, month) { return `hf_budget_${channel}_${month}`; }
+
+function _budgetLocalGet(channel, month) {
+  return parseFloat(localStorage.getItem(_budgetKey(channel, month)) || '0') || 0;
+}
+
+function _budgetLocalSet(channel, month, budget) {
+  if (budget) localStorage.setItem(_budgetKey(channel, month), budget);
+  else        localStorage.removeItem(_budgetKey(channel, month));
+}
+
+function _budgetFmt(val) {
+  return val ? val.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}) : '';
+}
+
+// Pre-fill from localStorage before API responds (instant UX)
+function preFillBudgetsFromLocal() {
+  const month = getBudgetMonth();
+  for (const [ch, inputId] of Object.entries(BUDGET_CHANNELS)) {
+    const el = document.getElementById(inputId);
+    if (!el) continue;
+    const val = _budgetLocalGet(ch, month);
+    if (val) el.value = _budgetFmt(val);
+  }
+}
+
 // ── Budget save ───────────────────────────────────────────────────────────────
 async function saveBudget(channel, input) {
   const raw = input.value.replace(',', '.').replace(/[^\d.]/g, '');
   const budget = parseFloat(raw) || 0;
   const month  = getBudgetMonth();
-  const indId  = 'save' + channel.split('_').map(p => p[0].toUpperCase() + p.slice(1)).join('');
+
+  // 1. Persiste no localStorage imediatamente (sobrevive a deploys do Railway)
+  _budgetLocalSet(channel, month, budget);
+
+  // 2. Tenta salvar no servidor (best-effort)
+  const indId = 'save' + channel.split('_').map(p => p[0].toUpperCase() + p.slice(1)).join('');
   try {
     const r = await fetch('/api/hire/funis/budget', {
       method: 'PUT',
@@ -856,17 +890,16 @@ async function saveBudget(channel, input) {
 
 function loadBudgetInputs(budgets) {
   const month = getBudgetMonth();
-  const channels = {
-    ig_malu: 'budgetIgMalu',
-    ig_hire: 'budgetIgHire',
-    youtube: 'budgetYoutube',
-    site:    'budgetSite',
-  };
-  for (const [ch, inputId] of Object.entries(channels)) {
+  for (const [ch, inputId] of Object.entries(BUDGET_CHANNELS)) {
     const el = document.getElementById(inputId);
     if (!el) continue;
-    const val = (budgets[ch] || {})[month] || 0;
-    el.value = val ? val.toLocaleString('pt-BR', {minimumFractionDigits:2,maximumFractionDigits:2}) : '';
+    // Servidor tem prioridade se tiver valor; senão usa localStorage
+    const serverVal = (budgets[ch] || {})[month] || 0;
+    const localVal  = _budgetLocalGet(ch, month);
+    const val = serverVal || localVal;
+    // Sincroniza localStorage com valor do servidor quando disponível
+    if (serverVal) _budgetLocalSet(ch, month, serverVal);
+    el.value = _budgetFmt(val);
   }
 }
 
@@ -994,6 +1027,7 @@ function renderAudiencia(d) {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 updateDrLabel();
+preFillBudgetsFromLocal(); // mostra valores salvos antes mesmo da API responder
 loadAudiencia();
 </script>
 </body>
