@@ -3656,6 +3656,232 @@ async def hire_yt_callback(request: Request, code: str = None, error: str = None
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ── Site Tab ──────────────────────────────────────────────────────────────────
+
+def _hf_fetch_site_tab(date_start=None, date_end=None) -> dict:
+    """Site tab: GADS Search campaigns + site-palavras sheet fallback."""
+    today = datetime.today().date()
+    ds = date_start.isoformat() if date_start else "2020-01-01"
+    de = date_end.isoformat()   if date_end   else today.isoformat()
+
+    kpis = {"investido": 0.0, "conversoes": 0, "cliques": 0,
+            "cpl": 0.0, "ctr": 0.0, "cpm": 0.0}
+    serie_diaria: list = []
+    keywords:     list = []
+    campanhas:    list = []
+
+    # ── Google Ads: Search campaigns ──────────────────────────────────────────
+    if all([GADS_DEVELOPER_TOKEN, GADS_CLIENT_ID, GADS_CLIENT_SECRET, GADS_REFRESH_TOKEN]):
+        from google.ads.googleads.client import GoogleAdsClient
+        gads_cfg = {
+            "developer_token": GADS_DEVELOPER_TOKEN,
+            "client_id":       GADS_CLIENT_ID,
+            "client_secret":   GADS_CLIENT_SECRET,
+            "refresh_token":   GADS_REFRESH_TOKEN,
+            "use_proto_plus":  True,
+        }
+        client = GoogleAdsClient.load_from_dict(gads_cfg)
+        ga_svc = client.get_service("GoogleAdsService")
+        dc = f"segments.date BETWEEN '{ds}' AND '{de}'"
+        sf = "campaign.advertising_channel_type = 'SEARCH'"
+
+        # Q1: Daily KPIs
+        try:
+            q1 = f"""
+                SELECT segments.date, metrics.cost_micros, metrics.impressions,
+                       metrics.clicks, metrics.conversions
+                FROM campaign
+                WHERE {dc} AND {sf}
+            """
+            daily: dict = {}
+            for r in ga_svc.search(customer_id=GADS_HIRE_CUSTOMER_ID, query=q1):
+                day = r.segments.date
+                d = daily.setdefault(day, {"cost": 0, "imp": 0, "cli": 0, "conv": 0.0})
+                d["cost"] += r.metrics.cost_micros
+                d["imp"]  += r.metrics.impressions
+                d["cli"]  += r.metrics.clicks
+                d["conv"] += r.metrics.conversions
+
+            tot_cost = sum(d["cost"] for d in daily.values())
+            tot_imp  = sum(d["imp"]  for d in daily.values())
+            tot_cli  = sum(d["cli"]  for d in daily.values())
+            tot_conv = sum(d["conv"] for d in daily.values())
+            investido = tot_cost / 1_000_000
+            kpis.update({
+                "investido":   round(investido, 2),
+                "conversoes":  int(tot_conv),
+                "cliques":     int(tot_cli),
+                "cpl":         round(investido / tot_conv, 2) if tot_conv else 0.0,
+                "ctr":         round(tot_cli / tot_imp * 100, 2) if tot_imp else 0.0,
+                "cpm":         round(investido / tot_imp * 1000, 2) if tot_imp else 0.0,
+            })
+            serie_diaria = [
+                {
+                    "date": k,
+                    "conv": round(v["conv"], 1),
+                    "cpl":  round(v["cost"] / 1_000_000 / v["conv"], 2) if v["conv"] else 0.0,
+                }
+                for k, v in sorted(daily.items())
+            ]
+        except Exception as e:
+            kpis["q1_error"] = str(e)
+
+        # Q2: Campaign breakdown
+        try:
+            q2 = f"""
+                SELECT campaign.name, metrics.cost_micros, metrics.impressions,
+                       metrics.clicks, metrics.conversions
+                FROM campaign
+                WHERE {dc} AND {sf} AND metrics.impressions > 0
+            """
+            camp_map: dict = {}
+            for r in ga_svc.search(customer_id=GADS_HIRE_CUSTOMER_ID, query=q2):
+                name = r.campaign.name
+                cm = camp_map.setdefault(name, {"cost": 0, "imp": 0, "cli": 0, "conv": 0.0})
+                cm["cost"] += r.metrics.cost_micros
+                cm["imp"]  += r.metrics.impressions
+                cm["cli"]  += r.metrics.clicks
+                cm["conv"] += r.metrics.conversions
+            for name, v in camp_map.items():
+                valor = round(v["cost"] / 1_000_000, 2)
+                conv  = int(v["conv"])
+                campanhas.append({
+                    "campanha":   name,
+                    "investido":  valor,
+                    "cliques":    int(v["cli"]),
+                    "impressoes": int(v["imp"]),
+                    "conversoes": conv,
+                    "cpl": round(valor / conv, 2) if conv else None,
+                    "ctr": round(v["cli"] / v["imp"] * 100, 2) if v["imp"] else 0.0,
+                })
+            campanhas.sort(key=lambda x: x["investido"], reverse=True)
+        except Exception:
+            pass
+
+        # Q3: Keyword table
+        try:
+            q3 = f"""
+                SELECT
+                    ad_group_criterion.keyword.text,
+                    metrics.cost_micros,
+                    metrics.impressions,
+                    metrics.clicks,
+                    metrics.conversions,
+                    metrics.average_cpc
+                FROM keyword_view
+                WHERE {dc} AND {sf} AND metrics.impressions > 0
+            """
+            kw_map: dict = {}
+            for r in ga_svc.search(customer_id=GADS_HIRE_CUSTOMER_ID, query=q3):
+                kw = r.ad_group_criterion.keyword.text
+                kd = kw_map.setdefault(kw, {"cost": 0, "imp": 0, "cli": 0, "conv": 0.0})
+                kd["cost"] += r.metrics.cost_micros
+                kd["imp"]  += r.metrics.impressions
+                kd["cli"]  += r.metrics.clicks
+                kd["conv"] += r.metrics.conversions
+            for kw, v in kw_map.items():
+                valor = round(v["cost"] / 1_000_000, 2)
+                conv  = int(v["conv"])
+                keywords.append({
+                    "keyword":    kw,
+                    "investido":  valor,
+                    "impressoes": int(v["imp"]),
+                    "cliques":    int(v["cli"]),
+                    "cpc":        round(v["cost"] / 1_000_000 / v["cli"], 2) if v["cli"] else 0.0,
+                    "ctr":        round(v["cli"] / v["imp"] * 100, 2) if v["imp"] else 0.0,
+                    "leads":      conv,
+                    "cpl":        round(valor / conv, 2) if conv else None,
+                })
+            keywords.sort(key=lambda x: x["investido"], reverse=True)
+        except Exception:
+            pass
+
+    # ── Sheet fallback: site-palavras (used when GADS returns no keywords) ────
+    if not keywords:
+        try:
+            sa_path = BASE_DIR / "service_account.json"
+            creds_sa = service_account.Credentials.from_service_account_file(
+                str(sa_path), scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
+            )
+            svc_sh = gapi_build("sheets", "v4", credentials=creds_sa)
+            rows = svc_sh.spreadsheets().values().get(
+                spreadsheetId=HIRE_FUNIS_SHEET_ID, range="site-palavras"
+            ).execute().get("values", [])
+
+            if len(rows) > 1:
+                header = [h.strip().lower() for h in rows[0]]
+                def _ci(*names):
+                    for n in names:
+                        for i, h in enumerate(header):
+                            if n in h: return i
+                    return -1
+                i_kw  = _ci("palavra", "keyword", "chave")
+                i_inv = _ci("investido", "custo", "cost", "gasto")
+                i_imp = _ci("impressao", "impression")
+                i_cli = _ci("clique", "click")
+                i_cpc = _ci("cpc")
+                i_ctr = _ci("ctr")
+                i_ld  = _ci("lead", "conv")
+                i_cpl = _ci("cpl", "custo por lead")
+                # default positional fallback if header not found
+                if i_kw  < 0: i_kw  = 0
+                if i_inv < 0: i_inv = 1
+                if i_imp < 0: i_imp = 2
+                if i_cli < 0: i_cli = 3
+                if i_cpc < 0: i_cpc = 4
+                if i_ctr < 0: i_ctr = 6
+                if i_ld  < 0: i_ld  = 7
+                if i_cpl < 0: i_cpl = 8
+
+                def _v(row, idx):
+                    return row[idx] if idx >= 0 and idx < len(row) else ""
+
+                for row in rows[1:]:
+                    kw = _v(row, i_kw)
+                    if not kw: continue
+                    inv  = _hf_parse_num(_v(row, i_inv))
+                    imp  = int(_hf_parse_num(_v(row, i_imp)))
+                    cli  = int(_hf_parse_num(_v(row, i_cli)))
+                    cpc  = _hf_parse_num(_v(row, i_cpc))
+                    ctr  = _hf_parse_num(_v(row, i_ctr))
+                    ld   = int(_hf_parse_num(_v(row, i_ld)))
+                    cpl_v = _hf_parse_num(_v(row, i_cpl))
+                    keywords.append({
+                        "keyword":    kw,
+                        "investido":  inv,
+                        "impressoes": imp,
+                        "cliques":    cli,
+                        "cpc":        cpc,
+                        "ctr":        ctr,
+                        "leads":      ld,
+                        "cpl":        cpl_v if cpl_v else None,
+                    })
+        except Exception:
+            pass
+
+    return {
+        "kpis":      kpis,
+        "serie":     serie_diaria,
+        "keywords":  keywords,
+        "campanhas": campanhas,
+    }
+
+
+@app.get("/api/hire/funis/site")
+async def get_hire_funis_site(
+    request: Request,
+    date_start: str = None,
+    date_end:   str = None,
+):
+    try:
+        ds = datetime.strptime(date_start, "%Y-%m-%d").date() if date_start else None
+        de = datetime.strptime(date_end,   "%Y-%m-%d").date() if date_end   else None
+        data = await asyncio.to_thread(_hf_fetch_site_tab, ds, de)
+        return JSONResponse(data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/logs", response_class=HTMLResponse)
 async def view_logs(request: Request):
     if not verify_session(request):

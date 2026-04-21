@@ -300,6 +300,12 @@
     }
     .link-anuncio-btn:hover { background:rgba(123,45,139,.5); border-color:var(--purple-light); }
 
+    /* ── Site tab ── */
+    .cpl-good { background:rgba(74,222,128,.15); color:#4ade80; font-weight:700; border-radius:4px; padding:1px 6px; }
+    .cpl-bad  { background:rgba(248,113,113,.15); color:#f87171; font-weight:700; border-radius:4px; padding:1px 6px; }
+    .leads-hi { background:rgba(196,241,53,.15); color:var(--green); font-weight:700; border-radius:4px; padding:1px 6px; }
+    .hf-table td.kw-text { max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.8rem; color:rgba(255,255,255,.8); }
+
     /* ── YouTube tab ── */
     .hf-kpi-strip.cols-6 { grid-template-columns:repeat(6,1fr); }
     .yt-setup-box {
@@ -445,6 +451,7 @@
     <button class="hf-tab active" data-tab="audiencia" onclick="setTab(this)">Audiência</button>
     <button class="hf-tab" data-tab="ebooks" onclick="setTab(this)">E-books</button>
     <button class="hf-tab" data-tab="corredor" onclick="setTab(this)">Corredor</button>
+    <button class="hf-tab" data-tab="site" onclick="setTab(this)">Site</button>
     <button class="hf-tab" data-tab="youtube" onclick="setTab(this)">YouTube</button>
   </div>
 
@@ -1001,6 +1008,72 @@
 
   </div><!-- /viewCorredor -->
 
+  <!-- ── Site ── -->
+  <div id="viewSite" style="display:none">
+
+    <!-- KPI Strip -->
+    <div class="hf-kpi-strip cols-6">
+      <div class="hf-kpi"><div class="hf-kpi-label">Investido</div><div class="hf-kpi-value dash" id="site_kpiInv">—</div></div>
+      <div class="hf-kpi"><div class="hf-kpi-label">Mensagens</div><div class="hf-kpi-value dash" id="site_kpiConv">—</div></div>
+      <div class="hf-kpi"><div class="hf-kpi-label">Cliques</div><div class="hf-kpi-value dash" id="site_kpiCli">—</div></div>
+      <div class="hf-kpi"><div class="hf-kpi-label">CPL</div><div class="hf-kpi-value dash" id="site_kpiCpl">—</div></div>
+      <div class="hf-kpi"><div class="hf-kpi-label">CTR</div><div class="hf-kpi-value dash" id="site_kpiCtr">—</div></div>
+      <div class="hf-kpi"><div class="hf-kpi-label">CPM</div><div class="hf-kpi-value dash" id="site_kpiCpm">—</div></div>
+    </div>
+
+    <!-- Chart: Custo por Mensagem Iniciada -->
+    <div class="hf-chart-wrap">
+      <div class="hf-chart-title">Custo por Mensagem Iniciada</div>
+      <div class="hf-chart-canvas-wrap">
+        <canvas id="siteChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Table: Palavras-chave -->
+    <div class="hf-table-section">
+      <div class="hf-table-label">Palavras-chave</div>
+      <div class="hf-table-wrap">
+        <table class="hf-table">
+          <thead>
+            <tr>
+              <th>Palavra-chave</th>
+              <th class="num">Investido</th>
+              <th class="num">Impressões</th>
+              <th class="num">Cliques</th>
+              <th class="num">CPC</th>
+              <th class="num">CTR</th>
+              <th class="num">Leads</th>
+              <th class="num">CPL</th>
+            </tr>
+          </thead>
+          <tbody id="siteKwTbody"><tr><td colspan="8" style="text-align:center;color:rgba(255,255,255,.3);padding:20px">Carregando…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Table: Campanhas -->
+    <div class="hf-table-section" id="siteCampSection" style="display:none">
+      <div class="hf-table-label">Por Campanha</div>
+      <div class="hf-table-wrap">
+        <table class="hf-table">
+          <thead>
+            <tr>
+              <th>Campanha</th>
+              <th class="num">Investido</th>
+              <th class="num">Impressões</th>
+              <th class="num">Cliques</th>
+              <th class="num">Conv.</th>
+              <th class="num">CPL</th>
+              <th class="num">CTR</th>
+            </tr>
+          </thead>
+          <tbody id="siteCampTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /viewSite -->
+
   <!-- ── YouTube ── -->
   <div id="viewYoutube" style="display:none">
 
@@ -1270,6 +1343,7 @@ function setTab(btn) {
   document.getElementById('viewAudiencia').style.display = state.tab === 'audiencia' ? '' : 'none';
   document.getElementById('viewEbooks').style.display    = state.tab === 'ebooks'    ? '' : 'none';
   document.getElementById('viewCorredor').style.display  = state.tab === 'corredor'  ? '' : 'none';
+  document.getElementById('viewSite').style.display      = state.tab === 'site'      ? '' : 'none';
   document.getElementById('viewYoutube').style.display   = state.tab === 'youtube'   ? '' : 'none';
   loadCurrent();
 }
@@ -1277,6 +1351,7 @@ function setTab(btn) {
 function loadCurrent() {
   if      (state.tab === 'ebooks')   loadEbooks();
   else if (state.tab === 'corredor') loadCorredor();
+  else if (state.tab === 'site')     loadSite();
   else if (state.tab === 'youtube')  loadYoutube();
   else                               loadAudiencia();
 }
@@ -1726,6 +1801,135 @@ function renderCorredor(d) {
     <td></td><td></td>
   </tr>`;
   document.getElementById('criTbody').innerHTML = htmlR;
+}
+
+// ── Site ──────────────────────────────────────────────────────────────────────
+let _siteChart = null;
+
+async function loadSite() {
+  const params = new URLSearchParams();
+  if (state.dateStart) params.set('date_start', state.dateStart);
+  if (state.dateEnd)   params.set('date_end',   state.dateEnd);
+
+  let d;
+  try {
+    const r = await fetch('/api/hire/funis/site?' + params.toString());
+    if (!r.ok) throw new Error(await r.text());
+    d = await r.json();
+  } catch(e) {
+    document.getElementById('errorBanner').textContent = 'Erro Site: ' + e;
+    return;
+  }
+
+  const k = d.kpis || {};
+  [
+    ['site_kpiInv',  BRL(k.investido)],
+    ['site_kpiConv', NUM(k.conversoes)],
+    ['site_kpiCli',  NUM(k.cliques)],
+    ['site_kpiCpl',  BRL(k.cpl)],
+    ['site_kpiCtr',  PCT(k.ctr)],
+    ['site_kpiCpm',  BRL(k.cpm)],
+  ].forEach(([id, val]) => {
+    setEl(id, val);
+    const el = document.getElementById(id);
+    if (el && val !== '—') el.classList.remove('dash');
+  });
+
+  // ── Chart ────────────────────────────────────────────────────────────────────
+  if (_siteChart) { _siteChart.destroy(); _siteChart = null; }
+  const serie = d.serie || [];
+  const canvas = document.getElementById('siteChart');
+  if (canvas && serie.length) {
+    const lbs  = serie.map(s => { const [y,m,dd]=s.date.split('-'); return `${dd}/${m}`; });
+    _siteChart = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: lbs,
+        datasets: [
+          {
+            type: 'bar',
+            label: 'Conversões',
+            data: serie.map(s => s.conv),
+            backgroundColor: 'rgba(91,131,245,.7)',
+            borderColor: 'rgba(91,131,245,.9)',
+            borderWidth: 1,
+            yAxisID: 'yConv',
+          },
+          {
+            type: 'line',
+            label: 'Custo/conv.',
+            data: serie.map(s => s.cpl || null),
+            borderColor: '#f97316',
+            backgroundColor: 'transparent',
+            borderWidth: 2, pointRadius: 3, tension: 0.3,
+            yAxisID: 'yCpl',
+          },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, position: 'top',
+            labels: { color:'rgba(255,255,255,.6)', font:{size:10}, boxWidth:10 } },
+          tooltip: { mode: 'index', intersect: false,
+            callbacks: {
+              label: ctx => ctx.datasetIndex === 0
+                ? ` ${ctx.parsed.y} conv.`
+                : ctx.parsed.y != null ? ` R$ ${ctx.parsed.y.toFixed(2)}` : '',
+            }
+          },
+        },
+        scales: {
+          x: { grid:{color:'rgba(255,255,255,.05)'}, ticks:{color:'rgba(255,255,255,.4)',font:{size:10},maxRotation:0,autoSkip:true,maxTicksLimit:16} },
+          yConv: { position:'left',  grid:{color:'rgba(255,255,255,.05)'}, ticks:{color:'rgba(255,255,255,.4)',font:{size:10}} },
+          yCpl:  { position:'right', grid:{drawOnChartArea:false}, ticks:{color:'#f97316',font:{size:10},
+            callback: v => 'R$' + v.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0}) } },
+        },
+      },
+    });
+  }
+
+  // ── Keyword table ────────────────────────────────────────────────────────────
+  const kws = d.keywords || [];
+  function cplCls(cpl) {
+    if (!cpl) return '';
+    return cpl < 15 ? 'cpl-good' : cpl > 25 ? 'cpl-bad' : '';
+  }
+  function leadsHi(n) { return n >= 5 ? 'leads-hi' : ''; }
+
+  let htmlK = kws.map(kw => `
+    <tr>
+      <td class="kw-text" title="${kw.keyword}">${kw.keyword}</td>
+      <td class="num">${BRL(kw.investido)}</td>
+      <td class="num">${NUM(kw.impressoes)}</td>
+      <td class="num">${NUM(kw.cliques)}</td>
+      <td class="num">${BRL(kw.cpc)}</td>
+      <td class="num">${PCT(kw.ctr)}</td>
+      <td class="num"><span class="${leadsHi(kw.leads)}">${kw.leads != null ? kw.leads : '—'}</span></td>
+      <td class="num">${kw.cpl != null ? '<span class="' + cplCls(kw.cpl) + '">' + BRL(kw.cpl) + '</span>' : '—'}</td>
+    </tr>`).join('');
+  if (!htmlK) htmlK = '<tr><td colspan="8" style="text-align:center;color:rgba(255,255,255,.3);padding:20px">Sem dados</td></tr>';
+  document.getElementById('siteKwTbody').innerHTML = htmlK;
+
+  // ── Campaign table (only if data) ────────────────────────────────────────────
+  const camps = d.campanhas || [];
+  const campSection = document.getElementById('siteCampSection');
+  if (camps.length) {
+    campSection.style.display = '';
+    let htmlC = camps.map(c => `
+      <tr>
+        <td class="camp-name" title="${c.campanha}">${c.campanha}</td>
+        <td class="num">${BRL(c.investido)}</td>
+        <td class="num">${NUM(c.impressoes)}</td>
+        <td class="num">${NUM(c.cliques)}</td>
+        <td class="num">${c.conversoes}</td>
+        <td class="num">${c.cpl != null ? '<span class="' + cplCls(c.cpl) + '">' + BRL(c.cpl) + '</span>' : '—'}</td>
+        <td class="num">${PCT(c.ctr)}</td>
+      </tr>`).join('');
+    document.getElementById('siteCampTbody').innerHTML = htmlC;
+  } else {
+    campSection.style.display = 'none';
+  }
 }
 
 // ── YouTube ───────────────────────────────────────────────────────────────────
