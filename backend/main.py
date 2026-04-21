@@ -3387,9 +3387,8 @@ def _hf_fetch_youtube_tab(date_start=None, date_end=None) -> dict:
         dc = f"segments.date BETWEEN '{ds}' AND '{de}'"
         yf = "campaign.name LIKE '%YOUTUBE%'"
 
-        # ── Q1 + Q2: KPIs — try independently so table errors never zero KPIs ──
+        # ── Q1: Daily cost + impressions + clicks (independent try) ─────────────
         try:
-            # Q1: Daily cost + impressions + clicks
             q1 = f"""
                 SELECT segments.date, metrics.cost_micros, metrics.impressions, metrics.clicks
                 FROM campaign
@@ -3404,33 +3403,40 @@ def _hf_fetch_youtube_tab(date_start=None, date_end=None) -> dict:
                 sg = serie_gads_map.setdefault(day, {"inv": 0.0, "ins": 0})
                 sg["inv"] += r.metrics.cost_micros / 1_000_000
 
-            # Q2: Subscription conversions by day
+            investido = tot_cost / 1_000_000
+            kpis.update({
+                "investido":  round(investido, 2),
+                "cliques":    int(tot_cli),
+                "impressoes": int(tot_imp),
+                "cpm":        round(investido / tot_imp * 1000, 2) if tot_imp else 0.0,
+            })
+        except Exception as e:
+            kpis["q1_error"] = str(e)
+
+        # ── Q2: Subscription conversions — same pattern as working _hf_fetch_yt_gads
+        # Must include segments.conversion_action_name in SELECT when filtering by it.
+        # Do NOT combine with segments.date in same query (GAQL segment incompatibility).
+        try:
             q2 = f"""
-                SELECT segments.date, metrics.conversions
+                SELECT segments.conversion_action_name, metrics.conversions
                 FROM campaign
                 WHERE {dc} AND {yf}
                   AND segments.conversion_action_name = 'YouTube channel subscriptions'
             """
-            tot_ins = 0
-            for r in ga_svc.search(customer_id=GADS_HIRE_CUSTOMER_ID, query=q2):
-                day = r.segments.date
-                cnt = int(r.metrics.conversions)
-                tot_ins += cnt
-                sg = serie_gads_map.setdefault(day, {"inv": 0.0, "ins": 0})
-                sg["ins"] += cnt
-
-            investido = tot_cost / 1_000_000
-            cpm = round(investido / tot_imp * 1000, 2) if tot_imp else 0.0
-            kpis = {
-                "investido":      round(investido, 2),
-                "inscritos":      int(tot_ins),
-                "cliques":        int(tot_cli),
-                "custo_inscrito": round(investido / tot_ins, 2) if tot_ins else 0.0,
-                "impressoes":     int(tot_imp),
-                "cpm":            cpm,
-            }
+            tot_ins = int(sum(
+                r.metrics.conversions
+                for r in ga_svc.search(customer_id=GADS_HIRE_CUSTOMER_ID, query=q2)
+            ))
+            kpis["inscritos"]      = tot_ins
+            kpis["custo_inscrito"] = round(kpis["investido"] / tot_ins, 2) if tot_ins else 0.0
+            # backfill daily ins equally (no day-level data from this query)
+            if serie_gads_map:
+                days = sorted(serie_gads_map.keys())
+                per_day = tot_ins / len(days) if days else 0
+                for d_key in days:
+                    serie_gads_map[d_key]["ins"] = round(per_day, 1)
         except Exception as e:
-            kpis["gads_error"] = str(e)
+            kpis["q2_error"] = str(e)
 
         # ── Q3: Per-ad table — separate try; failure only empties the table ────
         try:
