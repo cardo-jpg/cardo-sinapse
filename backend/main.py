@@ -3709,11 +3709,11 @@ def _hf_fetch_site_tab(date_start=None, date_end=None) -> dict:
             investido = tot_cost / 1_000_000
             kpis.update({
                 "investido":   round(investido, 2),
-                "conversoes":  int(tot_conv),
+                "impressoes":  int(tot_imp),
                 "cliques":     int(tot_cli),
-                "cpl":         round(investido / tot_conv, 2) if tot_conv else 0.0,
                 "ctr":         round(tot_cli / tot_imp * 100, 2) if tot_imp else 0.0,
-                "cpm":         round(investido / tot_imp * 1000, 2) if tot_imp else 0.0,
+                "conversoes":  int(tot_conv),
+                "cpl":         round(investido / tot_conv, 2) if tot_conv else 0.0,
             })
             serie_diaria = [
                 {

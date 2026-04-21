@@ -1011,14 +1011,14 @@
   <!-- ── Site ── -->
   <div id="viewSite" style="display:none">
 
-    <!-- KPI Strip -->
+    <!-- KPI Strip — funil: Investido → Impressões → Cliques → CTR → Mensagens → CPL -->
     <div class="hf-kpi-strip cols-6">
       <div class="hf-kpi"><div class="hf-kpi-label">Investido</div><div class="hf-kpi-value dash" id="site_kpiInv">—</div></div>
-      <div class="hf-kpi"><div class="hf-kpi-label">Mensagens</div><div class="hf-kpi-value dash" id="site_kpiConv">—</div></div>
+      <div class="hf-kpi"><div class="hf-kpi-label">Impressões</div><div class="hf-kpi-value dash" id="site_kpiImp">—</div></div>
       <div class="hf-kpi"><div class="hf-kpi-label">Cliques</div><div class="hf-kpi-value dash" id="site_kpiCli">—</div></div>
-      <div class="hf-kpi"><div class="hf-kpi-label">CPL</div><div class="hf-kpi-value dash" id="site_kpiCpl">—</div></div>
       <div class="hf-kpi"><div class="hf-kpi-label">CTR</div><div class="hf-kpi-value dash" id="site_kpiCtr">—</div></div>
-      <div class="hf-kpi"><div class="hf-kpi-label">CPM</div><div class="hf-kpi-value dash" id="site_kpiCpm">—</div></div>
+      <div class="hf-kpi"><div class="hf-kpi-label">Mensagens</div><div class="hf-kpi-value dash" id="site_kpiConv">—</div></div>
+      <div class="hf-kpi"><div class="hf-kpi-label">CPL</div><div class="hf-kpi-value dash" id="site_kpiCpl">—</div></div>
     </div>
 
     <!-- Chart: Custo por Mensagem Iniciada -->
@@ -1824,11 +1824,11 @@ async function loadSite() {
   const k = d.kpis || {};
   [
     ['site_kpiInv',  BRL(k.investido)],
-    ['site_kpiConv', NUM(k.conversoes)],
+    ['site_kpiImp',  NUM(k.impressoes)],
     ['site_kpiCli',  NUM(k.cliques)],
-    ['site_kpiCpl',  BRL(k.cpl)],
     ['site_kpiCtr',  PCT(k.ctr)],
-    ['site_kpiCpm',  BRL(k.cpm)],
+    ['site_kpiConv', NUM(k.conversoes)],
+    ['site_kpiCpl',  BRL(k.cpl)],
   ].forEach(([id, val]) => {
     setEl(id, val);
     const el = document.getElementById(id);
