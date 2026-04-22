@@ -3445,14 +3445,14 @@ def _hf_fetch_youtube_tab(date_start=None, date_end=None) -> dict:
         except Exception as e:
             kpis["q2_error"] = str(e)
 
-        # ── Q3: Per-ad table — separate try; failure only empties the table ────
+        # ── Q3: Per-ad table ─────────────────────────────────────────────────────
         try:
-            # video_views not used (incompatible with some ad types); taxa = CTR
             q3 = f"""
                 SELECT
                     ad_group_ad.ad.id,
                     ad_group_ad.ad.name,
                     ad_group_ad.status,
+                    ad_group_ad.ad.video_responsive_ad.videos,
                     metrics.cost_micros,
                     metrics.impressions,
                     metrics.clicks,
@@ -3462,12 +3462,18 @@ def _hf_fetch_youtube_tab(date_start=None, date_end=None) -> dict:
             """
             STATUS_PT = {"ENABLED": "Ativo", "PAUSED": "Pausado", "REMOVED": "Removido"}
             ads_map: dict = {}
+            asset_names: set = set()
             for r in ga_svc.search(customer_id=GADS_HIRE_CUSTOMER_ID, query=q3):
                 aid = str(r.ad_group_ad.ad.id)
                 if aid not in ads_map:
+                    videos = r.ad_group_ad.ad.video_responsive_ad.videos
+                    asset_name = videos[0].asset if videos else None
+                    if asset_name:
+                        asset_names.add(asset_name)
                     ads_map[aid] = {
-                        "nome":   r.ad_group_ad.ad.name,
-                        "status": STATUS_PT.get(r.ad_group_ad.status.name, "—"),
+                        "nome":       r.ad_group_ad.ad.name,
+                        "status":     STATUS_PT.get(r.ad_group_ad.status.name, "—"),
+                        "asset_name": asset_name,
                         "cost": 0, "imp": 0, "cli": 0, "conv": 0.0,
                     }
                 ads_map[aid]["cost"] += r.metrics.cost_micros
@@ -3475,13 +3481,32 @@ def _hf_fetch_youtube_tab(date_start=None, date_end=None) -> dict:
                 ads_map[aid]["cli"]  += r.metrics.clicks
                 ads_map[aid]["conv"] += r.metrics.conversions
 
+            # Q4: busca youtube_video_id dos assets coletados
+            yt_id_map: dict = {}
+            if asset_names:
+                try:
+                    names_filter = ", ".join(f"'{n}'" for n in asset_names)
+                    q4 = f"""
+                        SELECT asset.resource_name, asset.youtube_video_asset.youtube_video_id
+                        FROM asset
+                        WHERE asset.resource_name IN ({names_filter})
+                    """
+                    for r in ga_svc.search(customer_id=GADS_HIRE_CUSTOMER_ID, query=q4):
+                        vid_id = r.asset.youtube_video_asset.youtube_video_id
+                        if vid_id:
+                            yt_id_map[r.asset.resource_name] = vid_id
+                except Exception:
+                    pass
+
             for v in ads_map.values():
                 valor = round(v["cost"] / 1_000_000, 2)
                 conv  = int(v["conv"])
                 ctr   = round(v["cli"] / v["imp"] * 100, 2) if v["imp"] else 0.0
+                yt_id = yt_id_map.get(v["asset_name"], "") if v["asset_name"] else ""
                 anuncios.append({
                     "nome":       v["nome"],
                     "status":     v["status"],
+                    "video_url":  f"https://www.youtube.com/watch?v={yt_id}" if yt_id else "",
                     "conversoes": conv,
                     "impressoes": int(v["imp"]),
                     "valor":      valor,

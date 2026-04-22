@@ -1130,6 +1130,7 @@
               <th class="num">Investido</th>
               <th class="num">Custo/Inscrição</th>
               <th class="num">View Rate</th>
+              <th></th>
             </tr>
           </thead>
           <tbody id="ytAnunciosTbody"><tr><td colspan="7" style="text-align:center;color:rgba(255,255,255,.3);padding:20px">Carregando…</td></tr></tbody>
@@ -2145,6 +2146,7 @@ async function loadYoutube() {
       <td class="num">${BRL(a.valor)}</td>
       <td class="num">${BRL(a.custo_conv)}</td>
       <td class="num">${PCT(a.taxa)}</td>
+      <td class="num">${a.video_url ? `<a class="vid-link-btn" href="${a.video_url}" target="_blank">▶ Ver</a>` : '—'}</td>
     </tr>`).join('');
   if (!htmlA) htmlA = '<tr><td colspan="7" style="text-align:center;color:rgba(255,255,255,.3);padding:20px">Sem dados</td></tr>';
   document.getElementById('ytAnunciosTbody').innerHTML = htmlA;
