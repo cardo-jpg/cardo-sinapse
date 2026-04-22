@@ -995,6 +995,7 @@
           <thead>
             <tr>
               <th>Criativo</th>
+              <th>Status</th>
               <th class="num">Investido</th>
               <th class="num">Alcance</th>
               <th class="num">Vis. 3s</th>
@@ -1822,8 +1823,10 @@ function renderCorredor(d) {
   let htmlR = cris.map(r => {
     const cls = ACAO_CLS[r.acao] || 'acao-amostra';
     const btn = r.url ? `<a class="link-anuncio-btn" href="${r.url}" target="_blank">↗ Anúncio</a>` : '—';
+    const stCls = r.status === 'Ativo' ? 'status-ativo' : 'status-pausado';
     return `<tr>
       <td class="cri-name" title="${r.criativo}">${r.criativo}</td>
+      <td><span class="${stCls}">${r.status}</span></td>
       <td class="num">${BRL(r.investido)}</td>
       <td class="num">${NUM(r.alcance)}</td>
       <td class="num">${NUM(r.vis3s)}</td>
@@ -1837,6 +1840,7 @@ function renderCorredor(d) {
   }).join('');
   htmlR += `<tr class="total-row">
     <td>Total geral</td>
+    <td></td>
     <td class="num">${BRL(totR.inv)}</td>
     <td class="num">—</td>
     <td class="num">${NUM(totR.vis3s)}</td>

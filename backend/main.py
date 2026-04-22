@@ -3188,11 +3188,12 @@ def _hf_fetch_corredor(date_start=None, date_end=None) -> dict:
 
         # By creative
         if cri not in by_cri:
-            by_cri[cri] = {"inv":0.0,"imp":0.0,"alc":0.0,"vis3s":0.0,"p25":0.0,"p75":0.0,"cli":0.0,"url":""}
+            by_cri[cri] = {"inv":0.0,"imp":0.0,"alc":0.0,"vis3s":0.0,"p25":0.0,"p75":0.0,"cli":0.0,"url":"","last_date":None}
         bc2 = by_cri[cri]
         bc2["inv"]+=inv; bc2["imp"]+=imp; bc2["alc"]+=alc
         bc2["vis3s"]+=vis3s; bc2["p25"]+=p25; bc2["p75"]+=p75; bc2["cli"]+=cli
         if url and not bc2["url"]: bc2["url"] = url
+        if d and (bc2["last_date"] is None or d > bc2["last_date"]): bc2["last_date"] = d
 
     def _hooke(vis3s, imp):  return round(vis3s / imp * 100, 1)  if imp   else 0.0
     def _ret(p75, p25):      return round(p75   / p25 * 100, 1)  if p25   else 0.0
@@ -3217,9 +3218,16 @@ def _hf_fetch_corredor(date_start=None, date_end=None) -> dict:
         key=lambda x: x["investido"], reverse=True
     )
 
+    ref_date = date_end or datetime.today().date()
+    from datetime import timedelta as _td
+    def _status_cri(last_date):
+        if last_date is None: return "Pausado"
+        return "Ativo" if (ref_date - last_date).days <= 3 else "Pausado"
+
     criativo_list = sorted(
         [{"criativo": k,
           "url": v["url"],
+          "status": _status_cri(v["last_date"]),
           "investido": round(v["inv"],2), "alcance": int(v["alc"]),
           "vis3s": int(v["vis3s"]), "cliques": int(v["cli"]),
           "cpm": _cpm(v["inv"],v["imp"]),
