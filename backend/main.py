@@ -25,6 +25,16 @@ from googleapiclient.discovery import build as gapi_build
 load_dotenv()
 
 BASE_DIR = Path(__file__).parent.parent
+
+
+def _sa_creds(scopes: list[str]):
+    """Carrega service account credentials do env var (Railway) ou do arquivo local."""
+    sa_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+    if sa_json:
+        info = json.loads(sa_json)
+        return service_account.Credentials.from_service_account_info(info, scopes=scopes)
+    sa_path = BASE_DIR / "service_account.json"
+    return service_account.Credentials.from_service_account_file(str(sa_path), scopes=scopes)
 DOCS_DIR = BASE_DIR / "documents"
 CONVS_DIR = BASE_DIR / "logs" / "conversations"
 TEMPLATES_DIR = BASE_DIR / "frontend" / "templates"
@@ -159,11 +169,7 @@ def _wici2_fetch_metrics(date_start=None, date_end=None, profile: str = "") -> d
     date_start / date_end: datetime.date para filtrar por período.
     profile: "" = geral, "malu" = campanhas com MO, "hire" = campanhas sem MO.
     """
-    sa_path = BASE_DIR / "service_account.json"
-    creds = service_account.Credentials.from_service_account_file(
-        str(sa_path),
-        scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
-    )
+    creds = _sa_creds(["https://www.googleapis.com/auth/spreadsheets.readonly"])
     svc = gapi_build("sheets", "v4", credentials=creds)
     sheets = svc.spreadsheets().values()
 
@@ -2188,10 +2194,7 @@ async def get_gads_keywords(request: Request, client_sigla: str = "SRW", preset:
 
 def _wici2_fetch_trafego(date_start=None, date_end=None, profile: str = "") -> dict:
     """Retorna dados de tráfego por campanha, público (conjunto) e criativo (anúncio)."""
-    sa_path = BASE_DIR / "service_account.json"
-    creds = service_account.Credentials.from_service_account_file(
-        str(sa_path), scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
-    )
+    creds = _sa_creds(["https://www.googleapis.com/auth/spreadsheets.readonly"])
     sheets = gapi_build("sheets", "v4", credentials=creds).spreadsheets().values()
 
     def _toi(v):
@@ -2508,10 +2511,7 @@ def _pesquisa_word_cloud(texts: list, max_words: int = 70) -> list:
     return [[w, cnt] for w, cnt in c.most_common(max_words)]
 
 def _wici2_fetch_pesquisa() -> dict:
-    sa_path = Path(__file__).parent.parent / "service_account.json"
-    creds = service_account.Credentials.from_service_account_file(
-        str(sa_path), scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
-    )
+    creds = _sa_creds(["https://www.googleapis.com/auth/spreadsheets.readonly"])
     from googleapiclient.discovery import build as _build_svc
     svc    = _build_svc("sheets", "v4", credentials=creds)
     rows_raw = svc.spreadsheets().values().get(
@@ -2573,10 +2573,7 @@ WICI2_LP_URL  = "https://hirebrazil.com.br/workshop-intensivo-de-carreira-intern
 
 def _wici2_fetch_lp(date_start=None, date_end=None, profile: str = "") -> dict:
     """Agrega todos os dados Meta Ads para análise da LP única do WICI 2."""
-    sa_path = BASE_DIR / "service_account.json"
-    creds = service_account.Credentials.from_service_account_file(
-        str(sa_path), scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
-    )
+    creds = _sa_creds(["https://www.googleapis.com/auth/spreadsheets.readonly"])
     sheets = gapi_build("sheets", "v4", credentials=creds).spreadsheets().values()
 
     def _toi(v):
@@ -2715,10 +2712,7 @@ _hf_sheet_cache: dict = {}
 _HF_CACHE_TTL = 300  # segundos
 
 def _hf_sheets_svc():
-    sa_path = BASE_DIR / "service_account.json"
-    creds = service_account.Credentials.from_service_account_file(
-        str(sa_path), scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
-    )
+    creds = _sa_creds(["https://www.googleapis.com/auth/spreadsheets.readonly"])
     return gapi_build("sheets", "v4", credentials=creds).spreadsheets().values()
 
 def _hf_get(sheet_id: str, aba: str) -> list:
@@ -2735,10 +2729,7 @@ def _hf_cache_clear():
     _hf_sheet_cache.clear()
 
 def _hf_budget_svc():
-    sa_path = BASE_DIR / "service_account.json"
-    creds = service_account.Credentials.from_service_account_file(
-        str(sa_path), scopes=["https://www.googleapis.com/auth/spreadsheets"]
-    )
+    creds = _sa_creds(["https://www.googleapis.com/auth/spreadsheets"])
     return gapi_build("sheets", "v4", credentials=creds).spreadsheets().values()
 
 def _hf_load_budgets() -> dict:
@@ -3861,10 +3852,6 @@ def _hf_fetch_site_tab(date_start=None, date_end=None) -> dict:
     # ── Sheet fallback: site-palavras (used when GADS returns no keywords) ────
     if not keywords:
         try:
-            sa_path = BASE_DIR / "service_account.json"
-            creds_sa = service_account.Credentials.from_service_account_file(
-                str(sa_path), scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
-            )
             rows = _hf_get(HIRE_FUNIS_SHEET_ID, "site-palavras")
 
             if len(rows) > 1:
