@@ -3453,6 +3453,7 @@ def _hf_fetch_youtube_tab(date_start=None, date_end=None) -> dict:
                     ad_group_ad.ad.name,
                     ad_group_ad.status,
                     ad_group_ad.ad.video_responsive_ad.videos,
+                    ad_group_ad.ad.youtube_video_ad.video,
                     metrics.cost_micros,
                     metrics.impressions,
                     metrics.clicks,
@@ -3466,8 +3467,12 @@ def _hf_fetch_youtube_tab(date_start=None, date_end=None) -> dict:
             for r in ga_svc.search(customer_id=GADS_HIRE_CUSTOMER_ID, query=q3):
                 aid = str(r.ad_group_ad.ad.id)
                 if aid not in ads_map:
+                    # try video_responsive_ad first, then youtube_video_ad (In-Stream/bumper)
                     videos = r.ad_group_ad.ad.video_responsive_ad.videos
                     asset_name = videos[0].asset if videos else None
+                    if not asset_name:
+                        yt_vid = r.ad_group_ad.ad.youtube_video_ad.video
+                        asset_name = yt_vid if yt_vid else None
                     if asset_name:
                         asset_names.add(asset_name)
                     ads_map[aid] = {
