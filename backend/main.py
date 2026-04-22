@@ -3447,13 +3447,12 @@ def _hf_fetch_youtube_tab(date_start=None, date_end=None) -> dict:
 
         # ── Q3: Per-ad table ─────────────────────────────────────────────────────
         try:
-            q3 = f"""
+            # Q3a: métricas (sem campos de tipo específico para evitar erro GAQL)
+            q3a = f"""
                 SELECT
                     ad_group_ad.ad.id,
                     ad_group_ad.ad.name,
                     ad_group_ad.status,
-                    ad_group_ad.ad.video_responsive_ad.videos,
-                    ad_group_ad.ad.youtube_video_ad.video,
                     metrics.cost_micros,
                     metrics.impressions,
                     metrics.clicks,
@@ -3463,28 +3462,54 @@ def _hf_fetch_youtube_tab(date_start=None, date_end=None) -> dict:
             """
             STATUS_PT = {"ENABLED": "Ativo", "PAUSED": "Pausado", "REMOVED": "Removido"}
             ads_map: dict = {}
-            asset_names: set = set()
-            for r in ga_svc.search(customer_id=GADS_HIRE_CUSTOMER_ID, query=q3):
+            for r in ga_svc.search(customer_id=GADS_HIRE_CUSTOMER_ID, query=q3a):
                 aid = str(r.ad_group_ad.ad.id)
                 if aid not in ads_map:
-                    # try video_responsive_ad first, then youtube_video_ad (In-Stream/bumper)
-                    videos = r.ad_group_ad.ad.video_responsive_ad.videos
-                    asset_name = videos[0].asset if videos else None
-                    if not asset_name:
-                        yt_vid = r.ad_group_ad.ad.youtube_video_ad.video
-                        asset_name = yt_vid if yt_vid else None
-                    if asset_name:
-                        asset_names.add(asset_name)
                     ads_map[aid] = {
                         "nome":       r.ad_group_ad.ad.name,
                         "status":     STATUS_PT.get(r.ad_group_ad.status.name, "—"),
-                        "asset_name": asset_name,
+                        "asset_name": None,
                         "cost": 0, "imp": 0, "cli": 0, "conv": 0.0,
                     }
                 ads_map[aid]["cost"] += r.metrics.cost_micros
                 ads_map[aid]["imp"]  += r.metrics.impressions
                 ads_map[aid]["cli"]  += r.metrics.clicks
                 ads_map[aid]["conv"] += r.metrics.conversions
+
+            # Q3b: tenta buscar assets de video_responsive_ad
+            asset_names: set = set()
+            try:
+                q3b = f"""
+                    SELECT ad_group_ad.ad.id, ad_group_ad.ad.video_responsive_ad.videos
+                    FROM ad_group_ad
+                    WHERE {dc} AND {yf} AND metrics.impressions > 0
+                """
+                for r in ga_svc.search(customer_id=GADS_HIRE_CUSTOMER_ID, query=q3b):
+                    aid = str(r.ad_group_ad.ad.id)
+                    if aid in ads_map and ads_map[aid]["asset_name"] is None:
+                        videos = r.ad_group_ad.ad.video_responsive_ad.videos
+                        if videos:
+                            ads_map[aid]["asset_name"] = videos[0].asset
+                            asset_names.add(videos[0].asset)
+            except Exception:
+                pass
+
+            # Q3c: tenta buscar assets de youtube_video_ad (In-Stream / bumper)
+            try:
+                q3c = f"""
+                    SELECT ad_group_ad.ad.id, ad_group_ad.ad.youtube_video_ad.video
+                    FROM ad_group_ad
+                    WHERE {dc} AND {yf} AND metrics.impressions > 0
+                """
+                for r in ga_svc.search(customer_id=GADS_HIRE_CUSTOMER_ID, query=q3c):
+                    aid = str(r.ad_group_ad.ad.id)
+                    if aid in ads_map and ads_map[aid]["asset_name"] is None:
+                        yt_vid = r.ad_group_ad.ad.youtube_video_ad.video
+                        if yt_vid:
+                            ads_map[aid]["asset_name"] = yt_vid
+                            asset_names.add(yt_vid)
+            except Exception:
+                pass
 
             # Q4: busca youtube_video_id dos assets coletados
             yt_id_map: dict = {}
