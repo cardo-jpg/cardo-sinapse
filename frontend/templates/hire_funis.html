@@ -149,6 +149,10 @@
     .hf-kpi-value.dash { color:rgba(255,255,255,.3); font-size:1.2rem; }
     .hf-kpi-value.good { color:var(--green); }
     .hf-kpi-ref { font-size:.62rem; color:rgba(255,255,255,.28); margin-top:3px; letter-spacing:.02em; }
+    .metric-ruim { color:#f87171 !important; }
+    .metric-medio { color:#fbbf24 !important; }
+    .metric-bom { color:#4ade80 !important; }
+    .metric-otimo { color:#a78bfa !important; }
 
     /* ── Channels grid ── */
     .hf-channels { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; }
@@ -947,8 +951,8 @@
     <div class="hf-kpi-strip cols-7">
       <div class="hf-kpi"><div class="hf-kpi-label">Investido</div><div class="hf-kpi-value dash" id="cor_kpiInv">—</div></div>
       <div class="hf-kpi"><div class="hf-kpi-label">Visualizações</div><div class="hf-kpi-value dash" id="cor_kpiVis">—</div></div>
-      <div class="hf-kpi"><div class="hf-kpi-label">Hooke Rate</div><div class="hf-kpi-value dash" id="cor_kpiHooke">—</div><div class="hf-kpi-ref">bom 25–35% · ótimo &gt;35%</div></div>
-      <div class="hf-kpi"><div class="hf-kpi-label">Retenção</div><div class="hf-kpi-value dash" id="cor_kpiRet">—</div></div>
+      <div class="hf-kpi"><div class="hf-kpi-label">Hooke Rate</div><div class="hf-kpi-value dash" id="cor_kpiHooke">—</div><div class="hf-kpi-ref">ruim &lt;30% · médio 30–45% · bom 45–60% · ótimo &gt;60%</div></div>
+      <div class="hf-kpi"><div class="hf-kpi-label">Retenção</div><div class="hf-kpi-value dash" id="cor_kpiRet">—</div><div class="hf-kpi-ref">ruim &lt;20% · médio 20–35% · bom 35–50% · ótimo &gt;50%</div></div>
       <div class="hf-kpi"><div class="hf-kpi-label">Impressões</div><div class="hf-kpi-value dash" id="cor_kpiImp">—</div></div>
       <div class="hf-kpi"><div class="hf-kpi-label">Cliques</div><div class="hf-kpi-value dash" id="cor_kpiCli">—</div></div>
       <div class="hf-kpi"><div class="hf-kpi-label">CPM</div><div class="hf-kpi-value dash" id="cor_kpiCpm">—</div></div>
@@ -1717,14 +1721,29 @@ function renderCorredor(d) {
     const el = document.getElementById(id);
     if (el && val !== '—') el.classList.remove('dash');
   });
-  // Hook rate color feedback
-  const hookeEl = document.getElementById('cor_kpiHooke');
-  if (hookeEl && k.hooke_rate != null) {
-    hookeEl.classList.remove('good', 'warn');
-    if      (k.hooke_rate >= 35) hookeEl.classList.add('good');
-    else if (k.hooke_rate >= 25) hookeEl.style.color = '#fbbf24';
-    else                         hookeEl.style.color = '';
+  // Hook rate + Retenção color feedback
+  function _hookeClass(v) {
+    if (v == null) return '';
+    if (v >= 60) return 'metric-otimo';
+    if (v >= 45) return 'metric-bom';
+    if (v >= 30) return 'metric-medio';
+    return 'metric-ruim';
   }
+  function _retClass(v) {
+    if (v == null) return '';
+    if (v >= 50) return 'metric-otimo';
+    if (v >= 35) return 'metric-bom';
+    if (v >= 20) return 'metric-medio';
+    return 'metric-ruim';
+  }
+  function _applyMetricClass(el, cls) {
+    if (!el) return;
+    el.classList.remove('metric-ruim','metric-medio','metric-bom','metric-otimo','good');
+    el.style.color = '';
+    if (cls) el.classList.add(cls);
+  }
+  _applyMetricClass(document.getElementById('cor_kpiHooke'), _hookeClass(k.hooke_rate));
+  _applyMetricClass(document.getElementById('cor_kpiRet'),   _retClass(k.retencao));
 
   // Chart
   const serie = d.serie_diaria || [];
@@ -1772,6 +1791,9 @@ function renderCorredor(d) {
   const totC = camps.reduce((a,r) => {
     a.inv+=r.investido; a.vis3s+=r.vis3s; a.cli+=r.cliques; return a;
   }, {inv:0,vis3s:0,cli:0});
+  const _hC = v => { const c=_hookeClass(v); return c?`<span class="${c}">${PCT(v)}</span>`:PCT(v); };
+  const _rC = v => { const c=_retClass(v);   return c?`<span class="${c}">${PCT(v)}</span>`:PCT(v); };
+
   let htmlC = camps.map(r => `
     <tr>
       <td class="camp-name" title="${r.campanha}">${r.campanha}</td>
@@ -1780,7 +1802,7 @@ function renderCorredor(d) {
       <td class="num">${NUM(r.vis3s)}</td>
       <td class="num">${NUM(r.cliques)}</td>
       <td class="num">${BRL(r.cpm)}</td>
-      <td class="num">${PCT(r.retencao)}</td>
+      <td class="num">${_rC(r.retencao)}</td>
     </tr>`).join('');
   htmlC += `<tr class="total-row">
     <td>Total geral</td>
@@ -1807,8 +1829,8 @@ function renderCorredor(d) {
       <td class="num">${NUM(r.vis3s)}</td>
       <td class="num">${NUM(r.cliques)}</td>
       <td class="num">${BRL(r.cpm)}</td>
-      <td class="num">${PCT(r.hooke)}</td>
-      <td class="num">${PCT(r.retencao)}</td>
+      <td class="num">${_hC(r.hooke)}</td>
+      <td class="num">${_rC(r.retencao)}</td>
       <td><span class="acao-badge ${cls}">${r.acao}</span></td>
       <td>${btn}</td>
     </tr>`;
@@ -1820,8 +1842,8 @@ function renderCorredor(d) {
     <td class="num">${NUM(totR.vis3s)}</td>
     <td class="num">${NUM(totR.cli)}</td>
     <td class="num">${BRL(k.cpm)}</td>
-    <td class="num">${PCT(k.hooke_rate)}</td>
-    <td class="num">${PCT(k.retencao)}</td>
+    <td class="num">${_hC(k.hooke_rate)}</td>
+    <td class="num">${_rC(k.retencao)}</td>
     <td></td><td></td>
   </tr>`;
   document.getElementById('criTbody').innerHTML = htmlR;
