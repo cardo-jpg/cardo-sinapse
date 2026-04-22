@@ -672,6 +672,7 @@
             </button>
             <div class="cria-dd" id="criaDd">
               <div class="cria-dd-item active" onclick="setCriaFilter('todos',this)">Todas</div>
+              <div class="cria-dd-item"        onclick="setCriaFilter('ativo',this)">Apenas Ativos</div>
               <div class="cria-dd-item"        onclick="setCriaFilter('rmkt',this)">Apenas RMKT</div>
             </div>
           </div>
@@ -1299,7 +1300,7 @@ const trafSort = {
 const ALERTA_LABELS = { green: 'OK', yellow: 'CPA Alto', orange: 'CPA Crítico', red: 'Sem Venda' };
 
 // ── Filtro RMKT + busca (tab Criativos) ──────────────────────────────────────
-let criaFilter = 'todos'; // 'todos' | 'rmkt'
+let criaFilter = 'todos'; // 'todos' | 'ativo' | 'rmkt'
 
 function toggleCriaDd() {
   document.getElementById('criaDd').classList.toggle('open');
@@ -1310,8 +1311,8 @@ function setCriaFilter(val, el) {
   el.classList.add('active');
   const btn = document.getElementById('criaDdBtn');
   const lbl = document.getElementById('criaDdLabel');
-  lbl.textContent = val === 'rmkt' ? 'RMKT' : 'Todas';
-  btn.classList.toggle('has-filter', val === 'rmkt');
+  lbl.textContent = val === 'rmkt' ? 'RMKT' : val === 'ativo' ? 'Ativos' : 'Todas';
+  btn.classList.toggle('has-filter', val !== 'todos');
   document.getElementById('criaDd').classList.remove('open');
   if (trafData) renderTrafTable('Cria');
 }
@@ -1434,6 +1435,7 @@ function renderTrafTable(w) {
   const searchQ = w === 'Cria' ? (document.getElementById('criaSearch')?.value || '').toLowerCase() : '';
   const rows = rawRows.filter(r => {
     if (w === 'Cria' && criaFilter === 'rmkt' && !r.rmkt) return false;
+    if (w === 'Cria' && criaFilter === 'ativo' && r.status !== 'ACTIVE') return false;
     if (searchQ && !r.nome.toLowerCase().includes(searchQ)) return false;
     return true;
   });
