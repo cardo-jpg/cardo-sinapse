@@ -148,6 +148,7 @@
     .hf-kpi-value { font-size:1.5rem; font-weight:800; color:#fff; letter-spacing:-.01em; }
     .hf-kpi-value.dash { color:rgba(255,255,255,.3); font-size:1.2rem; }
     .hf-kpi-value.good { color:var(--green); }
+    .hf-kpi-ref { font-size:.62rem; color:rgba(255,255,255,.28); margin-top:3px; letter-spacing:.02em; }
 
     /* ── Channels grid ── */
     .hf-channels { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; }
@@ -946,7 +947,7 @@
     <div class="hf-kpi-strip cols-7">
       <div class="hf-kpi"><div class="hf-kpi-label">Investido</div><div class="hf-kpi-value dash" id="cor_kpiInv">—</div></div>
       <div class="hf-kpi"><div class="hf-kpi-label">Visualizações</div><div class="hf-kpi-value dash" id="cor_kpiVis">—</div></div>
-      <div class="hf-kpi"><div class="hf-kpi-label">Hooke Rate</div><div class="hf-kpi-value dash" id="cor_kpiHooke">—</div></div>
+      <div class="hf-kpi"><div class="hf-kpi-label">Hooke Rate</div><div class="hf-kpi-value dash" id="cor_kpiHooke">—</div><div class="hf-kpi-ref">bom 25–35% · ótimo &gt;35%</div></div>
       <div class="hf-kpi"><div class="hf-kpi-label">Retenção</div><div class="hf-kpi-value dash" id="cor_kpiRet">—</div></div>
       <div class="hf-kpi"><div class="hf-kpi-label">Impressões</div><div class="hf-kpi-value dash" id="cor_kpiImp">—</div></div>
       <div class="hf-kpi"><div class="hf-kpi-label">Cliques</div><div class="hf-kpi-value dash" id="cor_kpiCli">—</div></div>
@@ -1716,6 +1717,14 @@ function renderCorredor(d) {
     const el = document.getElementById(id);
     if (el && val !== '—') el.classList.remove('dash');
   });
+  // Hook rate color feedback
+  const hookeEl = document.getElementById('cor_kpiHooke');
+  if (hookeEl && k.hooke_rate != null) {
+    hookeEl.classList.remove('good', 'warn');
+    if      (k.hooke_rate >= 35) hookeEl.classList.add('good');
+    else if (k.hooke_rate >= 25) hookeEl.style.color = '#fbbf24';
+    else                         hookeEl.style.color = '';
+  }
 
   // Chart
   const serie = d.serie_diaria || [];
