@@ -2708,6 +2708,32 @@ HIRE_HIRE_TRACKER_ID  = "1XWIvqBx1TXjoFtiIViW_lW4L0EpbXAQsmU6vbvUMVIk"
 # Row 1 (index 1) of IG Hire tracker "dados" = 01/01/2026 (daily sequential)
 HIRE_HIRE_TRACKER_BASE = datetime(2026, 1, 1).date()
 HIRE_FUNIS_SHEET2_ID   = "1VfZIM9f4-EixdQtQgrgaH-BUeIWUFEaxLJRerWCAuxw"  # resultado comercial
+
+# ── Sheet cache (TTL 5 min) ───────────────────────────────────────────────────
+import time as _time
+_hf_sheet_cache: dict = {}
+_HF_CACHE_TTL = 300  # segundos
+
+def _hf_sheets_svc():
+    sa_path = BASE_DIR / "service_account.json"
+    creds = service_account.Credentials.from_service_account_file(
+        str(sa_path), scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
+    )
+    return gapi_build("sheets", "v4", credentials=creds).spreadsheets().values()
+
+def _hf_get(sheet_id: str, aba: str) -> list:
+    key = f"{sheet_id}|{aba}"
+    now = _time.time()
+    cached = _hf_sheet_cache.get(key)
+    if cached and now - cached[0] < _HF_CACHE_TTL:
+        return cached[1]
+    rows = _hf_sheets_svc().get(spreadsheetId=sheet_id, range=aba).execute().get("values", [])
+    _hf_sheet_cache[key] = (now, rows)
+    return rows
+
+def _hf_cache_clear():
+    _hf_sheet_cache.clear()
+
 def _hf_budget_svc():
     sa_path = BASE_DIR / "service_account.json"
     creds = service_account.Credentials.from_service_account_file(
@@ -2846,15 +2872,8 @@ def _hf_fetch_yt_gads(date_start=None, date_end=None) -> dict:
 
 
 def _hf_fetch_audiencia(date_start=None, date_end=None) -> dict:
-    sa_path = BASE_DIR / "service_account.json"
-    creds = service_account.Credentials.from_service_account_file(
-        str(sa_path), scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
-    )
-    svc    = gapi_build("sheets", "v4", credentials=creds)
-    sheets = svc.spreadsheets().values()
-
     def _get(aba):
-        return sheets.get(spreadsheetId=HIRE_FUNIS_SHEET_ID, range=aba).execute().get("values", [])
+        return _hf_get(HIRE_FUNIS_SHEET_ID, aba)
 
     def _in_range(row):
         d = _hf_parse_date(row[0]) if row else None
@@ -2884,40 +2903,32 @@ def _hf_fetch_audiencia(date_start=None, date_end=None) -> dict:
 
     # Read Novos Seguidores from dedicated tracker (sequential daily rows)
     try:
-        tracker_rows = svc.spreadsheets().values().get(
-            spreadsheetId=HIRE_MALU_TRACKER_ID, range="dados"
-        ).execute().get("values", [])
-        for i, row in enumerate(tracker_rows[1:]):  # row index 1+ = data
+        tracker_rows = _hf_get(HIRE_MALU_TRACKER_ID, "dados")
+        for i, row in enumerate(tracker_rows[1:]):
             row_date = HIRE_MALU_TRACKER_BASE + timedelta(days=i)
             if date_start and row_date < date_start: continue
             if date_end   and row_date > date_end:   continue
             if len(row) > 1:
-                malu_seg += _hf_parse_num(row[1])   # "Novos Seguidores"
+                malu_seg += _hf_parse_num(row[1])
     except Exception:
         pass
 
     # ── IG Hire ───────────────────────────────────────────────────────────────
-    # Investido/Vendas/Faturamento: tab "IG Hire" (dd/mm/yyyy)
-    # Novos Seguidores: tracker sheet "dados" (daily rows from 01/01/2026, dates as dd/mm)
     hire_invest = hire_seg = hire_vendas = hire_fat = 0.0
     for row in _get("IG Hire")[1:]:
         if len(row) < 2 or not _in_range(row): continue
         hire_invest += _hf_parse_num(row[1])
-        # col 2 (Seguidores) is always empty in main tab — read from tracker below
         hire_vendas += _hf_parse_num(row[3]) if len(row) > 3 else 0.0
         hire_fat    += _hf_parse_num(row[4]) if len(row) > 4 else 0.0
 
-    # Read Novos Seguidores from dedicated tracker (sequential daily rows)
     try:
-        hire_tracker_rows = svc.spreadsheets().values().get(
-            spreadsheetId=HIRE_HIRE_TRACKER_ID, range="dados"
-        ).execute().get("values", [])
-        for i, row in enumerate(hire_tracker_rows[1:]):  # row index 1+ = data
+        hire_tracker_rows = _hf_get(HIRE_HIRE_TRACKER_ID, "dados")
+        for i, row in enumerate(hire_tracker_rows[1:]):
             row_date = HIRE_HIRE_TRACKER_BASE + timedelta(days=i)
             if date_start and row_date < date_start: continue
             if date_end   and row_date > date_end:   continue
             if len(row) > 1:
-                hire_seg += _hf_parse_num(row[1])   # "Novos Seguidores"
+                hire_seg += _hf_parse_num(row[1])
     except Exception:
         pass
 
@@ -2949,7 +2960,7 @@ def _hf_fetch_audiencia(date_start=None, date_end=None) -> dict:
     # Youtube v2: Date | Campanha | Investido | Vendas | Faturamento
     # Site v2: Date | Campanha | Investido | Leads | Vendas | Faturamento
     def _get2(aba):
-        return sheets.get(spreadsheetId=HIRE_FUNIS_SHEET2_ID, range=aba).execute().get("values", [])
+        return _hf_get(HIRE_FUNIS_SHEET2_ID, aba)
 
     s2_invest = s2_leads = s2_vendas = s2_fat = 0.0
     for row in _get2("Somatório")[1:]:
@@ -3043,14 +3054,8 @@ def _hf_fetch_audiencia(date_start=None, date_end=None) -> dict:
 
 def _hf_fetch_ebooks(date_start=None, date_end=None) -> dict:
     """Agrega dados das 4 abas de e-books (Ebook - 5 op., 7 erros, CR, 10 empresas)."""
-    sa_path = BASE_DIR / "service_account.json"
-    creds = service_account.Credentials.from_service_account_file(
-        str(sa_path), scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
-    )
-    sheets = gapi_build("sheets", "v4", credentials=creds).spreadsheets().values()
-
     def _get(aba):
-        return sheets.get(spreadsheetId=HIRE_FUNIS_SHEET_ID, range=f"'{aba}'").execute().get("values", [])
+        return _hf_get(HIRE_FUNIS_SHEET_ID, f"'{aba}'")
 
     def _in_range(row):
         d = _hf_parse_date(row[0]) if row else None
@@ -3058,7 +3063,6 @@ def _hf_fetch_ebooks(date_start=None, date_end=None) -> dict:
         if date_end   and d and d > date_end:   return False
         return True
 
-    # col layout: Date | Campanha | Investido | Leads | Vendas | Faturamento
     EBOOK_TABS = [
         ("eb_5op",    "Ebook - 5 op."),
         ("eb_7erros", "Ebook - 7 erros"),
@@ -3067,7 +3071,7 @@ def _hf_fetch_ebooks(date_start=None, date_end=None) -> dict:
     ]
 
     def _get2(aba):
-        return sheets.get(spreadsheetId=HIRE_FUNIS_SHEET2_ID, range=f"'{aba}'").execute().get("values", [])
+        return _hf_get(HIRE_FUNIS_SHEET2_ID, f"'{aba}'")
 
     def _agg(rows, inv_col, leads_col, vend_col, fat_col):
         inv = leads = vend = fat = 0.0
@@ -3133,12 +3137,7 @@ def _hf_fetch_ebooks(date_start=None, date_end=None) -> dict:
 
 def _hf_fetch_corredor(date_start=None, date_end=None) -> dict:
     """Agrega dados do Corredor Polonês por KPI, série diária, campanha e criativo."""
-    sa_path = BASE_DIR / "service_account.json"
-    creds = service_account.Credentials.from_service_account_file(
-        str(sa_path), scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
-    )
-    sheets = gapi_build("sheets", "v4", credentials=creds).spreadsheets().values()
-    rows = sheets.get(spreadsheetId=HIRE_FUNIS_SHEET_ID, range="'Corredor'").execute().get("values", [])
+    rows = _hf_get(HIRE_FUNIS_SHEET_ID, "'Corredor'")
 
     # col: 0=Date,1=Camp,2=Pub,3=Cri,4=URL,5=Inv,6=Imp,7=Vis,8=Alc,9=Vis3s,10=Inter,11=25%,12=75%,13=Cli,14=CPM
     def _in_range(d):
@@ -3803,10 +3802,7 @@ def _hf_fetch_site_tab(date_start=None, date_end=None) -> dict:
             creds_sa = service_account.Credentials.from_service_account_file(
                 str(sa_path), scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
             )
-            svc_sh = gapi_build("sheets", "v4", credentials=creds_sa)
-            rows = svc_sh.spreadsheets().values().get(
-                spreadsheetId=HIRE_FUNIS_SHEET_ID, range="site-palavras"
-            ).execute().get("values", [])
+            rows = _hf_get(HIRE_FUNIS_SHEET_ID, "site-palavras")
 
             if len(rows) > 1:
                 header = [h.strip().lower() for h in rows[0]]
@@ -3866,6 +3862,11 @@ def _hf_fetch_site_tab(date_start=None, date_end=None) -> dict:
         "campanhas": campanhas,
     }
 
+
+@app.post("/api/hire/funis/cache/clear")
+async def clear_hire_funis_cache(request: Request):
+    _hf_cache_clear()
+    return JSONResponse({"ok": True, "cleared": True})
 
 @app.get("/api/hire/funis/site")
 async def get_hire_funis_site(
