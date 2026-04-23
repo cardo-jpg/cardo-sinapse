@@ -2574,7 +2574,7 @@ WICI2_LP_B_NOME = "Página B"
 WICI2_LP_B_URL  = ""
 
 def _lp_empty_agg():
-    return {"invest": 0.0, "imp": 0, "clicks": 0, "pv": 0, "vendas": 0, "daily": {}}
+    return {"invest": 0.0, "imp": 0, "clicks": 0, "pv": 0, "checkout": 0, "vendas": 0, "daily": {}}
 
 def _lp_add_meta(agg, row, row_date):
     def _toi(v):
@@ -2585,33 +2585,39 @@ def _lp_add_meta(agg, row, row_date):
     imp  = _toi(row[4]) if len(row) > 4 else 0
     clks = _toi(row[6]) if len(row) > 6 else 0
     pv   = _toi(row[7]) if len(row) > 7 else 0
-    agg["invest"] += cost; agg["imp"] += imp; agg["clicks"] += clks; agg["pv"] += pv
+    co   = _toi(row[8]) if len(row) > 8 else 0
+    agg["invest"] += cost; agg["imp"] += imp; agg["clicks"] += clks
+    agg["pv"] += pv; agg["checkout"] += co
     if row_date:
         dk = row_date.strftime("%Y-%m-%d")
         if dk not in agg["daily"]:
-            agg["daily"][dk] = {"invest": 0.0, "imp": 0, "clicks": 0, "pv": 0, "vendas": 0}
-        agg["daily"][dk]["invest"] += cost; agg["daily"][dk]["imp"] += imp
-        agg["daily"][dk]["clicks"] += clks; agg["daily"][dk]["pv"]  += pv
+            agg["daily"][dk] = {"invest": 0.0, "imp": 0, "clicks": 0, "pv": 0, "checkout": 0, "vendas": 0}
+        agg["daily"][dk]["invest"]   += cost; agg["daily"][dk]["imp"]      += imp
+        agg["daily"][dk]["clicks"]   += clks; agg["daily"][dk]["pv"]       += pv
+        agg["daily"][dk]["checkout"] += co
 
 def _lp_build_result(agg, nome, url):
     invest = agg["invest"]; imp = agg["imp"]; clicks = agg["clicks"]
-    pv = agg["pv"]; vendas = agg["vendas"]
-    ctr          = round(clicks / imp    * 100, 2) if imp    else 0.0
-    connect_rate = round(pv     / clicks * 100, 2) if clicks else 0.0
-    tx_conv      = round(vendas / pv     * 100, 2) if pv     else 0.0
-    cpa          = round(invest / vendas, 2)        if vendas else None
-    sorted_days  = sorted(agg["daily"].items())
+    pv = agg["pv"]; checkout = agg["checkout"]; vendas = agg["vendas"]
+    ctr           = round(clicks   / imp      * 100, 2) if imp      else 0.0
+    connect_rate  = round(pv       / clicks   * 100, 2) if clicks   else 0.0
+    checkout_rate = round(checkout / pv       * 100, 2) if pv       else 0.0
+    tx_conv       = round(vendas   / checkout * 100, 2) if checkout else 0.0
+    cpa           = round(invest   / vendas,   2)        if vendas  else None
+    sorted_days   = sorted(agg["daily"].items())
     return {
         "lp_nome": nome, "lp_url": url,
         "invest": round(invest, 2), "imp": imp, "clicks": clicks,
-        "pv": pv, "vendas": vendas, "cpa": cpa,
-        "ctr": ctr, "connect_rate": connect_rate, "tx_conv": tx_conv,
+        "pv": pv, "checkout": checkout, "vendas": vendas, "cpa": cpa,
+        "ctr": ctr, "connect_rate": connect_rate,
+        "checkout_rate": checkout_rate, "tx_conv": tx_conv,
         "daily": {
-            "labels":       [d for d, _ in sorted_days],
-            "connect_rate": [round(v["pv"]/v["clicks"]*100,2) if v["clicks"] else None for _,v in sorted_days],
-            "tx_conv":      [round(v["vendas"]/v["pv"]*100,2) if v["pv"]     else None for _,v in sorted_days],
-            "ctr":          [round(v["clicks"]/v["imp"]*100,2) if v["imp"]   else None for _,v in sorted_days],
-            "cpa":          [round(v["invest"]/v["vendas"],2)  if v["vendas"] else None for _,v in sorted_days],
+            "labels":        [d for d, _ in sorted_days],
+            "connect_rate":  [round(v["pv"]/v["clicks"]*100,2)       if v["clicks"]   else None for _,v in sorted_days],
+            "checkout_rate": [round(v["checkout"]/v["pv"]*100,2)     if v["pv"]       else None for _,v in sorted_days],
+            "tx_conv":       [round(v["vendas"]/v["checkout"]*100,2)  if v["checkout"] else None for _,v in sorted_days],
+            "ctr":           [round(v["clicks"]/v["imp"]*100,2)       if v["imp"]      else None for _,v in sorted_days],
+            "cpa":           [round(v["invest"]/v["vendas"],2)         if v["vendas"]   else None for _,v in sorted_days],
         }
     }
 

@@ -780,7 +780,11 @@
                 <canvas id="lpChartCrA"></canvas>
               </div>
               <div class="lp-chart-card">
-                <div class="lp-chart-title">Taxa de Conversão (PV → Vendas)</div>
+                <div class="lp-chart-title">Checkout Rate (PV → Checkout)</div>
+                <canvas id="lpChartCoA"></canvas>
+              </div>
+              <div class="lp-chart-card">
+                <div class="lp-chart-title">Taxa de Conversão (Checkout → Vendas)</div>
                 <canvas id="lpChartTxA"></canvas>
               </div>
             </div>
@@ -807,7 +811,11 @@
                 <canvas id="lpChartCrB"></canvas>
               </div>
               <div class="lp-chart-card">
-                <div class="lp-chart-title">Taxa de Conversão (PV → Vendas)</div>
+                <div class="lp-chart-title">Checkout Rate (PV → Checkout)</div>
+                <canvas id="lpChartCoB"></canvas>
+              </div>
+              <div class="lp-chart-card">
+                <div class="lp-chart-title">Taxa de Conversão (Checkout → Vendas)</div>
                 <canvas id="lpChartTxB"></canvas>
               </div>
             </div>
@@ -1860,7 +1868,8 @@ function _pqDonut(id, labels, values) {
 
 // ── LP Tab ────────────────────────────────────────────────────────────────────
 let lpData = null;
-let chartLpCrA = null, chartLpTxA = null, chartLpCrB = null, chartLpTxB = null;
+let chartLpCrA = null, chartLpCoA = null, chartLpTxA = null;
+let chartLpCrB = null, chartLpCoB = null, chartLpTxB = null;
 
 async function loadLP() {
   const params = new URLSearchParams();
@@ -1926,27 +1935,27 @@ function _renderLPPanel(suffix, d) {
 
   const labels = (d.daily?.labels || []).map(l => l.slice(5));
   const ctxCr  = document.getElementById('lpChartCr' + suffix);
+  const ctxCo  = document.getElementById('lpChartCo' + suffix);
   const ctxTx  = document.getElementById('lpChartTx' + suffix);
-  const cr = ctxCr ? _lpLine(ctxCr, labels, d.daily?.connect_rate || [], '#a855c8', 'Connect Rate') : null;
-  const tx = ctxTx ? _lpLine(ctxTx, labels, d.daily?.tx_conv      || [], '#c4f135', 'Tx. Conversão') : null;
+  const cr = ctxCr ? _lpLine(ctxCr, labels, d.daily?.connect_rate  || [], '#a855c8', 'Connect Rate')   : null;
+  const co = ctxCo ? _lpLine(ctxCo, labels, d.daily?.checkout_rate || [], '#f59e0b', 'Checkout Rate')  : null;
+  const tx = ctxTx ? _lpLine(ctxTx, labels, d.daily?.tx_conv       || [], '#c4f135', 'Tx. Conversão') : null;
 
   requestAnimationFrame(() => {
     const col = document.querySelector('#lpFunnelWrap' + suffix)?.closest('.lp-body')?.querySelector('.lp-charts-col');
     if (col && col.offsetHeight > 80) _renderLPFunnel(d, col.offsetHeight, suffix);
   });
-  return { cr, tx };
+  return { cr, co, tx };
 }
 
 function renderLP(d) {
-  chartLpCrA = destroyChart(chartLpCrA);
-  chartLpTxA = destroyChart(chartLpTxA);
-  chartLpCrB = destroyChart(chartLpCrB);
-  chartLpTxB = destroyChart(chartLpTxB);
+  chartLpCrA = destroyChart(chartLpCrA); chartLpCoA = destroyChart(chartLpCoA); chartLpTxA = destroyChart(chartLpTxA);
+  chartLpCrB = destroyChart(chartLpCrB); chartLpCoB = destroyChart(chartLpCoB); chartLpTxB = destroyChart(chartLpTxB);
 
-  const { cr: crA, tx: txA } = _renderLPPanel('A', d.lp_a || d);
-  const { cr: crB, tx: txB } = _renderLPPanel('B', d.lp_b || {});
-  chartLpCrA = crA; chartLpTxA = txA;
-  chartLpCrB = crB; chartLpTxB = txB;
+  const { cr: crA, co: coA, tx: txA } = _renderLPPanel('A', d.lp_a || d);
+  const { cr: crB, co: coB, tx: txB } = _renderLPPanel('B', d.lp_b || {});
+  chartLpCrA = crA; chartLpCoA = coA; chartLpTxA = txA;
+  chartLpCrB = crB; chartLpCoB = coB; chartLpTxB = txB;
 }
 
 function _renderLPFunnel(d, targetH, suffix) {
@@ -1957,29 +1966,32 @@ function _renderLPFunnel(d, targetH, suffix) {
   // Base y-coords (400 unit tall canvas); scale to targetH when provided
   const BASE_H = 400;
   const scale  = targetH ? targetH / BASE_H : 1;
-  const yBase  = [0, 72, 112, 184, 224, 292, 330, 400];
+  // 5 stages → 10 y-points (2 per stage + 4 connectors between)
+  const yBase  = [0, 60, 96, 156, 192, 252, 288, 348, 384, 444];
   const y      = yBase.map(v => Math.round(v * scale));
-  const lx     = [0, 52,  86, 124, 158, 190, 213, 213];
+  const lx     = [0, 44, 74, 108, 138, 166, 192, 210, 213, 213];
 
   const stages = [
-    { label: 'IMPRESSÕES',      val: NUM(d.imp)    },
-    { label: 'CLIQUES NO LINK', val: NUM(d.clicks) },
-    { label: 'PAGE VIEW',       val: NUM(d.pv)     },
-    { label: 'VENDAS ADS',      val: NUM(d.vendas) },
+    { label: 'IMPRESSÕES',      val: NUM(d.imp)      },
+    { label: 'CLIQUES NO LINK', val: NUM(d.clicks)   },
+    { label: 'PAGE VIEW',       val: NUM(d.pv)       },
+    { label: 'CHECKOUT',        val: NUM(d.checkout) },
+    { label: 'VENDAS ADS',      val: NUM(d.vendas)   },
   ];
   const conns = [
-    { pct: PCT(d.ctr),          label: 'CTR'          },
-    { pct: PCT(d.connect_rate), label: 'Connect Rate' },
-    { pct: PCT(d.tx_conv),      label: 'Tx Conv LP'   },
+    { pct: PCT(d.ctr),            label: 'CTR'           },
+    { pct: PCT(d.connect_rate),   label: 'Connect Rate'  },
+    { pct: PCT(d.checkout_rate),  label: 'Checkout Rate' },
+    { pct: PCT(d.tx_conv),        label: 'Tx Conv'       },
   ];
 
   // Stage index → y-level indices for [top, bot]
-  const sIdx = [[0,1],[2,3],[4,5],[6,7]];
+  const sIdx = [[0,1],[2,3],[4,5],[6,7],[8,9]];
   // Connector index → y-level indices for [top, bot]
-  const cIdx = [[1,2],[3,4],[5,6]];
+  const cIdx = [[1,2],[3,4],[5,6],[7,8]];
 
   // Stage fill colors (dark → vivid purple)
-  const sFill  = ['#27093b','#38115a','#521870','#6e2288'];
+  const sFill  = ['#27093b','#38115a','#521870','#6e2288','#7b2d8b'];
   const sBord  = 'rgba(168,85,200,0.45)';
   const cFill  = 'rgba(18,6,30,0.72)';
   const cBord  = 'rgba(168,85,200,0.18)';
@@ -1993,19 +2005,20 @@ function _renderLPFunnel(d, targetH, suffix) {
   const ff = `-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif`;
   const cx = W / 2;
 
-  let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${y[7]}" width="100%" style="display:block;">
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${y[9]}" width="100%" style="display:block;">
   <defs>
-    <linearGradient id="lpSg0" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#1e073a"/><stop offset="100%" stop-color="#2e0d50"/></linearGradient>
-    <linearGradient id="lpSg1" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#31105a"/><stop offset="100%" stop-color="#42156e"/></linearGradient>
-    <linearGradient id="lpSg2" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#471670"/><stop offset="100%" stop-color="#5a1e84"/></linearGradient>
-    <linearGradient id="lpSg3" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#5e1e80"/><stop offset="100%" stop-color="#7b2d8b"/></linearGradient>
+    <linearGradient id="lpSg0${suffix||''}" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#1e073a"/><stop offset="100%" stop-color="#2e0d50"/></linearGradient>
+    <linearGradient id="lpSg1${suffix||''}" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#31105a"/><stop offset="100%" stop-color="#42156e"/></linearGradient>
+    <linearGradient id="lpSg2${suffix||''}" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#471670"/><stop offset="100%" stop-color="#5a1e84"/></linearGradient>
+    <linearGradient id="lpSg3${suffix||''}" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#5e1e80"/><stop offset="100%" stop-color="#7b2d8b"/></linearGradient>
+    <linearGradient id="lpSg4${suffix||''}" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#6e2090"/><stop offset="100%" stop-color="#8b3399"/></linearGradient>
   </defs>`;
 
   // Draw stages
   stages.forEach((s, i) => {
     const [ti, bi] = sIdx[i];
     const pts = [[lx[ti], y[ti]], [W-lx[ti], y[ti]], [W-lx[bi], y[bi]], [lx[bi], y[bi]]];
-    svg += poly(pts, `url(#lpSg${i})`, sBord, 1);
+    svg += poly(pts, `url(#lpSg${i}${suffix||''})`, sBord, 1);
 
     const mid = (y[ti] + y[bi]) / 2;
     // Small label above value
