@@ -2635,7 +2635,7 @@ def _wici2_fetch_lp(date_start=None, date_end=None, profile: str = "") -> dict:
         has_mo = "MO" in camp
         if profile == "malu" and not has_mo: continue
         if profile == "hire" and has_mo:     continue
-        is_b = "PAg_B" in camp
+        is_b = "pag_b" in camp.lower()
         _lp_add_meta(agg_b if is_b else agg_a, row, row_date)
 
     # ── Green (vendas) ────────────────────────────────────────────────────────
@@ -2654,7 +2654,7 @@ def _wici2_fetch_lp(date_start=None, date_end=None, profile: str = "") -> dict:
             has_mo = "MO" in camp
             if profile == "malu" and not has_mo: continue
             if profile == "hire" and has_mo:     continue
-        is_b = "PAg_B" in camp if camp else False
+        is_b = ("pag_b" in camp.lower()) if camp else False
         agg = agg_b if is_b else agg_a
         agg["vendas"] += 1
         if row_date:
