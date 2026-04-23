@@ -1914,7 +1914,7 @@ function _lpLine(canvasId, labels, data, color, label) {
       },
       scales: {
         x: { grid:{ color:'#ffffff0a' }, ticks:{ color:'#888', font:{size:10} } },
-        y: { grid:{ color:'#ffffff0a' }, ticks:{ color:'#888', font:{size:10}, callback: v => v+'%' }, beginAtZero: false }
+        y: { grid:{ color:'#ffffff0a' }, ticks:{ color:'#888', font:{size:10}, callback: v => (+v).toFixed(1)+'%' }, beginAtZero: false }
       }
     }
   });
