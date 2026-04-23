@@ -303,23 +303,25 @@
     @media(max-width:640px) { .pq-row-3,.pq-row-2,.pq-row-21,.pq-row-12 { grid-template-columns:1fr; } .pq-wc-row { grid-template-columns:1fr; } }
 
     /* ── LP Tab ── */
-    .lp-header { display:flex; align-items:center; justify-content:space-between; gap:20px; margin-bottom:28px; padding:18px 24px; background:var(--purple-card); border:1px solid rgba(123,45,139,.28); border-radius:16px; flex-wrap:wrap; }
+    .lp-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    .lp-panel { display:flex; flex-direction:column; gap:16px; }
+    .lp-header { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:18px 24px; background:var(--purple-card); border:1px solid rgba(123,45,139,.28); border-radius:16px; flex-wrap:wrap; }
     .lp-header-left { display:flex; flex-direction:column; gap:5px; min-width:0; }
     .lp-header-name { font-size:1rem; font-weight:700; color:var(--text); }
-    .lp-header-url { font-size:.75rem; color:var(--purple-light); text-decoration:none; opacity:.6; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:420px; }
+    .lp-header-url { font-size:.75rem; color:var(--purple-light); text-decoration:none; opacity:.6; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:300px; }
     .lp-header-url:hover { opacity:1; }
     .lp-header-right { display:flex; gap:24px; flex-shrink:0; }
     .lp-meta-stat { display:flex; flex-direction:column; gap:4px; }
     .lp-meta-lbl { font-size:.6rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:rgba(255,255,255,.35); }
     .lp-meta-val { font-size:1.3rem; font-weight:700; color:var(--text); }
-
-    .lp-body { display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:stretch; margin-bottom:16px; }
+    .lp-body { display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:stretch; }
     .lp-funnel-wrap { display:flex; flex-direction:column; }
     .lp-charts-col { display:flex; flex-direction:column; gap:16px; }
     .lp-chart-card { background:var(--purple-card); border:1px solid rgba(123,45,139,.28); border-radius:14px; padding:18px 20px; }
     .lp-chart-title { font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:rgba(255,255,255,.38); margin-bottom:14px; display:flex; align-items:center; gap:7px; }
     .lp-chart-title::before { content:''; display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--purple-light); flex-shrink:0; }
-    @media(max-width:860px) { .lp-body { grid-template-columns:1fr; } .lp-header { flex-direction:column; align-items:flex-start; } }
+    @media(max-width:1100px) { .lp-grid { grid-template-columns:1fr; } }
+    @media(max-width:860px)  { .lp-body { grid-template-columns:1fr; } .lp-header { flex-direction:column; align-items:flex-start; } }
   </style>
 </head>
 <body{% if public_mode %} class="public-mode"{% endif %}>
@@ -757,40 +759,63 @@
 
     <!-- Tab: LP -->
     <div id="viewLP" style="display:none;">
+      <div class="lp-grid">
 
-      <!-- Header: LP name + URL + key KPIs -->
-      <div class="lp-header">
-        <div class="lp-header-left">
-          <div class="lp-header-name" id="lpName">LP A</div>
-          <a class="lp-header-url" id="lpUrl" href="#" target="_blank" rel="noopener">—</a>
-        </div>
-        <div class="lp-header-right">
-          <div class="lp-meta-stat">
-            <span class="lp-meta-lbl">Total Gasto</span>
-            <span class="lp-meta-val" id="lpInvest">—</span>
+        <!-- LP A -->
+        <div class="lp-panel">
+          <div class="lp-header">
+            <div class="lp-header-left">
+              <div class="lp-header-name" id="lpNameA">LP A</div>
+              <a class="lp-header-url" id="lpUrlA" href="#" target="_blank" rel="noopener">—</a>
+            </div>
+            <div class="lp-header-right">
+              <div class="lp-meta-stat"><span class="lp-meta-lbl">Total Gasto</span><span class="lp-meta-val" id="lpInvestA">—</span></div>
+              <div class="lp-meta-stat"><span class="lp-meta-lbl">CPA</span><span class="lp-meta-val" id="lpCpaA">—</span></div>
+            </div>
           </div>
-          <div class="lp-meta-stat">
-            <span class="lp-meta-lbl">CPA</span>
-            <span class="lp-meta-val" id="lpCpa">—</span>
+          <div class="lp-body">
+            <div class="lp-funnel-wrap" id="lpFunnelWrapA"></div>
+            <div class="lp-charts-col">
+              <div class="lp-chart-card">
+                <div class="lp-chart-title">Connect Rate</div>
+                <canvas id="lpChartCrA"></canvas>
+              </div>
+              <div class="lp-chart-card">
+                <div class="lp-chart-title">Taxa de Conversão (PV → Vendas)</div>
+                <canvas id="lpChartTxA"></canvas>
+              </div>
+            </div>
           </div>
         </div>
+
+        <!-- LP B -->
+        <div class="lp-panel">
+          <div class="lp-header">
+            <div class="lp-header-left">
+              <div class="lp-header-name" id="lpNameB">Página B</div>
+              <a class="lp-header-url" id="lpUrlB" href="#" target="_blank" rel="noopener" style="display:none">—</a>
+            </div>
+            <div class="lp-header-right">
+              <div class="lp-meta-stat"><span class="lp-meta-lbl">Total Gasto</span><span class="lp-meta-val" id="lpInvestB">—</span></div>
+              <div class="lp-meta-stat"><span class="lp-meta-lbl">CPA</span><span class="lp-meta-val" id="lpCpaB">—</span></div>
+            </div>
+          </div>
+          <div class="lp-body">
+            <div class="lp-funnel-wrap" id="lpFunnelWrapB"></div>
+            <div class="lp-charts-col">
+              <div class="lp-chart-card">
+                <div class="lp-chart-title">Connect Rate</div>
+                <canvas id="lpChartCrB"></canvas>
+              </div>
+              <div class="lp-chart-card">
+                <div class="lp-chart-title">Taxa de Conversão (PV → Vendas)</div>
+                <canvas id="lpChartTxB"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
-
-      <!-- Funil (esq) + Gráficos (dir) -->
-      <div class="lp-body">
-        <div class="lp-funnel-wrap" id="lpFunnelWrap"></div>
-        <div class="lp-charts-col">
-          <div class="lp-chart-card">
-            <div class="lp-chart-title">Connect Rate LP-A</div>
-            <canvas id="lpChartCr"></canvas>
-          </div>
-          <div class="lp-chart-card">
-            <div class="lp-chart-title">Taxa de Conversão (LP Views → Vendas)</div>
-            <canvas id="lpChartTx"></canvas>
-          </div>
-        </div>
-      </div>
-
     </div>
 
     </div>
@@ -1836,7 +1861,7 @@ function _pqDonut(id, labels, values) {
 
 // ── LP Tab ────────────────────────────────────────────────────────────────────
 let lpData = null;
-let chartLpCr = null, chartLpTx = null;
+let chartLpCrA = null, chartLpTxA = null, chartLpCrB = null, chartLpTxB = null;
 
 async function loadLP() {
   const params = new URLSearchParams();
@@ -1853,22 +1878,8 @@ async function loadLP() {
   }
 }
 
-function renderLP(d) {
-  // Header
-  const nameEl = document.getElementById('lpName');
-  const urlEl  = document.getElementById('lpUrl');
-  if (nameEl) nameEl.textContent = d.lp_nome || 'LP A';
-  if (urlEl)  { urlEl.textContent = d.lp_url || ''; urlEl.href = d.lp_url || '#'; }
-  setEl('lpInvest', BRL(d.invest));
-  setEl('lpCpa',    BRL(d.cpa));
-
-  // SVG Funnel
-  _renderLPFunnel(d);
-
-  // Line charts
-  const labels = (d.daily?.labels || []).map(l => l.slice(5));
-
-  const _lpLine = (canvasId, data, color, label) => new Chart(canvasId, {
+function _lpLine(canvasId, labels, data, color, label) {
+  return new Chart(canvasId, {
     type: 'line',
     data: {
       labels,
@@ -1880,8 +1891,8 @@ function renderLP(d) {
         tension: 0.35,
         fill: true,
         spanGaps: true,
-        pointRadius: 4,
-        pointHoverRadius: 6,
+        pointRadius: 3,
+        pointHoverRadius: 5,
         pointBackgroundColor: color,
         borderWidth: 2,
       }]
@@ -1899,24 +1910,48 @@ function renderLP(d) {
       }
     }
   });
-
-  chartLpCr = destroyChart(chartLpCr);
-  chartLpTx = destroyChart(chartLpTx);
-  const ctxCr = document.getElementById('lpChartCr');
-  const ctxTx = document.getElementById('lpChartTx');
-  if (ctxCr) chartLpCr = _lpLine(ctxCr, d.daily?.connect_rate || [], '#a855c8', 'Connect Rate');
-  if (ctxTx) chartLpTx = _lpLine(ctxTx, d.daily?.tx_conv      || [], '#c4f135', 'Tx. de Conversão');
-
-  // Initial funnel draw, then re-draw once charts have rendered and column has a real height
-  _renderLPFunnel(d);
-  requestAnimationFrame(() => {
-    const col = document.querySelector('.lp-charts-col');
-    if (col && col.offsetHeight > 80) _renderLPFunnel(d, col.offsetHeight);
-  });
 }
 
-function _renderLPFunnel(d, targetH) {
-  const wrap = document.getElementById('lpFunnelWrap');
+function _renderLPPanel(suffix, d) {
+  const nameEl = document.getElementById('lpName' + suffix);
+  const urlEl  = document.getElementById('lpUrl'  + suffix);
+  if (nameEl) nameEl.textContent = d.lp_nome || ('LP ' + suffix);
+  if (urlEl) {
+    if (d.lp_url) { urlEl.textContent = d.lp_url; urlEl.href = d.lp_url; urlEl.style.display = ''; }
+    else urlEl.style.display = 'none';
+  }
+  setEl('lpInvest' + suffix, BRL(d.invest));
+  setEl('lpCpa'    + suffix, BRL(d.cpa));
+
+  _renderLPFunnel(d, null, suffix);
+
+  const labels = (d.daily?.labels || []).map(l => l.slice(5));
+  const ctxCr  = document.getElementById('lpChartCr' + suffix);
+  const ctxTx  = document.getElementById('lpChartTx' + suffix);
+  const cr = ctxCr ? _lpLine(ctxCr, labels, d.daily?.connect_rate || [], '#a855c8', 'Connect Rate') : null;
+  const tx = ctxTx ? _lpLine(ctxTx, labels, d.daily?.tx_conv      || [], '#c4f135', 'Tx. Conversão') : null;
+
+  requestAnimationFrame(() => {
+    const col = document.querySelector('#lpFunnelWrap' + suffix)?.closest('.lp-body')?.querySelector('.lp-charts-col');
+    if (col && col.offsetHeight > 80) _renderLPFunnel(d, col.offsetHeight, suffix);
+  });
+  return { cr, tx };
+}
+
+function renderLP(d) {
+  chartLpCrA = destroyChart(chartLpCrA);
+  chartLpTxA = destroyChart(chartLpTxA);
+  chartLpCrB = destroyChart(chartLpCrB);
+  chartLpTxB = destroyChart(chartLpTxB);
+
+  const { cr: crA, tx: txA } = _renderLPPanel('A', d.lp_a || d);
+  const { cr: crB, tx: txB } = _renderLPPanel('B', d.lp_b || {});
+  chartLpCrA = crA; chartLpTxA = txA;
+  chartLpCrB = crB; chartLpTxB = txB;
+}
+
+function _renderLPFunnel(d, targetH, suffix) {
+  const wrap = document.getElementById('lpFunnelWrap' + (suffix || ''));
   if (!wrap) return;
 
   const W = 520;

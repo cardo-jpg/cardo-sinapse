@@ -2568,24 +2568,63 @@ async def get_wici2_pesquisa(request: Request):
 
 
 # ── LP (Landing Page) ─────────────────────────────────────────────────────────
-WICI2_LP_NOME = "LP A"
-WICI2_LP_URL  = "https://hirebrazil.com.br/workshop-intensivo-de-carreira-internacional-malu-ads/"
+WICI2_LP_A_NOME = "LP A"
+WICI2_LP_A_URL  = "https://hirebrazil.com.br/workshop-intensivo-de-carreira-internacional-malu-ads/"
+WICI2_LP_B_NOME = "Página B"
+WICI2_LP_B_URL  = ""
 
-def _wici2_fetch_lp(date_start=None, date_end=None, profile: str = "") -> dict:
-    """Agrega todos os dados Meta Ads para análise da LP única do WICI 2."""
-    creds = _sa_creds(["https://www.googleapis.com/auth/spreadsheets.readonly"])
-    sheets = gapi_build("sheets", "v4", credentials=creds).spreadsheets().values()
+def _lp_empty_agg():
+    return {"invest": 0.0, "imp": 0, "clicks": 0, "pv": 0, "vendas": 0, "daily": {}}
 
+def _lp_add_meta(agg, row, row_date):
     def _toi(v):
         try: return int(v)
         except: return 0
+    try:    cost = float(row[3].replace(",", "."))
+    except: return
+    imp  = _toi(row[4]) if len(row) > 4 else 0
+    clks = _toi(row[6]) if len(row) > 6 else 0
+    pv   = _toi(row[7]) if len(row) > 7 else 0
+    agg["invest"] += cost; agg["imp"] += imp; agg["clicks"] += clks; agg["pv"] += pv
+    if row_date:
+        dk = row_date.strftime("%Y-%m-%d")
+        if dk not in agg["daily"]:
+            agg["daily"][dk] = {"invest": 0.0, "imp": 0, "clicks": 0, "pv": 0, "vendas": 0}
+        agg["daily"][dk]["invest"] += cost; agg["daily"][dk]["imp"] += imp
+        agg["daily"][dk]["clicks"] += clks; agg["daily"][dk]["pv"]  += pv
+
+def _lp_build_result(agg, nome, url):
+    invest = agg["invest"]; imp = agg["imp"]; clicks = agg["clicks"]
+    pv = agg["pv"]; vendas = agg["vendas"]
+    ctr          = round(clicks / imp    * 100, 2) if imp    else 0.0
+    connect_rate = round(pv     / clicks * 100, 2) if clicks else 0.0
+    tx_conv      = round(vendas / pv     * 100, 2) if pv     else 0.0
+    cpa          = round(invest / vendas, 2)        if vendas else None
+    sorted_days  = sorted(agg["daily"].items())
+    return {
+        "lp_nome": nome, "lp_url": url,
+        "invest": round(invest, 2), "imp": imp, "clicks": clicks,
+        "pv": pv, "vendas": vendas, "cpa": cpa,
+        "ctr": ctr, "connect_rate": connect_rate, "tx_conv": tx_conv,
+        "daily": {
+            "labels":       [d for d, _ in sorted_days],
+            "connect_rate": [round(v["pv"]/v["clicks"]*100,2) if v["clicks"] else None for _,v in sorted_days],
+            "tx_conv":      [round(v["vendas"]/v["pv"]*100,2) if v["pv"]     else None for _,v in sorted_days],
+            "ctr":          [round(v["clicks"]/v["imp"]*100,2) if v["imp"]   else None for _,v in sorted_days],
+            "cpa":          [round(v["invest"]/v["vendas"],2)  if v["vendas"] else None for _,v in sorted_days],
+        }
+    }
+
+def _wici2_fetch_lp(date_start=None, date_end=None, profile: str = "") -> dict:
+    """Retorna métricas de LP A e LP B separadas."""
+    creds = _sa_creds(["https://www.googleapis.com/auth/spreadsheets.readonly"])
+    sheets = gapi_build("sheets", "v4", credentials=creds).spreadsheets().values()
+
+    agg_a = _lp_empty_agg()
+    agg_b = _lp_empty_agg()
 
     # ── Meta Ads ──────────────────────────────────────────────────────────────
     meta_rows = sheets.get(spreadsheetId=WICI2_SHEET_ID, range=WICI2_ABA_META).execute().get("values", [])[1:]
-    total_invest = 0.0
-    total_imp = total_clicks = total_pv = 0
-    daily: dict = {}  # date_str → {invest, imp, clicks, pv, vendas}
-
     for row in meta_rows:
         if len(row) < 4: continue
         row_date = _wici2_parse_date(row[0]) if row[0] else None
@@ -2596,27 +2635,11 @@ def _wici2_fetch_lp(date_start=None, date_end=None, profile: str = "") -> dict:
         has_mo = "MO" in camp
         if profile == "malu" and not has_mo: continue
         if profile == "hire" and has_mo:     continue
-        try:    cost = float(row[3].replace(",", "."))
-        except: continue
-        imp  = _toi(row[4]) if len(row) > 4 else 0
-        clks = _toi(row[6]) if len(row) > 6 else 0
-        pv   = _toi(row[7]) if len(row) > 7 else 0
-        total_invest += cost
-        total_imp    += imp
-        total_clicks += clks
-        total_pv     += pv
-        if row_date:
-            dk = row_date.strftime("%Y-%m-%d")
-            if dk not in daily:
-                daily[dk] = {"invest": 0.0, "imp": 0, "clicks": 0, "pv": 0, "vendas": 0}
-            daily[dk]["invest"] += cost
-            daily[dk]["imp"]    += imp
-            daily[dk]["clicks"] += clks
-            daily[dk]["pv"]     += pv
+        is_b = "PAg_B" in camp
+        _lp_add_meta(agg_b if is_b else agg_a, row, row_date)
 
-    # ── Green (vendas workshop via Meta Ads) ──────────────────────────────────
+    # ── Green (vendas) ────────────────────────────────────────────────────────
     green_rows = sheets.get(spreadsheetId=WICI2_SHEET_ID, range=WICI2_ABA_VENDAS).execute().get("values", [])[1:]
-    total_vendas = 0
     for row in green_rows:
         if len(row) < 7: continue
         row_date = _wici2_parse_date(row[0]) if row[0] else None
@@ -2631,46 +2654,18 @@ def _wici2_fetch_lp(date_start=None, date_end=None, profile: str = "") -> dict:
             has_mo = "MO" in camp
             if profile == "malu" and not has_mo: continue
             if profile == "hire" and has_mo:     continue
-        total_vendas += 1
+        is_b = "PAg_B" in camp if camp else False
+        agg = agg_b if is_b else agg_a
+        agg["vendas"] += 1
         if row_date:
             dk = row_date.strftime("%Y-%m-%d")
-            if dk not in daily:
-                daily[dk] = {"invest": 0.0, "imp": 0, "clicks": 0, "pv": 0, "vendas": 0}
-            daily[dk]["vendas"] += 1
-
-    # ── Totais derivados ──────────────────────────────────────────────────────
-    ctr          = round(total_clicks / total_imp    * 100, 2) if total_imp    else 0.0
-    connect_rate = round(total_pv     / total_clicks * 100, 2) if total_clicks else 0.0
-    tx_conv      = round(total_vendas / total_pv     * 100, 2) if total_pv     else 0.0  # LP Views → Vendas
-    cpa          = round(total_invest / total_vendas, 2)       if total_vendas else None
-
-    # ── Séries diárias ────────────────────────────────────────────────────────
-    sorted_days = sorted(daily.items())
-    day_labels  = [d for d, _ in sorted_days]
-    day_connect = [round(v["pv"]     / v["clicks"] * 100, 2) if v["clicks"] else None for _, v in sorted_days]
-    day_tx_conv = [round(v["vendas"] / v["pv"]     * 100, 2) if v["pv"]     else None for _, v in sorted_days]
-    day_ctr     = [round(v["clicks"] / v["imp"]    * 100, 2) if v["imp"]    else None for _, v in sorted_days]
-    day_cpa     = [round(v["invest"] / v["vendas"], 2)       if v["vendas"] else None for _, v in sorted_days]
+            if dk not in agg["daily"]:
+                agg["daily"][dk] = {"invest": 0.0, "imp": 0, "clicks": 0, "pv": 0, "vendas": 0}
+            agg["daily"][dk]["vendas"] += 1
 
     return {
-        "lp_nome": WICI2_LP_NOME,
-        "lp_url":  WICI2_LP_URL,
-        "invest":        round(total_invest, 2),
-        "imp":           total_imp,
-        "clicks":        total_clicks,
-        "pv":            total_pv,
-        "vendas":        total_vendas,
-        "cpa":           cpa,
-        "ctr":           ctr,
-        "connect_rate":  connect_rate,
-        "tx_conv":       tx_conv,
-        "daily": {
-            "labels":       day_labels,
-            "connect_rate": day_connect,
-            "tx_conv":      day_tx_conv,
-            "ctr":          day_ctr,
-            "cpa":          day_cpa,
-        }
+        "lp_a": _lp_build_result(agg_a, WICI2_LP_A_NOME, WICI2_LP_A_URL),
+        "lp_b": _lp_build_result(agg_b, WICI2_LP_B_NOME, WICI2_LP_B_URL),
     }
 
 
