@@ -2571,7 +2571,7 @@ async def get_wici2_pesquisa(request: Request):
 WICI2_LP_A_NOME = "LP A"
 WICI2_LP_A_URL  = "https://hirebrazil.com.br/workshop-intensivo-de-carreira-internacional-malu-ads/"
 WICI2_LP_B_NOME = "Página B"
-WICI2_LP_B_URL  = ""
+WICI2_LP_B_URL  = "https://hirebrazil.com.br/workshop-intensivo-de-carreira-internacional-malu-ads-b/"
 
 def _lp_empty_agg():
     return {"invest": 0.0, "imp": 0, "clicks": 0, "pv": 0, "checkout": 0, "vendas": 0, "daily": {}}
