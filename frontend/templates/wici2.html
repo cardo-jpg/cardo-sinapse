@@ -633,6 +633,20 @@
     <div id="viewCamp" style="display:none;">
       <div class="traf-section">
         <div class="traf-section-title">Performance por Campanha</div>
+        <div class="cria-controls">
+          <input type="search" id="campSearch" class="cria-search-inp" placeholder="Filtrar por nome…" oninput="renderTrafTable('Camp')">
+          <div class="cria-dd-wrap" id="campDdWrap">
+            <button class="cria-dd-btn" id="campDdBtn" onclick="toggleCampDd()">
+              <span id="campDdLabel">Todas</span>
+              <span>▾</span>
+            </button>
+            <div class="cria-dd" id="campDd">
+              <div class="cria-dd-item active" onclick="setCampFilter('todos',this)">Todas</div>
+              <div class="cria-dd-item"        onclick="setCampFilter('ativo',this)">Apenas Ativas</div>
+              <div class="cria-dd-item"        onclick="setCampFilter('pausado',this)">Apenas Pausadas</div>
+            </div>
+          </div>
+        </div>
         <div class="traf-table-wrap">
           <table class="traf-table" id="trafTableCamp">
             <colgroup id="trafCgCamp"></colgroup>
@@ -1307,7 +1321,7 @@ function toggleCriaDd() {
 }
 function setCriaFilter(val, el) {
   criaFilter = val;
-  document.querySelectorAll('.cria-dd-item').forEach(i => i.classList.remove('active'));
+  document.querySelectorAll('#criaDd .cria-dd-item').forEach(i => i.classList.remove('active'));
   el.classList.add('active');
   const btn = document.getElementById('criaDdBtn');
   const lbl = document.getElementById('criaDdLabel');
@@ -1316,9 +1330,30 @@ function setCriaFilter(val, el) {
   document.getElementById('criaDd').classList.remove('open');
   if (trafData) renderTrafTable('Cria');
 }
+
+// ── Filtro + busca (tab Campanhas) ───────────────────────────────────────────
+let campFilter = 'todos'; // 'todos' | 'ativo' | 'pausado'
+
+function toggleCampDd() {
+  document.getElementById('campDd').classList.toggle('open');
+}
+function setCampFilter(val, el) {
+  campFilter = val;
+  document.querySelectorAll('#campDd .cria-dd-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+  const btn = document.getElementById('campDdBtn');
+  const lbl = document.getElementById('campDdLabel');
+  lbl.textContent = val === 'ativo' ? 'Ativas' : val === 'pausado' ? 'Pausadas' : 'Todas';
+  btn.classList.toggle('has-filter', val !== 'todos');
+  document.getElementById('campDd').classList.remove('open');
+  if (trafData) renderTrafTable('Camp');
+}
+
 document.addEventListener('click', e => {
-  const wrap = document.querySelector('.cria-dd-wrap');
-  if (wrap && !wrap.contains(e.target)) document.getElementById('criaDd')?.classList.remove('open');
+  if (!document.getElementById('criaDd')?.closest('.cria-dd-wrap')?.contains(e.target))
+    document.getElementById('criaDd')?.classList.remove('open');
+  if (!document.getElementById('campDd')?.closest('.cria-dd-wrap')?.contains(e.target))
+    document.getElementById('campDd')?.classList.remove('open');
 });
 
 // ── Column widths (persisted per table, reset on page load) ────────────────────
@@ -1432,10 +1467,16 @@ function sortTraf(w, key) {
 
 function renderTrafTable(w) {
   const rawRows = (w === 'Camp' ? trafData.campanhas : w === 'Publ' ? trafData.publicos : trafData.criativos) || [];
-  const searchQ = w === 'Cria' ? (document.getElementById('criaSearch')?.value || '').toLowerCase() : '';
+  const searchQ = w === 'Cria'
+    ? (document.getElementById('criaSearch')?.value || '').toLowerCase()
+    : w === 'Camp'
+    ? (document.getElementById('campSearch')?.value || '').toLowerCase()
+    : '';
   const rows = rawRows.filter(r => {
     if (w === 'Cria' && criaFilter === 'rmkt' && !r.rmkt) return false;
     if (w === 'Cria' && criaFilter === 'ativo' && r.status !== 'ACTIVE') return false;
+    if (w === 'Camp' && campFilter === 'ativo'  && r.status !== 'ACTIVE') return false;
+    if (w === 'Camp' && campFilter === 'pausado' && r.status !== 'PAUSED') return false;
     if (searchQ && !r.nome.toLowerCase().includes(searchQ)) return false;
     return true;
   });
