@@ -2666,7 +2666,8 @@ def _wici2_fetch_lp(date_start=None, date_end=None, profile: str = "") -> dict:
         if row_date:
             dk = row_date.strftime("%Y-%m-%d")
             if dk not in agg["daily"]:
-                agg["daily"][dk] = {"invest": 0.0, "imp": 0, "clicks": 0, "pv": 0, "vendas": 0}
+                agg["daily"][dk] = {"invest": 0.0, "imp": 0, "clicks": 0, "pv": 0, "checkout": 0, "vendas": 0}
+            agg["daily"][dk].setdefault("checkout", 0)
             agg["daily"][dk]["vendas"] += 1
 
     return {
