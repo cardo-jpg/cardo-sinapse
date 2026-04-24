@@ -1,5 +1,5 @@
 # Google Ads — Gráfica NF — Google Ads [NF_GOOGLE]
-**Atualizado em:** 24/03/2026 03:35
+**Atualizado em:** 17/04/2026 17:06
 
 | Data | Campanha | Investimento | Impressões | Cliques | Leads |
 |---|---|---|---|---|---|
@@ -1305,3 +1305,22 @@
 | 19/03/2026 | [NF] [Search] [Institucional] | R$ 0,00 | 2 | 0 | 0 |
 | 20/03/2026 | [NF] [Search] [Institucional] | R$ 0,00 | 3 | 0 | 0 |
 | 23/03/2026 | [NF] [Search] [Institucional] | R$ 109,99 | 195 | 16 | 1 |
+| 24/03/2026 | [NF] [Search] [Institucional] | R$ 109,72 | 186 | 6 | 0 |
+| 25/03/2026 | [NF] [Search] [Institucional] | R$ 69,44 | 60 | 5 | 0 |
+| 26/03/2026 | [NF] [Search] [Institucional] | R$ 39,32 | 127 | 11 | 0 |
+| 27/03/2026 | [NF] [Search] [Institucional] | R$ 56,85 | 85 | 5 | 1 |
+| 30/03/2026 | [NF] [Search] [Institucional] | R$ 59,60 | 146 | 13 | 1 |
+| 31/03/2026 | [NF] [Search] [Institucional] | R$ 42,50 | 242 | 12 | 1 |
+| 01/04/2026 | [NF] [Search] [Institucional] | R$ 58,90 | 170 | 14 | 0 |
+| 02/04/2026 | [NF] [Search] [Institucional] | R$ 51,34 | 176 | 12 | 1 |
+| 03/04/2026 | [NF] [Search] [Institucional] | R$ 65,60 | 209 | 6 | 0 |
+| 06/04/2026 | [NF] [Search] [Institucional] | R$ 44,71 | 214 | 11 | 1 |
+| 07/04/2026 | [NF] [Search] [Institucional] | R$ 57,42 | 183 | 12 | 2 |
+| 08/04/2026 | [NF] [Search] [Institucional] | R$ 52,66 | 162 | 12 | 1 |
+| 09/04/2026 | [NF] [Search] [Institucional] | R$ 54,95 | 201 | 14 | 3 |
+| 10/04/2026 | [NF] [Search] [Institucional] | R$ 61,05 | 101 | 12 | 2 |
+| 13/04/2026 | [NF] [Search] [Institucional] | R$ 56,68 | 201 | 14 | 2 |
+| 14/04/2026 | [NF] [Search] [Institucional] | R$ 58,17 | 306 | 13 | 1 |
+| 15/04/2026 | [NF] [Search] [Institucional] | R$ 45,99 | 218 | 13 | 0 |
+| 16/04/2026 | [NF] [Search] [Institucional] | R$ 60,58 | 361 | 17 | 1 |
+| 17/04/2026 | [NF] [Search] [Institucional] | R$ 25,47 | 88 | 7 | 0 |

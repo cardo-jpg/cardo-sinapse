@@ -1,5 +1,5 @@
 # Google Ads — Patrícia Voggt — Campanha MP Vendas [PV_MP]
-**Atualizado em:** 24/03/2026 03:35
+**Atualizado em:** 17/04/2026 17:06
 
 | Vendas | Investimento | Faturamento | ROAS |
 |---|---|---|---|
