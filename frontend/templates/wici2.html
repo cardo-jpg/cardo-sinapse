@@ -770,6 +770,7 @@
             <div class="lp-header-right">
               <div class="lp-meta-stat"><span class="lp-meta-lbl">Total Gasto</span><span class="lp-meta-val" id="lpInvestA">—</span></div>
               <div class="lp-meta-stat"><span class="lp-meta-lbl">CPA</span><span class="lp-meta-val" id="lpCpaA">—</span></div>
+              <div class="lp-meta-stat"><span class="lp-meta-lbl">Tx. Conv PV→V</span><span class="lp-meta-val" id="lpTxPvA">—</span></div>
             </div>
           </div>
           <div class="lp-body">
@@ -805,6 +806,7 @@
             <div class="lp-header-right">
               <div class="lp-meta-stat"><span class="lp-meta-lbl">Total Gasto</span><span class="lp-meta-val" id="lpInvestB">—</span></div>
               <div class="lp-meta-stat"><span class="lp-meta-lbl">CPA</span><span class="lp-meta-val" id="lpCpaB">—</span></div>
+              <div class="lp-meta-stat"><span class="lp-meta-lbl">Tx. Conv PV→V</span><span class="lp-meta-val" id="lpTxPvB">—</span></div>
             </div>
           </div>
           <div class="lp-body">
@@ -1938,6 +1940,7 @@ function _renderLPPanel(suffix, d) {
   }
   setEl('lpInvest' + suffix, BRL(d.invest));
   setEl('lpCpa'    + suffix, BRL(d.cpa));
+  setEl('lpTxPv'   + suffix, PCT(d.tx_conv_pv));
 
   _renderLPFunnel(d, null, suffix);
 
