@@ -41,7 +41,8 @@ TEMPLATES_DIR = BASE_DIR / "frontend" / "templates"
 STATIC_DIR = BASE_DIR / "frontend" / "static"
 CONVS_DIR.mkdir(parents=True, exist_ok=True)
 
-SECRET_KEY = os.getenv("SECRET_KEY", "sinapse-secret-2026")
+SECRET_KEY           = os.getenv("SECRET_KEY", "sinapse-secret-2026")
+GREENN_WEBHOOK_TOKEN = os.getenv("GREENN_WEBHOOK_TOKEN", "")
 USERS = {
     "victor": os.getenv("USER_VICTOR_PASSWORD", "C@rdobrain2026"),
     "jose":   os.getenv("USER_JOSE_PASSWORD",   "C@rdosinapse2026"),
@@ -4051,6 +4052,74 @@ async def get_hire_funis_site(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# ── Greenn Webhook ────────────────────────────────────────────────────────────
+_GREENN_PRODUCTS = {
+    "Workshop Intensivo de Carreira Internacional",
+    "Workshop Intensivo de Carreira Internacional [MAIO 26]",
+    "Acesso à gravação do Workshop Intensivo de Carreira Internacional por 7 dias",
+    "Análise de currículo e LinkedIn AO VIVO com mentora de carreira no Zoom",
+    "Combo: Gravação + Análise de LinkedIn e CV",
+}
+
+@app.post("/webhook/greenn")
+async def greenn_webhook(request: Request):
+    # Validação do token
+    token_header = request.headers.get("webhook-token", "") or request.headers.get("authorization", "").replace("Bearer ", "")
+    body = await request.json()
+    token_body = body.get("token", "") if isinstance(body, dict) else ""
+    received_token = token_header or token_body
+    if GREENN_WEBHOOK_TOKEN and received_token != GREENN_WEBHOOK_TOKEN:
+        raise HTTPException(status_code=401, detail="Token inválido")
+
+    try:
+        data   = body.get("data", body)
+        sale   = data.get("sale", {})
+        prod   = data.get("product", {})
+        cust   = data.get("customer", {})
+
+        status = sale.get("status", "")
+        if status not in ("approved", "paid", "complete", "completed"):
+            return JSONResponse({"ok": True, "skipped": f"status={status}"})
+
+        product_name = prod.get("name", "").strip()
+        if product_name not in _GREENN_PRODUCTS:
+            return JSONResponse({"ok": True, "skipped": f"produto não filtrado: {product_name}"})
+
+        # Extrai UTMs dos saleMetas
+        utms = {}
+        for m in sale.get("saleMetas", []):
+            utms[m.get("meta_key", "")] = m.get("meta_value", "")
+
+        sale_date = (sale.get("dt_payment") or sale.get("created_at") or "")[:10]
+        if not sale_date:
+            sale_date = datetime.now().strftime("%Y-%m-%d")
+
+        nome  = cust.get("name", "")
+        email = cust.get("email", "")
+        valor = str(sale.get("total", "0")).replace(".", ",")
+        src   = utms.get("utm_source", "greenn")
+        camp  = utms.get("utm_campaign", "")
+        medium = utms.get("utm_medium", "")
+        term  = utms.get("utm_term", "")
+
+        # Grava na aba Green - Todas as Vendas
+        row = [sale_date, nome, email, valor, product_name, src, camp, medium, "", term]
+        creds = _sa_creds(["https://www.googleapis.com/auth/spreadsheets"])
+        sheets = gapi_build("sheets", "v4", credentials=creds).spreadsheets().values()
+        sheets.append(
+            spreadsheetId=WICI2_SHEET_ID,
+            range=f"{WICI2_ABA_VENDAS}!A:J",
+            valueInputOption="USER_ENTERED",
+            body={"values": [row]},
+        ).execute()
+
+        print(f"[greenn] venda gravada: {product_name} | {email} | {camp}")
+        return JSONResponse({"ok": True})
+
+    except Exception as e:
+        print(f"[greenn] erro: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/logs", response_class=HTMLResponse)
 async def view_logs(request: Request):
