@@ -787,6 +787,10 @@
                 <div class="lp-chart-title">Taxa de Conversão (Checkout → Vendas)</div>
                 <canvas id="lpChartTxA"></canvas>
               </div>
+              <div class="lp-chart-card">
+                <div class="lp-chart-title">Taxa de Conversão (PV → Vendas)</div>
+                <canvas id="lpChartTxPvA"></canvas>
+              </div>
             </div>
           </div>
         </div>
@@ -817,6 +821,10 @@
               <div class="lp-chart-card">
                 <div class="lp-chart-title">Taxa de Conversão (Checkout → Vendas)</div>
                 <canvas id="lpChartTxB"></canvas>
+              </div>
+              <div class="lp-chart-card">
+                <div class="lp-chart-title">Taxa de Conversão (PV → Vendas)</div>
+                <canvas id="lpChartTxPvB"></canvas>
               </div>
             </div>
           </div>
@@ -1868,8 +1876,8 @@ function _pqDonut(id, labels, values) {
 
 // ── LP Tab ────────────────────────────────────────────────────────────────────
 let lpData = null;
-let chartLpCrA = null, chartLpCoA = null, chartLpTxA = null;
-let chartLpCrB = null, chartLpCoB = null, chartLpTxB = null;
+let chartLpCrA = null, chartLpCoA = null, chartLpTxA = null, chartLpTxPvA = null;
+let chartLpCrB = null, chartLpCoB = null, chartLpTxB = null, chartLpTxPvB = null;
 
 async function loadLP() {
   const params = new URLSearchParams();
@@ -1934,28 +1942,32 @@ function _renderLPPanel(suffix, d) {
   _renderLPFunnel(d, null, suffix);
 
   const labels = (d.daily?.labels || []).map(l => l.slice(5));
-  const ctxCr  = document.getElementById('lpChartCr' + suffix);
-  const ctxCo  = document.getElementById('lpChartCo' + suffix);
-  const ctxTx  = document.getElementById('lpChartTx' + suffix);
-  const cr = ctxCr ? _lpLine(ctxCr, labels, d.daily?.connect_rate  || [], '#a855c8', 'Connect Rate')   : null;
-  const co = ctxCo ? _lpLine(ctxCo, labels, d.daily?.checkout_rate || [], '#f59e0b', 'Checkout Rate')  : null;
-  const tx = ctxTx ? _lpLine(ctxTx, labels, d.daily?.tx_conv       || [], '#c4f135', 'Tx. Conversão') : null;
+  const ctxCr   = document.getElementById('lpChartCr'   + suffix);
+  const ctxCo   = document.getElementById('lpChartCo'   + suffix);
+  const ctxTx   = document.getElementById('lpChartTx'   + suffix);
+  const ctxTxPv = document.getElementById('lpChartTxPv' + suffix);
+  const cr   = ctxCr   ? _lpLine(ctxCr,   labels, d.daily?.connect_rate  || [], '#a855c8', 'Connect Rate')        : null;
+  const co   = ctxCo   ? _lpLine(ctxCo,   labels, d.daily?.checkout_rate || [], '#f59e0b', 'Checkout Rate')       : null;
+  const tx   = ctxTx   ? _lpLine(ctxTx,   labels, d.daily?.tx_conv       || [], '#c4f135', 'Tx. Conv (Checkout)') : null;
+  const txpv = ctxTxPv ? _lpLine(ctxTxPv, labels, d.daily?.tx_conv_pv    || [], '#38bdf8', 'Tx. Conv (PV)')       : null;
 
   requestAnimationFrame(() => {
     const col = document.querySelector('#lpFunnelWrap' + suffix)?.closest('.lp-body')?.querySelector('.lp-charts-col');
     if (col && col.offsetHeight > 80) _renderLPFunnel(d, col.offsetHeight, suffix);
   });
-  return { cr, co, tx };
+  return { cr, co, tx, txpv };
 }
 
 function renderLP(d) {
-  chartLpCrA = destroyChart(chartLpCrA); chartLpCoA = destroyChart(chartLpCoA); chartLpTxA = destroyChart(chartLpTxA);
-  chartLpCrB = destroyChart(chartLpCrB); chartLpCoB = destroyChart(chartLpCoB); chartLpTxB = destroyChart(chartLpTxB);
+  chartLpCrA = destroyChart(chartLpCrA); chartLpCoA = destroyChart(chartLpCoA);
+  chartLpTxA = destroyChart(chartLpTxA); chartLpTxPvA = destroyChart(chartLpTxPvA);
+  chartLpCrB = destroyChart(chartLpCrB); chartLpCoB = destroyChart(chartLpCoB);
+  chartLpTxB = destroyChart(chartLpTxB); chartLpTxPvB = destroyChart(chartLpTxPvB);
 
-  const { cr: crA, co: coA, tx: txA } = _renderLPPanel('A', d.lp_a || d);
-  const { cr: crB, co: coB, tx: txB } = _renderLPPanel('B', d.lp_b || {});
-  chartLpCrA = crA; chartLpCoA = coA; chartLpTxA = txA;
-  chartLpCrB = crB; chartLpCoB = coB; chartLpTxB = txB;
+  const { cr: crA, co: coA, tx: txA, txpv: txpvA } = _renderLPPanel('A', d.lp_a || d);
+  const { cr: crB, co: coB, tx: txB, txpv: txpvB } = _renderLPPanel('B', d.lp_b || {});
+  chartLpCrA = crA; chartLpCoA = coA; chartLpTxA = txA; chartLpTxPvA = txpvA;
+  chartLpCrB = crB; chartLpCoB = coB; chartLpTxB = txB; chartLpTxPvB = txpvB;
 }
 
 function _renderLPFunnel(d, targetH, suffix) {

@@ -2603,6 +2603,7 @@ def _lp_build_result(agg, nome, url):
     connect_rate  = round(pv       / clicks   * 100, 2) if clicks   else 0.0
     checkout_rate = round(checkout / pv       * 100, 2) if pv       else 0.0
     tx_conv       = round(vendas   / checkout * 100, 2) if checkout else 0.0
+    tx_conv_pv    = round(vendas   / pv       * 100, 2) if pv       else 0.0
     cpa           = round(invest   / vendas,   2)        if vendas  else None
     sorted_days   = sorted(agg["daily"].items())
     return {
@@ -2610,12 +2611,13 @@ def _lp_build_result(agg, nome, url):
         "invest": round(invest, 2), "imp": imp, "clicks": clicks,
         "pv": pv, "checkout": checkout, "vendas": vendas, "cpa": cpa,
         "ctr": ctr, "connect_rate": connect_rate,
-        "checkout_rate": checkout_rate, "tx_conv": tx_conv,
+        "checkout_rate": checkout_rate, "tx_conv": tx_conv, "tx_conv_pv": tx_conv_pv,
         "daily": {
             "labels":        [d for d, _ in sorted_days],
             "connect_rate":  [round(v["pv"]/v["clicks"]*100,2)       if v["clicks"]   else None for _,v in sorted_days],
             "checkout_rate": [round(v["checkout"]/v["pv"]*100,2)     if v["pv"]       else None for _,v in sorted_days],
             "tx_conv":       [round(v["vendas"]/v["checkout"]*100,2)  if v["checkout"] else None for _,v in sorted_days],
+            "tx_conv_pv":    [round(v["vendas"]/v["pv"]*100,2)        if v["pv"]       else None for _,v in sorted_days],
             "ctr":           [round(v["clicks"]/v["imp"]*100,2)       if v["imp"]      else None for _,v in sorted_days],
             "cpa":           [round(v["invest"]/v["vendas"],2)         if v["vendas"]   else None for _,v in sorted_days],
         }
