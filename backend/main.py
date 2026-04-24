@@ -509,9 +509,111 @@ def start_sync_scheduler():
     t = threading.Thread(target=loop, daemon=True)
     t.start()
 
+# ── CPA Monitor ──────────────────────────────────────────────────────────────
+META_TOKEN_MMF   = os.getenv("META_TOKEN_MMF", "")
+META_ACCOUNT_MMF = os.getenv("META_ACCOUNT_ID_MMF", "act_729365124577217")
+CPA_LIMIT        = 75.0
+_cpa_alerts: list = []  # armazena ações do dia
+
+def _meta_api(path: str, method: str = "GET", data: dict = None) -> dict:
+    import urllib.request, urllib.parse
+    url = f"https://graph.facebook.com/v19.0/{path}"
+    if method == "GET":
+        url += ("&" if "?" in url else "?") + f"access_token={META_TOKEN_MMF}"
+        with urllib.request.urlopen(url, timeout=15) as r:
+            return json.loads(r.read())
+    else:
+        params = (data or {})
+        params["access_token"] = META_TOKEN_MMF
+        payload = urllib.parse.urlencode(params).encode()
+        req = urllib.request.Request(url, data=payload, method="POST")
+        with urllib.request.urlopen(req, timeout=15) as r:
+            return json.loads(r.read())
+
+def _run_cpa_monitor():
+    global _cpa_alerts
+    if not META_TOKEN_MMF:
+        return
+    today = datetime.now().strftime("%Y-%m-%d")
+    try:
+        trafego = _wici2_fetch_trafego(date_start=datetime.now().date(),
+                                        date_end=datetime.now().date(), profile="")
+    except Exception as e:
+        print(f"[cpa] Erro ao buscar tráfego: {e}")
+        return
+
+    # Filtra campanhas MMF com CPA > limite e com ao menos 1 venda
+    problemas = [c for c in trafego.get("campanhas", [])
+                 if c["nome"].startswith("MMF") and c.get("cpa") and c["cpa"] > CPA_LIMIT]
+    if not problemas:
+        print(f"[cpa] {today}: nenhuma campanha MMF com CPA > R${CPA_LIMIT}")
+        return
+
+    # Busca IDs das campanhas no Meta
+    try:
+        resp = _meta_api(f"{META_ACCOUNT_MMF}/campaigns?fields=id,name,status,daily_budget&limit=200")
+        meta_map = {c["name"]: c for c in resp.get("data", [])}
+    except Exception as e:
+        print(f"[cpa] Erro ao buscar campanhas Meta: {e}")
+        return
+
+    acoes = []
+    for camp in problemas:
+        nome = camp["nome"]
+        meta = meta_map.get(nome)
+        if not meta or meta["status"] != "ACTIVE":
+            continue
+        camp_id = meta["id"]
+        budget  = meta.get("daily_budget", "5000")
+        try:
+            # Desativa
+            _meta_api(camp_id, "POST", {"status": "PAUSED"})
+            # Cria cópia pausada
+            nova = _meta_api(f"{META_ACCOUNT_MMF}/campaigns", "POST", {
+                "name": nome + "_CPA_COPY",
+                "objective": "OUTCOME_SALES",
+                "status": "PAUSED",
+                "special_ad_categories": "[]",
+                "daily_budget": budget,
+                "bid_strategy": "LOWEST_COST_WITHOUT_CAP",
+            })
+            nova_id = nova.get("id", "")
+            # Copia adsets e ads
+            adsets = _meta_api(f"{camp_id}/adsets?fields=id&limit=20").get("data", [])
+            for ads in adsets:
+                _meta_api(f"{ads['id']}/copies", "POST", {
+                    "campaign_id": nova_id, "status_option": "PAUSED"
+                })
+            acoes.append({
+                "data": today, "campanha": nome,
+                "cpa": round(camp["cpa"], 2),
+                "acao": "Desativada + cópia criada pausada",
+                "nova_id": nova_id,
+            })
+            print(f"[cpa] {nome} | CPA R${camp['cpa']:.2f} > {CPA_LIMIT} → desativada, cópia {nova_id}")
+        except Exception as e:
+            print(f"[cpa] Erro em {nome}: {e}")
+
+    if acoes:
+        _cpa_alerts = acoes + [a for a in _cpa_alerts if a["data"] != today]
+
+def _schedule_cpa_monitor():
+    """Roda o monitor de CPA todo dia às 22h."""
+    def loop():
+        now = datetime.now()
+        target = now.replace(hour=22, minute=0, second=0, microsecond=0)
+        if now >= target:
+            target += timedelta(days=1)
+        wait = (target - now).total_seconds()
+        t = threading.Timer(wait, lambda: (_run_cpa_monitor(), loop()))
+        t.daemon = True
+        t.start()
+    threading.Thread(target=loop, daemon=True).start()
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     start_sync_scheduler()
+    _schedule_cpa_monitor()
     yield
 
 app = FastAPI(lifespan=lifespan)
@@ -2677,6 +2779,16 @@ def _wici2_fetch_lp(date_start=None, date_end=None, profile: str = "") -> dict:
         "lp_b": _lp_build_result(agg_b, WICI2_LP_B_NOME, WICI2_LP_B_URL),
     }
 
+
+@app.get("/api/wici2/cpa-alerts")
+async def get_cpa_alerts(request: Request):
+    return JSONResponse({"alerts": _cpa_alerts})
+
+@app.post("/api/wici2/cpa-monitor/run")
+async def run_cpa_monitor_now(request: Request):
+    """Dispara o monitor de CPA manualmente (para teste)."""
+    await asyncio.to_thread(_run_cpa_monitor)
+    return JSONResponse({"alerts": _cpa_alerts})
 
 @app.get("/api/wici2/lp")
 async def get_wici2_lp(

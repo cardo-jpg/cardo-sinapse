@@ -423,6 +423,12 @@
       <button class="wici-tab"        data-tab="lp"       onclick="setTab(this)">LP</button>
     </div>
 
+    <!-- CPA Alerts -->
+    <div id="cpaAlertsBar" style="display:none; background:#3b0a0a; border:1px solid #ef4444; border-radius:10px; padding:12px 18px; margin-bottom:16px; font-size:.82rem;">
+      <span style="color:#ef4444; font-weight:700; margin-right:10px;">⚠ CPA MONITOR</span>
+      <span id="cpaAlertsText" style="color:#fca5a5;"></span>
+    </div>
+
     <div id="viewDashboard">
     <!-- Gauges -->
     <div class="gauges-row">
@@ -1342,6 +1348,23 @@ async function loadMetrics() {
 
 
 loadMetrics();
+
+// ── CPA Alerts ────────────────────────────────────────────────────────────────
+async function loadCpaAlerts() {
+  try {
+    const res = await fetch('/api/wici2/cpa-alerts');
+    const d = await res.json();
+    const alerts = d.alerts || [];
+    const bar = document.getElementById('cpaAlertsBar');
+    const txt = document.getElementById('cpaAlertsText');
+    if (!alerts.length) { bar.style.display = 'none'; return; }
+    bar.style.display = '';
+    txt.innerHTML = alerts.map(a =>
+      `<b>${a.campanha}</b> — CPA R$${a.cpa} → desativada, cópia criada pausada`
+    ).join(' &nbsp;|&nbsp; ');
+  } catch(_) {}
+}
+loadCpaAlerts();
 
 // ── Tráfego tab ───────────────────────────────────────────────────────────────
 let trafData = null;
