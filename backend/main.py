@@ -534,19 +534,22 @@ def _run_cpa_monitor():
     global _cpa_alerts
     if not META_TOKEN_MMF:
         return
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = datetime.now().date()
+    d_start = today - timedelta(days=1)  # últimas 48h = ontem + hoje
     try:
-        trafego = _wici2_fetch_trafego(date_start=datetime.now().date(),
-                                        date_end=datetime.now().date(), profile="")
+        trafego = _wici2_fetch_trafego(date_start=d_start, date_end=today, profile="")
     except Exception as e:
         print(f"[cpa] Erro ao buscar tráfego: {e}")
         return
 
-    # Filtra campanhas MMF com CPA > limite e com ao menos 1 venda
+    # Regra: campanha MMF que gastou >= R$75 E não teve nenhuma venda nas últimas 48h
+    GASTO_MINIMO = 75.0
     problemas = [c for c in trafego.get("campanhas", [])
-                 if c["nome"].startswith("MMF") and c.get("cpa") and c["cpa"] > CPA_LIMIT]
+                 if c["nome"].startswith("MMF")
+                 and c.get("invest", 0) >= GASTO_MINIMO
+                 and c.get("vendas", 0) == 0]
     if not problemas:
-        print(f"[cpa] {today}: nenhuma campanha MMF com CPA > R${CPA_LIMIT}")
+        print(f"[cpa] {today}: nenhuma campanha MMF com gasto >= R${GASTO_MINIMO} sem vendas nas 48h")
         return
 
     # Busca IDs das campanhas no Meta
@@ -586,11 +589,11 @@ def _run_cpa_monitor():
                 })
             acoes.append({
                 "data": today, "campanha": nome,
-                "cpa": round(camp["cpa"], 2),
+                "investido": round(camp.get("invest", 0), 2),
                 "acao": "Desativada + cópia criada pausada",
                 "nova_id": nova_id,
             })
-            print(f"[cpa] {nome} | CPA R${camp['cpa']:.2f} > {CPA_LIMIT} → desativada, cópia {nova_id}")
+            print(f"[cpa] {nome} | R${camp.get('invest',0):.2f} gasto, 0 vendas → desativada, cópia {nova_id}")
         except Exception as e:
             print(f"[cpa] Erro em {nome}: {e}")
 

@@ -1360,7 +1360,7 @@ async function loadCpaAlerts() {
     if (!alerts.length) { bar.style.display = 'none'; return; }
     bar.style.display = '';
     txt.innerHTML = alerts.map(a =>
-      `<b>${a.campanha}</b> — CPA R$${a.cpa} → desativada, cópia criada pausada`
+      `<b>${a.campanha}</b> — R$${a.investido} gasto, 0 vendas em 48h → desativada, cópia pausada`
     ).join(' &nbsp;|&nbsp; ');
   } catch(_) {}
 }
