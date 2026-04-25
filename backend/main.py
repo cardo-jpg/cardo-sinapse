@@ -18,6 +18,7 @@ from fastapi import FastAPI, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi.middleware.cors import CORSMiddleware
 import anthropic
 from google.oauth2 import service_account
 from googleapiclient.discovery import build as gapi_build
@@ -42,7 +43,8 @@ STATIC_DIR = BASE_DIR / "frontend" / "static"
 CONVS_DIR.mkdir(parents=True, exist_ok=True)
 
 SECRET_KEY           = os.getenv("SECRET_KEY", "sinapse-secret-2026")
-GREENN_WEBHOOK_TOKEN = os.getenv("GREENN_WEBHOOK_TOKEN", "")
+GREENN_WEBHOOK_TOKEN    = os.getenv("GREENN_WEBHOOK_TOKEN", "")
+RD_STATION_CRM_TOKEN   = os.getenv("RD_STATION_CRM_TOKEN", "69ec14e6208dc300173fc00c")
 USERS = {
     "victor": os.getenv("USER_VICTOR_PASSWORD", "C@rdobrain2026"),
     "jose":   os.getenv("USER_JOSE_PASSWORD",   "C@rdosinapse2026"),
@@ -621,6 +623,12 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://lp.dftlogistica.com.br"],
+    allow_methods=["POST"],
+    allow_headers=["Content-Type"],
+)
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
@@ -4120,6 +4128,40 @@ async def greenn_webhook(request: Request):
     except Exception as e:
         print(f"[greenn] erro: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/webhook/dft-lead")
+async def dft_lead(request: Request):
+    try:
+        body = await request.json()
+        name  = body.get("name", "").strip()
+        email = body.get("email", "").strip()
+        phone = body.get("phone", "").strip()
+
+        if not email:
+            raise HTTPException(status_code=400, detail="email obrigatório")
+
+        payload = {
+            "contact": {
+                "name": name,
+                "emails": [{"email": email}],
+                "phones": [{"phone": phone}] if phone else [],
+            }
+        }
+        async with httpx.AsyncClient() as c:
+            resp = await c.post(
+                f"https://crm.rdstation.com/api/v1/contacts?token={RD_STATION_CRM_TOKEN}",
+                json=payload,
+                timeout=10,
+            )
+        print(f"[dft-lead] {email} → RD Station {resp.status_code}")
+        return JSONResponse({"ok": True, "status": resp.status_code})
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[dft-lead] erro: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/logs", response_class=HTMLResponse)
 async def view_logs(request: Request):
