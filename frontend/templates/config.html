@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configurações · Sinapse</title>
+  <link rel="stylesheet" href="/static/style.css?v=2">
+  <style>
+    [x-cloak] { display: none !important; }
+
+    /* ── layout ─────────────────────────────────────────────────────────────── */
+    body { overflow: hidden; }
+
+    /* ── page header ─────────────────────────────────────────────────────────── */
+    .cfg-header {
+      margin-bottom: 32px;
+    }
+    .cfg-header h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--text);
+      margin: 0 0 4px;
+    }
+    .cfg-header p {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin: 0;
+    }
+
+    /* ── section ─────────────────────────────────────────────────────────────── */
+    .cfg-section-title {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 12px;
+    }
+
+    /* ── card ────────────────────────────────────────────────────────────────── */
+    .cfg-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+
+    /* ── table ───────────────────────────────────────────────────────────────── */
+    .cfg-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+    .cfg-table thead th {
+      text-align: left;
+      color: var(--muted);
+      font-weight: 500;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding: 0 12px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .cfg-table thead th:first-child { padding-left: 0; }
+    .cfg-table tbody tr {
+      border-bottom: 1px solid var(--border);
+    }
+    .cfg-table tbody tr:last-child { border-bottom: none; }
+    .cfg-table tbody td {
+      padding: 13px 12px;
+      color: var(--text);
+      vertical-align: middle;
+    }
+    .cfg-table tbody td:first-child { padding-left: 0; }
+
+    .cfg-username {
+      font-weight: 600;
+      color: var(--text);
+    }
+    .cfg-display-name {
+      color: var(--muted);
+      font-size: 0.82rem;
+      margin-top: 2px;
+    }
+    .cfg-date {
+      color: var(--muted);
+      font-size: 0.82rem;
+      white-space: nowrap;
+    }
+
+    /* ── action buttons ──────────────────────────────────────────────────────── */
+    .cfg-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: none;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 500;
+      padding: 6px 12px;
+      transition: opacity 0.15s, background 0.15s;
+      white-space: nowrap;
+    }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+
+    .btn-ghost {
+      background: #ffffff0a;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover:not(:disabled) { background: #ffffff14; color: var(--text); }
+
+    .btn-danger {
+      background: #3a1a1a;
+      color: #ef5350;
+      border: 1px solid #5a2a2a;
+    }
+    .btn-danger:hover:not(:disabled) { background: #4a2020; }
+
+    /* ── inline reset form ───────────────────────────────────────────────────── */
+    .cfg-inline-reset {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+      flex-wrap: wrap;
+    }
+    .cfg-inline-reset input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text);
+      font-size: 0.8rem;
+      padding: 5px 10px;
+      outline: none;
+      width: 180px;
+      transition: border-color 0.15s;
+    }
+    .cfg-inline-reset input:focus { border-color: var(--accent); }
+    .cfg-inline-reset input::placeholder { color: var(--muted); }
+
+    /* ── new user form ───────────────────────────────────────────────────────── */
+    .cfg-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr auto;
+      gap: 10px;
+      align-items: end;
+    }
+    @media (max-width: 860px) {
+      .cfg-form { grid-template-columns: 1fr 1fr; }
+      .cfg-form .btn { grid-column: span 2; justify-content: center; }
+    }
+
+    .cfg-field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .cfg-label {
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .cfg-input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text);
+      font-size: 0.875rem;
+      padding: 8px 12px;
+      outline: none;
+      transition: border-color 0.15s;
+      font-family: inherit;
+    }
+    .cfg-input:focus { border-color: var(--accent); }
+    .cfg-input::placeholder { color: var(--muted); }
+
+    /* ── empty state ─────────────────────────────────────────────────────────── */
+    .cfg-empty {
+      text-align: center;
+      padding: 32px 16px;
+      color: var(--muted);
+      font-size: 0.875rem;
+    }
+
+    /* ── loading spinner ─────────────────────────────────────────────────────── */
+    .cfg-spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid #ffffff30;
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── toast ───────────────────────────────────────────────────────────────── */
+    .cfg-toast {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      z-index: 9999;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      pointer-events: none;
+      transition: opacity 0.25s, transform 0.25s;
+    }
+    .cfg-toast.success {
+      background: #1a3a1a;
+      border: 1px solid #2d5a2d;
+      color: #6fcf6f;
+    }
+    .cfg-toast.error {
+      background: #3a1a1a;
+      border: 1px solid #5a2a2a;
+      color: #ef5350;
+    }
+  </style>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+</head>
+<body>
+<div class="sinapse-shell">
+  {% include "_sidebar.html" %}
+
+  <main class="sinapse-main" x-data="configApp()" x-init="init()" style="padding: 32px 40px; overflow-y: auto; flex: 1;">
+
+    <!-- ── header ──────────────────────────────────────────────────────────── -->
+    <div class="cfg-header">
+      <h1>Configurações</h1>
+      <p>Gerencie os acessos e usuários da plataforma.</p>
+    </div>
+
+    <!-- ── acessos section ─────────────────────────────────────────────────── -->
+    <p class="cfg-section-title">Acessos</p>
+
+    <!-- users table card -->
+    <div class="cfg-card">
+      <template x-if="loading">
+        <div class="cfg-empty">
+          <span class="cfg-spinner"></span>
+          <span style="margin-left: 8px; color: var(--muted);">Carregando usuários…</span>
+        </div>
+      </template>
+
+      <template x-if="!loading && users.length === 0">
+        <div class="cfg-empty">Nenhum usuário encontrado.</div>
+      </template>
+
+      <template x-if="!loading && users.length > 0">
+        <table class="cfg-table">
+          <thead>
+            <tr>
+              <th>Usuário</th>
+              <th>Nome</th>
+              <th>Criado em</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="user in users" :key="user.username">
+              <tr>
+                <!-- username + display name -->
+                <td>
+                  <div class="cfg-username" x-text="user.username"></div>
+                </td>
+                <td>
+                  <div class="cfg-display-name" x-text="user.display_name || '—'"></div>
+                </td>
+                <!-- created at -->
+                <td>
+                  <div class="cfg-date" x-text="formatDate(user.created_at)"></div>
+                </td>
+                <!-- actions -->
+                <td>
+                  <div class="cfg-actions">
+                    <!-- reset password toggle -->
+                    <button
+                      class="btn btn-ghost"
+                      @click="resetTarget = (resetTarget === user.username ? null : user.username); resetPwd.password = ''"
+                    >
+                      <span x-text="resetTarget === user.username ? 'Cancelar' : 'Reset senha'"></span>
+                    </button>
+
+                    <!-- delete -->
+                    <button
+                      class="btn btn-danger"
+                      :disabled="user.username === 'victor'"
+                      @click="deleteUser(user.username)"
+                      :title="user.username === 'victor' ? 'Usuário protegido' : 'Excluir usuário'"
+                    >
+                      Excluir
+                    </button>
+                  </div>
+
+                  <!-- inline reset form -->
+                  <div class="cfg-inline-reset" x-show="resetTarget === user.username" x-cloak>
+                    <input
+                      type="password"
+                      class="cfg-input"
+                      placeholder="Nova senha"
+                      x-model="resetPwd.password"
+                      @keydown.enter="resetPassword()"
+                      style="padding: 5px 10px; font-size: 0.8rem;"
+                    >
+                    <button
+                      class="btn btn-primary"
+                      @click="resetPassword()"
+                      :disabled="!resetPwd.password"
+                      style="padding: 6px 12px;"
+                    >
+                      Confirmar
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </template>
+    </div>
+
+    <!-- novo usuário form card -->
+    <p class="cfg-section-title" style="margin-top: 28px;">Novo usuário</p>
+    <div class="cfg-card">
+      <div class="cfg-form">
+        <div class="cfg-field">
+          <label class="cfg-label">Usuário</label>
+          <input
+            type="text"
+            class="cfg-input"
+            placeholder="ex: joao"
+            x-model="newUser.username"
+            @input="newUser.username = newUser.username.toLowerCase().replace(/\s/g, '')"
+            autocomplete="off"
+            spellcheck="false"
+          >
+        </div>
+        <div class="cfg-field">
+          <label class="cfg-label">Nome de exibição</label>
+          <input
+            type="text"
+            class="cfg-input"
+            placeholder="ex: João Silva"
+            x-model="newUser.display_name"
+            autocomplete="off"
+          >
+        </div>
+        <div class="cfg-field">
+          <label class="cfg-label">Senha</label>
+          <input
+            type="password"
+            class="cfg-input"
+            placeholder="••••••••"
+            x-model="newUser.password"
+            @keydown.enter="createUser()"
+            autocomplete="new-password"
+          >
+        </div>
+        <div>
+          <button
+            class="btn btn-primary"
+            style="height: 38px; padding: 0 20px;"
+            @click="createUser()"
+            :disabled="creating || !newUser.username || !newUser.password"
+          >
+            <span x-show="creating" class="cfg-spinner" style="border-top-color: #fff; border-color: #ffffff30;"></span>
+            <span x-text="creating ? 'Criando…' : 'Criar usuário'"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── toast ───────────────────────────────────────────────────────────── -->
+    <div
+      class="cfg-toast"
+      :class="toast.type"
+      x-show="toast.msg"
+      x-text="toast.msg"
+      x-cloak
+    ></div>
+
+  </main>
+</div>
+
+<script>
+function configApp() {
+  return {
+    users: [],
+    loading: false,
+    newUser: { username: '', display_name: '', password: '' },
+    creating: false,
+    resetPwd: { username: '', password: '' },
+    resetTarget: null,
+    toast: { msg: '', type: '' },
+
+    init() {
+      this.loadUsers();
+    },
+
+    async loadUsers() {
+      this.loading = true;
+      try {
+        const res = await fetch('/api/admin/users');
+        if (!res.ok) {
+          const e = await res.json();
+          throw new Error(e.detail || 'Erro ao carregar usuários');
+        }
+        this.users = await res.json();
+      } catch (err) {
+        this.showToast(err.message, 'error');
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async createUser() {
+      if (!this.newUser.username || !this.newUser.password) return;
+      this.creating = true;
+      try {
+        const res = await fetch('/api/admin/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(this.newUser),
+        });
+        if (!res.ok) {
+          const e = await res.json();
+          throw new Error(e.detail || 'Erro ao criar usuário');
+        }
+        await res.json();
+        this.newUser = { username: '', display_name: '', password: '' };
+        await this.loadUsers();
+        this.showToast('Usuário criado com sucesso.', 'success');
+      } catch (err) {
+        this.showToast(err.message, 'error');
+      } finally {
+        this.creating = false;
+      }
+    },
+
+    async deleteUser(username) {
+      if (!confirm(`Excluir o usuário "${username}"? Esta ação não pode ser desfeita.`)) return;
+      try {
+        const res = await fetch(`/api/admin/users/${username}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (!res.ok) {
+          const e = await res.json();
+          throw new Error(e.detail || 'Erro ao excluir usuário');
+        }
+        await res.json();
+        await this.loadUsers();
+        this.showToast(`Usuário "${username}" excluído.`, 'success');
+      } catch (err) {
+        this.showToast(err.message, 'error');
+      }
+    },
+
+    async resetPassword() {
+      if (!this.resetTarget || !this.resetPwd.password) return;
+      try {
+        const res = await fetch(`/api/admin/users/${this.resetTarget}/password`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: this.resetPwd.password }),
+        });
+        if (!res.ok) {
+          const e = await res.json();
+          throw new Error(e.detail || 'Erro ao redefinir senha');
+        }
+        await res.json();
+        this.resetTarget = null;
+        this.resetPwd.password = '';
+        this.showToast('Senha redefinida com sucesso.', 'success');
+      } catch (err) {
+        this.showToast(err.message, 'error');
+      }
+    },
+
+    showToast(msg, type = 'success') {
+      this.toast = { msg, type };
+      setTimeout(() => { this.toast = { msg: '', type: '' }; }, 3000);
+    },
+
+    formatDate(raw) {
+      if (!raw) return '—';
+      try {
+        const d = new Date(raw);
+        return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      } catch {
+        return raw;
+      }
+    },
+  };
+}
+</script>
+</body>
+</html>

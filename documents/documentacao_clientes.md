@@ -925,7 +925,7 @@ Leads totais (ads + orgânico): 1.674 (741 ads + 933 orgânico)
 
 [Erro ao buscar página: 404]
 
-## Ficha - SRW - SpeedRack West
+## Ficha - SRW - Speedrack West
 
 *(sem conteúdo)*
 
@@ -934,6 +934,174 @@ Leads totais (ads + orgânico): 1.674 (741 ads + 933 orgânico)
 [Erro ao buscar página: 404]
 
 ## Ficha - SCALE - Scale Army
+
+# \[SCALE\] Scale Army — Ficha do Cliente
+
+**Nome completo:** Scale Army
+**Site:** [https://scalearmy.com/](https://scalearmy.com/)
+**Plataforma de vagas (candidatos):** [https://careers.scalearmy.com/](https://careers.scalearmy.com/)
+**Status:** Ativo
+* * *
+
+## Segmento e Produto
+
+*   **Segmento/Nicho:** B2B Staffing & Recruiting — alocação de talentos internacionais (LatAm e África do Sul) para empresas dos EUA e países de língua inglesa
+*   **Modelo de negócio:** Retainer mensal por contratação ativa
+    *   Cliente (empresa) paga: ~$1.500–$8.000/mês por talento contratado
+    *   Talento recebe: ~$800–$3.000/mês
+    *   Margem Scale Army: ~$700–$1.400/mês por placement
+*   **Produtos:**
+    *   **Scale Army (principal)** — recrutamento e alocação de talentos LatAm/SA para empresas americanas (produto B2B, pago por empresa cliente)
+    *   **Scale Army Careers (SAC)** — plataforma do lado dos candidatos (talentos buscando vagas)
+    *   **Upcraft** — novo produto em desenvolvimento
+*   **Estrutura interna (Pods):**
+    *   Pod 1 — Revenue Drivers
+    *   Pod 2 — Growth & Brand
+    *   Pod 3 — Product Builders
+    *   Pod 4 — Bulk Hiring
+*   **Diferencial competitivo:**
+    *   Talentos LatAm/SA qualificados a custo menor que contratações locais nos EUA
+    *   Processo seletivo gerenciado pela Scale Army (ATS próprio via Ashby)
+    *   Suporte contínuo pós-contratação (gestão do retainer)
+*   **Ferramentas:** HubSpot (CRM) | Ashby (ATS) | Meta Ads | LinkedIn Ads | X Ads | Google Ads | Looker Studio
+* * *
+
+## Público-Alvo
+
+### Empresas clientes (foco dos anúncios pagos)
+
+*   **Perfil:** Empresas americanas (SMBs e mid-market) que precisam contratar talentos internacionais a custo competitivo
+*   **Abrangência:** EUA, Canadá, Reino Unido e países de língua inglesa
+*   **Dores principais:**
+    *   Custo alto de contratações locais nos EUA
+    *   Dificuldade para encontrar talentos qualificados rapidamente
+    *   Falta de processo estruturado para contratar internacionalmente
+*   **Motivação de compra:** Redução de custo de folha + acesso a talentos qualificados sem abrir filial no exterior
+
+### Candidatos (talent pool)
+
+*   **Perfil:** Profissionais de LatAm e África do Sul com inglês avançado buscando trabalho remoto com empresas dos EUA
+*   **Canal:** [careers.scalearmy.com](http://careers.scalearmy.com) + LinkedIn orgânico
+* * *
+
+## Plataformas Ativas (Paid Media)
+
+- [x] Meta Ads (Facebook/Instagram) — canal principal
+- [x] LinkedIn Ads — usado pontualmente
+- [x] X (Twitter) Ads — usado em 2024/início 2025, reduzido depois
+- [x] Google Ads — adicionado em meados de 2025
+- [ ] TikTok Ads
+* * *
+
+## Objetivos e Budget
+
+*   **Objetivo principal (paid media):** Geração de leads B2B → agendamento de reunião de vendas (meeting booked)
+*   **KPI primário:** Cost per Meeting Booked (CPMB)
+*   **OKR declarado:** Escalar investimento para $100k/mês | Trazer CPMB abaixo de $200
+*   **Budget mensal médio (2025):**
+    *   Meta: ~$10k (jan) → cresceu até ~$43k (out) | Total anual 2025: ~$179k
+    *   X (Twitter): ~$22k total em 2025 (descontinuado em abr–jun, retomado parcialmente)
+    *   LinkedIn: ~$3,5k total em 2025 (uso pontual)
+    *   Google: ~$8,3k total em 2025 (adicionado em jul/2025)
+*   **Budget jan/2026:** Meta $40k | LinkedIn $5k | X $5k | Google $5k ≈ $55k/mês
+* * *
+
+## Resultados de Referência
+
+### Performance trimestral — Paid Media (Meta + X + LinkedIn + Google)
+
+| Trimestre | Ad Spend | Leads | Meetings Booked | CPL | CPMB |
+| ---| ---| ---| ---| ---| --- |
+| Q1 (referência) | $59.264 | 388 | 152 | $152,74 | $389,89 |
+| Q2 (referência) | $19.260 | 222 | 102 | $86,76 | $188,82 |
+| Q3 (referência) | $50.724 | 212 | 84 | $239,26 | $603,86 |
+
+> **Q2 = melhor trimestre histórico** — menor gasto, melhor CPMB ($188). Q3 mostrou deterioração com CPMB acima de $600.
+
+### Histórico semanal — Cost per Meeting Booked
+
+*   **Melhores semanas (early 2024):** $39–$61 por meeting
+*   **Semanas medianas (2024):** $96–$200
+*   **Pior período (2025/2026):** $500–$1.997 por meeting
+*   **Meta OKR:** ≤ $200 de forma consistente
+
+### Contexto jan/2026
+
+*   Performance caiu significativamente em janeiro de 2026
+*   CPMB muito acima da meta; pipeline de vendas aquém do esperado
+*   Problema identificado: criativos desatualizados, segmentação e/ou oferta precisam de revisão
+* * *
+
+## Time Scale Army
+
+| Nome | Cargo | Relevância |
+| ---| ---| --- |
+| Alex | CEO | Decisor principal |
+| Clara | Head of Marketing | Ponto de contato principal (tráfego) |
+| Ali | Marketing Manager | Operação de marketing diária |
+| Dijah | Head of Revenue Growth | Estratégia de receita |
+| Mira | Head of Inbound Sales | Pipeline de vendas |
+| Isaac | SDR | Prospecção ativa |
+| Rafael | Video | Produção de criativos em vídeo |
+| Nico | Design / CRO | Design e otimização de conversão |
+| Seif | HubSpot | Operação de CRM |
+
+* * *
+
+## Tom de Comunicação
+
+*   **Tom:** Direto, orientado a ROI — foco em resultado para a empresa cliente
+*   Narrativa B2B: **economia de custo + velocidade de contratação + qualidade do talento**
+*   Sem "face/expert" — comunicação institucional da marca Scale Army
+*   Criativos e copy em **inglês** (público americano)
+*   Provas sociais: empresas que contrataram + histórias de placements bem-sucedidos
+* * *
+
+## Estratégia de Campanhas
+
+### Funil B2B (sempre ativo)
+
+*   **Topo:** Awareness — "contrate talentos LatAm/SA qualificados por menos"
+*   **Meio:** Lead gen — formulários, landing pages, agendamento de call/demo
+*   **Fundo:** SDR (Isaac) → reunião → proposta → fechamento no HubSpot
+
+### Canais por prioridade
+
+1. **Meta Ads** — maior volume e investimento; criativo em vídeo + imagem; Rafael e Nico produzem internamente
+2. **LinkedIn Ads** — público mais qualificado (decisores de RH, CEOs); CPL maior mas intenção mais alta
+3. **Google Ads** — captura de demanda ativa (busca: "hire latin american talent", "remote staffing", etc.)
+4. **X Ads** — awareness; performance variável, uso reduzido em períodos de otimização
+* * *
+
+## ✅ O que FUNCIONA
+
+*   **Meta Ads com criativos em vídeo** — equipe interna de produção (Rafael + Nico) é ativo estratégico
+*   **Funil direto lead → meeting** — o caminho mais curto que converte
+*   **Q2 histórico** — CPMB abaixo de $200 com ~$19k/mês prova que eficiência é possível; problema é de criativo/segmentação, não de produto
+*   **Proposta de valor clara** — custo-benefício para empresas americanas é facilmente quantificável
+* * *
+
+## ❌ O que NÃO FUNCIONA
+
+*   **Escalar budget sem criativo validado** — Q3 ($50k gasto, CPMB >$600) mostra que aumentar verba sem criativo que converte piora os números
+*   **X Ads em volumes altos** — histórico inconsistente; descontinuado em períodos de otimização
+*   **Segmentação ampla** — audiences largas geram leads baratos mas meetings caros (o KPI que importa)
+* * *
+
+## ⚠️ Observações Importantes
+
+*   **Projeto em inglês** — todos os criativos, landing pages e comunicação são em inglês
+*   **KPI de sucesso é meeting booked**, não lead — lead que não agenda reunião tem valor próximo de zero
+*   **Ficha criada em mar/2026** — aguardando histórico mais completo de performance com a Cardô
+*   **Planilhas de referência locais:** `SA - Business Health Dash.xlsx` (KPIs semanais, budget) | `ALL SALES DATABASE.xlsx` (placements ativos)
+*   **Contato principal operacional:** Clara (Head of Marketing)
+*   **Contato estratégico:** Alex (CEO)
+
+## Ata - Cliente DFT
+
+[Erro ao buscar página: 404]
+
+## Ficha - DFT - DFT Logística
 
 [Erro ao buscar página: 404]
 

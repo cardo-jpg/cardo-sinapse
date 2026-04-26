@@ -1,5 +1,5 @@
 # Google Ads — Hire Brazil — Funil Ebook 7 Erros [HIRE_EBOOK7]
-**Atualizado em:** 17/04/2026 17:06
+**Atualizado em:** 25/04/2026 23:43
 
 | Date | Campanha | Investido | Leads | Vendas | Faturamento |
 |---|---|---|---|---|---|
@@ -244,15 +244,27 @@
 | 29/03/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 80,31 | 35 | 0 | R$ 0,00 |  |  |  |  |  | 29/03/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 80,31 | 35 | 0 | R$ 0,00 |
 | 30/03/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 43,20 | 14 | 0 | R$ 0,00 |  |  |  |  |  | 30/03/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 43,20 | 14 |
 | 31/03/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 13,71 | 4 | 0 | R$ 0,00 |  |  |  |  |  | 31/03/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 13,71 | 4 |
-| 01/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 85,63 | 25 | 0 | R$ 0,00 |  |  |  |  |  | 01/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 12,15 | 9 |
-| 02/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 85,36 | 26 | 0 | R$ 0,00 |  |  |  |  |  | 02/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 12,37 | 13 |
-| 03/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 100,00 | 55 | 0 | R$ 0,00 |  |  |  |  |  | 03/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 14,45 | 15 |
-| 04/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 55,36 | 25 | 0 | R$ 0,00 |  |  |  |  |  | 04/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 14,52 | 7 |
-| 05/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 56,36 | 35 | 0 | R$ 0,00 |  |  |  |  |  | 05/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 15,62 | 7 |
-| 06/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 26,30 | 25 | 0 | R$ 0,00 |  |  |  |  |  | 06/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 13,88 | 9 |
-| 07/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 35,00 | 20 | 0 | R$ 0,00 |  |  |  |  |  | 07/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 14,99 | 11 |
-| 08/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 37,32 | 11 | 0 | R$ 0,00 |
-| 09/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 25,30 | 3 | 0 | R$ 0,00 |
-| 10/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 25,36 | 5 | 0 | R$ 0,00 |
-| 11/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 25,00 | 9 | 0 | R$ 0,00 |
+| 01/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 12,15 | 9 | 0 | R$ 0,00 |  |  |  |  |  | 01/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 12,15 | 9 |
+| 02/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 12,37 | 13 | 0 | R$ 0,00 |  |  |  |  |  | 02/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 12,37 | 13 |
+| 03/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 14,45 | 15 | 0 | R$ 0,00 |  |  |  |  |  | 03/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 14,45 | 15 |
+| 04/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 14,52 | 7 | 0 | R$ 0,00 |  |  |  |  |  | 04/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 14,52 | 7 |
+| 05/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 15,62 | 7 | 0 | R$ 0,00 |  |  |  |  |  | 05/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 15,62 | 7 |
+| 06/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 13,88 | 9 | 0 | R$ 0,00 |  |  |  |  |  | 06/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 13,88 | 9 |
+| 07/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 14,99 | 11 | 0 | R$ 0,00 |  |  |  |  |  | 07/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 14,99 | 11 |
+| 08/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 14,15 | 11 | 0 | R$ 0,00 |
+| 09/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 10,34 | 3 | 0 | R$ 0,00 |
+| 10/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 12,33 | 5 | 0 | R$ 0,00 |
+| 11/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 15,40 | 9 | 0 | R$ 0,00 |
 | 12/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 14,20 | 4 | 0 | R$ 0,00 |
+| 13/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 10,91 | 9 | 0 | R$ 0,00 |
+| 14/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 9,65 | 6 | 0 | R$ 0,00 |
+| 15/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 39,81 | 17 | 0 | R$ 0,00 |
+| 16/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 61,50 | 15 | 0 | R$ 0,00 |
+| 17/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 67,39 | 15 | 0 | R$ 0,00 |
+| 18/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 75,07 | 26 | 0 | R$ 0,00 |
+| 19/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 78,23 | 43 |  |  |
+| 20/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 85,21 | 31 |  |  |
+| 21/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 60,29 | 21 |  |  |
+| 22/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 64,61 | 31 |  |  |
+| 23/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 62,37 | 29 |  |  |
+| 24/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 66,40 | 36 |  |  |

@@ -1,5 +1,5 @@
 # Google Ads — Hire Brazil — Funil IG Hire [HIRE_IG_HIRE]
-**Atualizado em:** 17/04/2026 17:06
+**Atualizado em:** 25/04/2026 23:43
 
 | Date | Investido | Seguidores | Vendas | Faturamento |
 |---|---|---|---|---|

@@ -4,6 +4,7 @@ import json
 import uuid
 import hmac
 import hashlib
+import sqlite3
 import asyncio
 import httpx
 import threading
@@ -22,6 +23,9 @@ from fastapi.middleware.cors import CORSMiddleware
 import anthropic
 from google.oauth2 import service_account
 from googleapiclient.discovery import build as gapi_build
+from backend.gestao import router as gestao_router, init_db as gestao_init_db
+from backend.financeiro import router as financeiro_router, init_db as financeiro_init_db
+from backend.fin_pessoais import router as fp_router, init_db as fp_init_db
 
 load_dotenv()
 
@@ -618,6 +622,10 @@ def _schedule_cpa_monitor():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _init_users_db()
+    gestao_init_db()
+    financeiro_init_db()
+    fp_init_db()
     start_sync_scheduler()
     _schedule_cpa_monitor()
     yield
@@ -629,6 +637,9 @@ app.add_middleware(
     allow_methods=["POST"],
     allow_headers=["Content-Type"],
 )
+app.include_router(gestao_router)
+app.include_router(financeiro_router)
+app.include_router(fp_router)
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
@@ -1211,6 +1222,75 @@ def list_conversations():
         })
     return convs[:40]
 
+# ── User DB ───────────────────────────────────────────────────────────────────
+_USERS_DB_PATH = BASE_DIR / "data" / "users.db"
+_ADMIN_USERS       = {"victor"}
+_FIN_PESSOAIS_USERS = {"victor", "jadna"}
+
+def _users_db_conn():
+    conn = sqlite3.connect(_USERS_DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def _hash_pwd(password: str) -> str:
+    import os as _os
+    salt = _os.urandom(16)
+    key = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 100_000)
+    return salt.hex() + ":" + key.hex()
+
+def _check_pwd(password: str, stored: str) -> bool:
+    try:
+        salt_hex, key_hex = stored.split(":")
+        salt = bytes.fromhex(salt_hex)
+        key = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 100_000)
+        return hmac.compare_digest(key.hex(), key_hex)
+    except Exception:
+        return False
+
+def _db_get_user(username: str) -> Optional[dict]:
+    try:
+        con = _users_db_conn()
+        row = con.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
+        con.close()
+        return dict(row) if row else None
+    except Exception:
+        return None
+
+def _db_all_users() -> list:
+    try:
+        con = _users_db_conn()
+        rows = con.execute("SELECT username, display_name, created_at FROM users ORDER BY created_at").fetchall()
+        con.close()
+        return [dict(r) for r in rows]
+    except Exception:
+        return []
+
+def _init_users_db():
+    _USERS_DB_PATH.parent.mkdir(exist_ok=True)
+    con = _users_db_conn()
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            username     TEXT PRIMARY KEY,
+            display_name TEXT NOT NULL,
+            password_hash TEXT NOT NULL,
+            created_at   TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    con.commit()
+    # Migrate hardcoded users
+    for uname, pwd in USERS.items():
+        if not con.execute("SELECT 1 FROM users WHERE username=?", (uname,)).fetchone():
+            display = USER_DISPLAY.get(uname, uname.capitalize())
+            con.execute("INSERT INTO users (username, display_name, password_hash) VALUES (?,?,?)",
+                        (uname, display, _hash_pwd(pwd)))
+    # Ensure jadna exists
+    if not con.execute("SELECT 1 FROM users WHERE username='jadna'").fetchone():
+        con.execute("INSERT INTO users (username, display_name, password_hash) VALUES (?,?,?)",
+                    ("jadna", "Jadna", _hash_pwd("Sinapse@2026")))
+    con.commit()
+    con.close()
+
+
 def make_session_token(username: str) -> str:
     sig = hmac.new(SECRET_KEY.encode(), username.encode(), hashlib.sha256).hexdigest()
     return f"{username}:{sig}"
@@ -1221,22 +1301,31 @@ def verify_session(request: Request) -> Optional[str]:
         return None
     username, sig = cookie.split(":", 1)
     expected = hmac.new(SECRET_KEY.encode(), username.encode(), hashlib.sha256).hexdigest()
-    if hmac.compare_digest(sig, expected) and username in USERS:
-        return username
-    return None
+    if not hmac.compare_digest(sig, expected):
+        return None
+    return username if _db_get_user(username) else None
 
 # ── Rotas ─────────────────────────────────────────────────────────────────────
 
 def _nav_base(request: Request, active_page: str = "") -> dict:
     username = verify_session(request) or ""
-    display = USER_DISPLAY.get(username, username.capitalize()) if username else ""
-    return {"nav_username": display, "active_page": active_page, "nav_clients": None, "nav_current_client": None}
+    user = _db_get_user(username) if username else None
+    display = user["display_name"] if user else ""
+    return {
+        "nav_username": display,
+        "nav_user": username,
+        "nav_is_admin": username in _ADMIN_USERS,
+        "nav_fin_pessoais": username in _FIN_PESSOAIS_USERS,
+        "active_page": active_page,
+        "nav_clients": None,
+        "nav_current_client": None,
+    }
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     if not verify_session(request):
         return RedirectResponse("/login")
-    return templates.TemplateResponse("home.html", {"request": request, **_nav_base(request, "home")})
+    return RedirectResponse("/gestao")
 
 @app.get("/conversar", response_class=HTMLResponse)
 async def conversar(request: Request):
@@ -1256,7 +1345,8 @@ async def login_page(request: Request):
 
 @app.post("/login")
 async def login(username: str = Form(...), password: str = Form(...)):
-    if USERS.get(username) == password:
+    user = _db_get_user(username)
+    if user and _check_pwd(password, user["password_hash"]):
         token = make_session_token(username)
         response = RedirectResponse("/", status_code=303)
         response.set_cookie("session", token, max_age=86400 * 7)
@@ -1268,6 +1358,87 @@ async def logout():
     response = RedirectResponse("/login", status_code=303)
     response.delete_cookie("session")
     return response
+
+
+
+@app.get("/config", response_class=HTMLResponse)
+async def config_page(request: Request):
+    username = verify_session(request)
+    if not username:
+        return RedirectResponse("/login")
+    if username not in _ADMIN_USERS:
+        raise HTTPException(status_code=403, detail="Acesso restrito")
+    return templates.TemplateResponse("config.html", {"request": request, **_nav_base(request, "config")})
+
+# ── Admin: User Management API ────────────────────────────────────────────────
+def _require_admin(request: Request) -> str:
+    username = verify_session(request)
+    if not username:
+        raise HTTPException(status_code=401, detail="Não autenticado")
+    if username not in _ADMIN_USERS:
+        raise HTTPException(status_code=403, detail="Acesso restrito")
+    return username
+
+@app.get("/api/admin/users")
+async def admin_list_users(request: Request):
+    _require_admin(request)
+    return _db_all_users()
+
+@app.post("/api/admin/users")
+async def admin_create_user(request: Request):
+    _require_admin(request)
+    body = await request.json()
+    username = (body.get("username") or "").strip().lower()
+    display  = (body.get("display_name") or "").strip()
+    password = body.get("password") or ""
+    if not username or not display or not password:
+        raise HTTPException(400, "username, display_name e password são obrigatórios")
+    if not username.replace("_", "").replace(".", "").isalnum():
+        raise HTTPException(400, "Username deve conter apenas letras, números, _ ou .")
+    if len(password) < 6:
+        raise HTTPException(400, "Senha deve ter ao menos 6 caracteres")
+    con = _users_db_conn()
+    try:
+        if con.execute("SELECT 1 FROM users WHERE username=?", (username,)).fetchone():
+            raise HTTPException(400, "Usuário já existe")
+        con.execute("INSERT INTO users (username, display_name, password_hash) VALUES (?,?,?)",
+                    (username, display, _hash_pwd(password)))
+        con.commit()
+        return {"ok": True}
+    finally:
+        con.close()
+
+@app.put("/api/admin/users/{username}/password")
+async def admin_reset_password(username: str, request: Request):
+    _require_admin(request)
+    body = await request.json()
+    password = body.get("password") or ""
+    if len(password) < 6:
+        raise HTTPException(400, "Senha deve ter ao menos 6 caracteres")
+    con = _users_db_conn()
+    try:
+        if not con.execute("SELECT 1 FROM users WHERE username=?", (username,)).fetchone():
+            raise HTTPException(404, "Usuário não encontrado")
+        con.execute("UPDATE users SET password_hash=? WHERE username=?", (_hash_pwd(password), username))
+        con.commit()
+        return {"ok": True}
+    finally:
+        con.close()
+
+@app.delete("/api/admin/users/{username}")
+async def admin_delete_user(username: str, request: Request):
+    caller = _require_admin(request)
+    if username == caller:
+        raise HTTPException(400, "Não é possível excluir seu próprio usuário")
+    if username in _ADMIN_USERS:
+        raise HTTPException(400, "Não é possível excluir um administrador")
+    con = _users_db_conn()
+    try:
+        con.execute("DELETE FROM users WHERE username=?", (username,))
+        con.commit()
+        return {"ok": True}
+    finally:
+        con.close()
 
 @app.get("/api/conversations")
 async def get_conversations(request: Request):
@@ -1958,6 +2129,9 @@ async def trafego_page(request: Request, client: str = None):
         "clients_info": json.dumps(clients_info),
         "selected_client": selected_client,
         "nav_username": USER_DISPLAY.get(username, username.capitalize() if username else ""),
+        "nav_user": username or "",
+        "nav_is_admin": (username or "") in _ADMIN_USERS,
+        "nav_fin_pessoais": (username or "") in _FIN_PESSOAIS_USERS,
         "active_page": "trafego",
         "nav_clients": nav_clients,
         "nav_current_client": selected_client,
@@ -2201,6 +2375,9 @@ async def gads_page(request: Request, client: str = "SRW"):
         "meta_clients": json.dumps(meta_names),
         "has_meta": has_meta,
         "nav_username": USER_DISPLAY.get(username, username.capitalize()),
+        "nav_user": username or "",
+        "nav_is_admin": (username or "") in _ADMIN_USERS,
+        "nav_fin_pessoais": (username or "") in _FIN_PESSOAIS_USERS,
         "active_page": "gads",
     })
 

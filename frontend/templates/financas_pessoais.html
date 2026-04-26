@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Finanças Pessoais — Sinapse</title>
+  <link rel="stylesheet" href="/static/style.css?v=2">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    body { overflow: hidden; }
+    .fin-shell { display: flex; height: 100vh; overflow: hidden; }
+
+    /* ── left nav ── */
+    .fin-nav { width: 240px; flex-shrink: 0; background: #111; border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+    .fin-nav-brand { padding: 16px 18px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .fin-nav-brand a { font-size: 1.05rem; font-weight: 700; color: var(--text); text-decoration: none; letter-spacing: .03em; }
+    .fin-nav-brand a:hover { color: var(--accent); }
+    .fin-nav-back { margin-left: auto; font-size: .7rem; color: var(--muted); text-decoration: none; padding: 3px 6px; border-radius: 4px; border: 1px solid var(--border); white-space: nowrap; transition: color .15s, border-color .15s; }
+    .fin-nav-back:hover { color: var(--text); border-color: var(--muted); }
+    .fin-nav-section { flex: 1; overflow-y: auto; padding: 8px 0; }
+    .fin-nav-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); padding: 12px 18px 4px; }
+    .fin-nav-item { display: flex; align-items: center; gap: 9px; padding: 8px 18px; font-size: .92rem; color: var(--muted); cursor: pointer; border: none; background: none; width: 100%; text-align: left; border-left: 2px solid transparent; transition: color .15s, background .15s, border-color .15s; text-decoration: none; }
+    .fin-nav-item:hover { color: var(--text); background: #ffffff07; }
+    .fin-nav-item.active { color: var(--text); border-left-color: var(--accent); background: #ff4d0010; }
+    .fin-nav-sep { height: 1px; background: var(--border); margin: 6px 18px; }
+    .fin-nav-footer { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .fin-nav-user { font-size: .8rem; color: var(--muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fin-nav-logout { font-size: .75rem; color: var(--muted); text-decoration: none; }
+    .fin-nav-logout:hover { color: var(--accent); }
+
+    /* ── main ── */
+    .fin-main { flex: 1; overflow-y: auto; display: flex; flex-direction: column; min-width: 0; }
+    .fin-topbar { padding: 16px 28px 0; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; flex-shrink: 0; }
+    .fin-title { font-size: 1rem; font-weight: 700; color: var(--text); letter-spacing: .06em; text-transform: uppercase; }
+    .fin-month-nav { display: flex; align-items: center; gap: 8px; }
+    .fin-month-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text); width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: .85rem; display: flex; align-items: center; justify-content: center; transition: background .15s; }
+    .fin-month-btn:hover { background: var(--border); }
+    .fin-month-label { font-size: .88rem; color: var(--text); min-width: 110px; text-align: center; font-weight: 500; }
+    .fin-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+
+    /* ── buttons ── */
+    .btn { padding: 7px 14px; border-radius: 7px; font-size: .82rem; font-weight: 600; cursor: pointer; border: none; transition: background .15s, opacity .15s; }
+    .btn:disabled { opacity: .5; cursor: default; }
+    .btn-accent { background: var(--accent); color: #fff; }
+    .btn-accent:hover:not(:disabled) { background: #e04400; }
+    .btn-green { background: #1a3d1a; color: #4caf50; border: 1px solid #2d5c2d; }
+    .btn-green:hover:not(:disabled) { background: #1f4a1f; }
+    .btn-red { background: #3d1a1a; color: #ef5350; border: 1px solid #5c2d2d; }
+    .btn-red:hover:not(:disabled) { background: #4a1f1f; }
+    .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+    .btn-ghost:hover:not(:disabled) { color: var(--text); border-color: var(--muted); }
+    .btn-icon { background: none; border: none; cursor: pointer; padding: 4px 6px; border-radius: 5px; color: var(--muted); font-size: .85rem; transition: color .15s, background .15s; }
+    .btn-icon:hover { color: var(--text); background: #ffffff10; }
+    .btn-icon.danger:hover { color: #ef5350; }
+
+    /* ── filters ── */
+    .fin-filters { padding: 12px 28px 0; display: flex; gap: 6px; flex-shrink: 0; }
+    .fin-pill { padding: 5px 14px; border-radius: 20px; font-size: .78rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--muted); transition: all .15s; }
+    .fin-pill:hover { color: var(--text); border-color: var(--muted); }
+    .fin-pill.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    /* ── summary cards ── */
+    .fin-summary { padding: 12px 28px 0; display: flex; gap: 10px; flex-wrap: wrap; flex-shrink: 0; }
+    .fin-card { flex: 1; min-width: 120px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; }
+    .fin-card-label { font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 4px; }
+    .fin-card-value { font-size: 1rem; font-weight: 700; color: var(--text); }
+    .fin-card-value.green { color: #4caf50; }
+    .fin-card-value.red { color: #ef5350; }
+    .fin-card-value.gray { color: var(--muted); }
+
+    /* ── content ── */
+    .fin-content { flex: 1; display: flex; gap: 16px; min-height: 0; padding: 16px 28px 24px; }
+    .fin-table-wrap { flex: 1; min-width: 0; }
+    .fin-table-container { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .fin-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+    .fin-table thead th { padding: 10px 12px; text-align: left; font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); border-bottom: 1px solid var(--border); background: #141414; white-space: nowrap; }
+    .fin-table tbody tr { border-bottom: 1px solid var(--border); transition: background .12s; }
+    .fin-table tbody tr:last-child { border-bottom: none; }
+    .fin-table tbody tr:hover { background: #ffffff04; }
+    .fin-table td { padding: 10px 12px; color: var(--text); vertical-align: middle; }
+    .fin-table .td-val-pos { color: #4caf50; font-weight: 600; }
+    .fin-table .td-val-neg { color: #ef5350; font-weight: 600; }
+    .fin-table .td-actions { display: flex; gap: 2px; }
+
+    /* ── badges ── */
+    .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: .68rem; font-weight: 700; }
+    .badge-green { background: #1a3d1a; color: #4caf50; border: 1px solid #2d5c2d; }
+    .badge-yellow { background: #3d3200; color: #ffc107; border: 1px solid #5c4a00; }
+    .badge-red { background: #3d1a1a; color: #ef5350; border: 1px solid #5c2d2d; }
+    .badge-gray { background: #1e1e1e; color: var(--muted); border: 1px solid var(--border); }
+
+    /* ── misc ── */
+    .fin-empty { text-align: center; padding: 48px 24px; color: var(--muted); font-size: .88rem; }
+    .fin-loading { text-align: center; padding: 48px; color: var(--muted); font-size: .85rem; }
+    .spin { display: inline-block; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .fin-saldos { width: 190px; flex-shrink: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; align-self: flex-start; }
+    .fin-saldos-title { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin-bottom: 12px; }
+    .saldo-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); }
+    .saldo-row:last-child { border-bottom: none; }
+    .saldo-nome { font-size: .78rem; color: var(--text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 8px; }
+    .saldo-val { font-size: .78rem; font-weight: 700; }
+    .fin-list { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .fin-list-row { display: flex; align-items: center; padding: 11px 16px; border-bottom: 1px solid var(--border); gap: 12px; font-size: .82rem; }
+    .fin-list-row:last-child { border-bottom: none; }
+    .fin-list-row:hover { background: #ffffff04; }
+    .fin-list-cell { flex: 1; color: var(--text); }
+    .fin-list-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+    /* ── modal ── */
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .modal { background: #161616; border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; }
+    .modal-header { padding: 18px 22px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .modal-title { font-size: .95rem; font-weight: 700; color: var(--text); flex: 1; }
+    .modal-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1.1rem; padding: 2px 6px; border-radius: 5px; line-height: 1; }
+    .modal-close:hover { color: var(--text); background: #ffffff10; }
+    .modal-body { padding: 20px 22px; flex: 1; }
+    .modal-footer { padding: 14px 22px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; flex-shrink: 0; }
+    .form-row { display: flex; gap: 14px; margin-bottom: 14px; flex-wrap: wrap; }
+    .form-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 120px; }
+    .form-group.full { flex: none; width: 100%; }
+    .form-label { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+    .form-input { padding: 8px 11px; background: #0e0e0e; border: 1px solid var(--border); border-radius: 7px; color: var(--text); font-size: .84rem; font-family: inherit; }
+    .form-input:focus { outline: none; border-color: var(--accent); }
+    .form-select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23666'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; }
+    .toggle-group { display: flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+    .toggle-btn { flex: 1; padding: 7px 14px; font-size: .8rem; font-weight: 600; border: none; background: transparent; color: var(--muted); cursor: pointer; transition: all .15s; white-space: nowrap; }
+    .toggle-btn.active-green { background: #1a3d1a; color: #4caf50; }
+    .toggle-btn.active-red { background: #3d1a1a; color: #ef5350; }
+    .toggle-btn.active-accent { background: var(--accent); color: #fff; }
+    .input-prefix-wrap { display: flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+    .input-prefix { padding: 8px 10px; background: #1a1a1a; color: var(--muted); font-size: .82rem; border-right: 1px solid var(--border); flex-shrink: 0; }
+    .input-prefix-field { flex: 1; padding: 8px 10px; background: #0e0e0e; border: none; color: var(--text); font-size: .84rem; font-family: inherit; min-width: 0; }
+    .input-prefix-field:focus { outline: none; }
+    .input-prefix-wrap:focus-within { border-color: var(--accent); }
+    .sec-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    .sec-title { font-size: .95rem; font-weight: 700; color: var(--text); flex: 1; }
+
+    /* ── análise ── */
+    .dash-wrap { padding: 24px 28px; flex: 1; overflow-y: auto; }
+    .dash-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+    .dash-kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+    .dash-kpi-label { font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); margin-bottom: 6px; }
+    .dash-kpi-value { font-size: 1.25rem; font-weight: 700; color: var(--text); }
+    .dash-kpi-value.green { color: #4caf50; }
+    .dash-kpi-value.red { color: #ef5350; }
+    .dash-kpi-sub { font-size: .72rem; color: var(--muted); margin-top: 3px; }
+    .dash-row { display: grid; gap: 16px; margin-bottom: 16px; }
+    .dash-row.cols-2 { grid-template-columns: 1fr 1fr; }
+    .dash-row.cols-1 { grid-template-columns: 1fr; }
+    .dash-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+    .dash-box-title { font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); margin-bottom: 12px; }
+
+    /* ── month picker ── */
+    .mp-wrap { position: relative; }
+    .mp-trigger { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 6px 14px; font-size: .82rem; cursor: pointer; transition: border-color .15s; white-space: nowrap; }
+    .mp-trigger:hover { border-color: var(--muted); }
+    .mp-trigger.open { border-color: var(--accent); }
+    .mp-dropdown { position: absolute; top: calc(100% + 8px); right: 0; z-index: 90; background: var(--bg); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 12px 40px #00000099; padding: 20px; display: flex; flex-direction: column; gap: 16px; min-width: 460px; }
+    .mp-panels-row { display: flex; gap: 0; }
+    .mp-vsep { width: 1px; background: var(--border); margin: 0 18px; }
+    .mp-cal { flex: 1; }
+    .mp-year-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .mp-year-lbl { font-size: .78rem; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: .07em; }
+    .mp-nav-btn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; width: 26px; height: 26px; cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center; transition: all .15s; }
+    .mp-nav-btn:hover { border-color: var(--accent); color: var(--text); }
+    .mp-nav-btn.mp-hidden { visibility: hidden; }
+    .mp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
+    .mp-month { padding: 8px 4px; font-size: .76rem; border-radius: 5px; cursor: pointer; transition: background .08s, color .08s; user-select: none; background: none; border: none; color: var(--text); text-align: center; }
+    .mp-month:hover:not(.mp-sel-start):not(.mp-sel-end):not(.mp-in-range) { background: rgba(255,77,0,.2); color: #fff; }
+    .mp-month.mp-in-range { background: rgba(255,77,0,.1); border-radius: 0; color: #ddd; }
+    .mp-month.mp-sel-start { background: var(--accent); color: #fff; border-radius: 5px 0 0 5px; }
+    .mp-month.mp-sel-end { background: var(--accent); color: #fff; border-radius: 0 5px 5px 0; }
+    .mp-month.mp-sel-start.mp-sel-end { border-radius: 5px; }
+    .mp-actions { display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--border); padding-top: 14px; }
+    .mp-cancel { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 7px 16px; font-size: .83rem; cursor: pointer; }
+    .mp-cancel:hover { border-color: var(--muted); color: var(--text); }
+    .mp-apply { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 7px 18px; font-size: .83rem; font-weight: 600; cursor: pointer; }
+
+    /* ── importar ── */
+    .imp-wrap { padding: 28px; max-width: 860px; flex: 1; overflow-y: auto; }
+    .imp-dropzone { border: 2px dashed var(--border); border-radius: 14px; padding: 48px 32px; text-align: center; cursor: pointer; transition: border-color .2s, background .2s; }
+    .imp-dropzone:hover, .imp-dropzone.drag-over { border-color: var(--accent); background: rgba(255,77,0,.04); }
+    .imp-dropzone-icon { font-size: 2.4rem; margin-bottom: 10px; }
+    .imp-dropzone-title { font-size: .97rem; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+    .imp-dropzone-sub { font-size: .8rem; color: var(--muted); }
+    .imp-processing { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 64px; color: var(--muted); font-size: .9rem; }
+    .imp-processing-icon { font-size: 2.4rem; animation: spin .9s linear infinite; }
+    .imp-review-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+    .imp-review-count { font-size: .82rem; color: var(--muted); flex: 1; }
+    .imp-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+    .imp-table { width: 100%; border-collapse: collapse; font-size: .83rem; }
+    .imp-table .col-actions { position: sticky; right: 0; background: #111; z-index: 2; white-space: nowrap; min-width: 72px; }
+    .imp-table th { padding: 10px 12px; text-align: left; font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); border-bottom: 1px solid var(--border); white-space: nowrap; }
+    .imp-table td { padding: 8px 12px; border-bottom: 1px solid #1a1a1a; vertical-align: middle; }
+    .imp-table tr:last-child td { border-bottom: none; }
+    .imp-table tr.aprovado td { opacity: .45; }
+    .imp-table tr.rejeitado td { opacity: .3; text-decoration: line-through; }
+    .imp-cell-edit { background: #0e0e0e; border: 1px solid var(--border); border-radius: 5px; color: var(--text); font-size: .82rem; font-family: inherit; padding: 4px 7px; }
+    .imp-cell-edit:focus { outline: none; border-color: var(--accent); }
+    .imp-tipo-pill { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: .72rem; font-weight: 700; cursor: pointer; border: none; transition: all .15s; }
+    .imp-tipo-pill.receita { background: #1a3d1a; color: #4caf50; }
+    .imp-tipo-pill.despesa { background: #3d1a1a; color: #ef5350; }
+    .imp-status-badge { font-size: .68rem; font-weight: 700; padding: 2px 8px; border-radius: 12px; }
+    .imp-status-badge.pendente { background: #1e1e1e; color: var(--muted); }
+    .imp-status-badge.aprovado { background: #1a3d1a; color: #4caf50; }
+    .imp-status-badge.rejeitado { background: #2a1a1a; color: #888; }
+    .imp-history { margin-top: 32px; }
+    .imp-history-title { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 10px; }
+    .imp-history-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; cursor: pointer; transition: border-color .15s; }
+    .imp-history-row:hover { border-color: var(--accent); }
+    .imp-history-name { font-size: .85rem; color: var(--text); flex: 1; }
+    .imp-history-meta { font-size: .75rem; color: var(--muted); }
+
+    /* ── toast ── */
+    .fin-toast { position: fixed; bottom: 24px; right: 24px; z-index: 2000; background: #222; border: 1px solid var(--border); border-radius: 10px; padding: 12px 18px; font-size: .83rem; color: var(--text); box-shadow: 0 4px 24px rgba(0,0,0,.5); transition: opacity .3s, transform .3s; }
+    .fin-toast.toast-success { border-color: #2d5c2d; background: #0d1f0d; color: #4caf50; }
+    .fin-toast.toast-error { border-color: #5c2d2d; background: #1f0d0d; color: #ef5350; }
+  </style>
+</head>
+<body>
+<div class="fin-shell" x-data="fpApp()" x-init="init()" x-cloak>
+
+  <!-- ── LEFT NAV ── -->
+  <nav class="fin-nav">
+    <div class="fin-nav-brand">
+      <a href="/gestao">Sinapse</a>
+      <a href="/gestao" class="fin-nav-back">← Voltar</a>
+    </div>
+    <div class="fin-nav-section">
+      <div class="fin-nav-label">Finanças Pessoais</div>
+      <button class="fin-nav-item" :class="sec==='lancamentos' && 'active'" @click="sec='lancamentos'">
+        <span>📒</span> Lançamentos
+      </button>
+      <button class="fin-nav-item" :class="sec==='categorias' && 'active'" @click="sec='categorias'; loadCategorias()">
+        <span>🏷️</span> Categorias
+      </button>
+      <button class="fin-nav-item" :class="sec==='contas' && 'active'" @click="sec='contas'; loadContas()">
+        <span>🏦</span> Contas
+      </button>
+      <div class="fin-nav-sep"></div>
+      <button class="fin-nav-item" :class="sec==='analise' && 'active'" @click="sec='analise'; loadAnalise()">
+        <span>📊</span> Análise
+      </button>
+      <button class="fin-nav-item" :class="sec==='cartao' && 'active'" @click="sec='cartao'; loadCartaoAnalise()">
+        <span>💳</span> Análise CC
+      </button>
+      <button class="fin-nav-item" :class="sec==='importar' && 'active'" @click="sec='importar'; loadImportacoes()">
+        <span>📥</span> Importar Extrato
+      </button>
+    </div>
+    <div class="fin-nav-footer">
+      <span class="fin-nav-user">{{ nav_username }}</span>
+      <a href="/logout" class="fin-nav-logout">Sair</a>
+    </div>
+  </nav>
+
+  <!-- ── MAIN ── -->
+  <main class="fin-main">
+
+    <!-- ═══ LANÇAMENTOS ═══ -->
+    <template x-if="sec==='lancamentos'">
+      <div style="display:flex;flex-direction:column;height:100%;min-height:0;">
+
+        <div class="fin-topbar">
+          <span class="fin-title">FINANÇAS PESSOAIS</span>
+          <div class="fin-month-nav">
+            <button class="fin-month-btn" @click="prevMes()">&#8592;</button>
+            <span class="fin-month-label" x-text="mesLabel"></span>
+            <button class="fin-month-btn" @click="nextMes()">&#8594;</button>
+          </div>
+          <div class="fin-actions">
+            <button class="btn btn-green" @click="openLancModal('receita')">+ Receita</button>
+            <button class="btn btn-red" @click="openLancModal('despesa')">+ Despesa</button>
+          </div>
+        </div>
+
+        <div class="fin-filters">
+          <template x-for="f in ['todos','receitas','despesas','atrasados']" :key="f">
+            <button class="fin-pill" :class="filtro===f && 'active'" @click="filtro=f" x-text="filtroLabel(f)"></button>
+          </template>
+        </div>
+
+        <div class="fin-summary">
+          <div class="fin-card"><div class="fin-card-label">Em Aberto</div><div class="fin-card-value gray" x-text="fmtBRL(summary.em_aberto||0)"></div></div>
+          <div class="fin-card"><div class="fin-card-label">A Receber</div><div class="fin-card-value green" x-text="fmtBRL(summary.a_receber||0)"></div></div>
+          <div class="fin-card"><div class="fin-card-label">A Pagar</div><div class="fin-card-value red" x-text="fmtBRL(summary.a_pagar||0)"></div></div>
+          <div class="fin-card"><div class="fin-card-label">Recebido</div><div class="fin-card-value green" x-text="fmtBRL(summary.recebidos||0)"></div></div>
+          <div class="fin-card"><div class="fin-card-label">Pago</div><div class="fin-card-value red" x-text="fmtBRL(summary.pagos||0)"></div></div>
+        </div>
+
+        <div class="fin-content">
+          <div class="fin-table-wrap">
+            <div class="fin-table-container">
+              <template x-if="loading"><div class="fin-loading"><span class="spin">&#9696;</span> Carregando...</div></template>
+              <template x-if="!loading">
+                <table class="fin-table">
+                  <thead><tr>
+                    <th>Data</th><th>Descrição</th><th>Categoria</th><th>Conta</th><th>Valor</th><th>Situação</th><th></th>
+                  </tr></thead>
+                  <tbody>
+                    <template x-if="filteredLanc.length===0"><tr><td colspan="7" class="fin-empty">Nenhum lançamento</td></tr></template>
+                    <template x-for="l in filteredLanc" :key="l.id">
+                      <tr>
+                        <td x-text="fmtDate(l.vencimento)"></td>
+                        <td x-text="l.descricao"></td>
+                        <td x-text="l.categoria_nome||'—'" style="color:var(--muted);font-size:.78rem;"></td>
+                        <td x-text="l.conta_nome||'—'" style="color:var(--muted);font-size:.78rem;"></td>
+                        <td :class="l.tipo==='receita'?'td-val-pos':'td-val-neg'" x-text="(l.tipo==='receita'?'+':'-')+fmtBRL(l.valor_total||l.valor||0)"></td>
+                        <td><span class="badge" :class="l.situacao==='quitado'?'badge-green':'badge-yellow'" x-text="l.situacao==='quitado'?'Quitado':'Em aberto'"></span></td>
+                        <td>
+                          <div class="td-actions">
+                            <button class="btn-icon" title="Quitar" @click="quitarLanc(l)" x-show="l.situacao!=='quitado'">&#10003;</button>
+                            <button class="btn-icon" title="Editar" @click="openLancEdit(l)">&#9998;</button>
+                            <button class="btn-icon danger" title="Excluir" @click="deleteLanc(l.id)">&#128465;</button>
+                          </div>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </template>
+            </div>
+          </div>
+
+          <!-- saldos -->
+          <div class="fin-saldos" x-show="!loading">
+            <div class="fin-saldos-title">Saldo por Conta</div>
+            <template x-if="saldos.length===0"><div style="font-size:.75rem;color:var(--muted);text-align:center;padding:12px 0;">Nenhuma conta</div></template>
+            <template x-for="s in saldos" :key="s.conta_id">
+              <div class="saldo-row">
+                <span class="saldo-nome" x-text="s.conta_nome"></span>
+                <span class="saldo-val" :class="s.saldo>=0?'green':'red'" x-text="fmtBRL(s.saldo)"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ═══ CATEGORIAS ═══ -->
+    <template x-if="sec==='categorias'">
+      <div style="padding:24px 28px;flex:1;overflow-y:auto;">
+        <div class="sec-header">
+          <span class="sec-title">Categorias</span>
+          <button class="btn btn-accent" @click="openCatModal()">+ Adicionar</button>
+        </div>
+        <template x-if="loading"><div class="fin-loading"><span class="spin">&#9696;</span></div></template>
+        <div class="fin-table-container" x-show="!loading">
+          <table class="fin-table">
+            <thead><tr><th>Nome</th><th>Tipo</th><th>Situação</th><th></th></tr></thead>
+            <tbody>
+              <template x-if="categorias.length===0"><tr><td colspan="4" class="fin-empty">Nenhuma categoria</td></tr></template>
+              <template x-for="c in categorias" :key="c.id">
+                <tr>
+                  <td x-text="c.nome"></td>
+                  <td><span class="badge" :class="c.tipo==='receita'?'badge-green':'badge-red'" x-text="c.tipo==='receita'?'Receita':'Despesa'"></span></td>
+                  <td><span class="badge" :class="c.situacao==='ativa'?'badge-green':'badge-gray'" x-text="c.situacao==='ativa'?'Ativa':'Inativa'"></span></td>
+                  <td><div class="td-actions">
+                    <button class="btn-icon" @click="openCatEdit(c)">&#9998;</button>
+                    <button class="btn-icon danger" @click="deleteCat(c.id)">&#128465;</button>
+                  </div></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </template>
+
+    <!-- ═══ CONTAS ═══ -->
+    <template x-if="sec==='contas'">
+      <div style="padding:24px 28px;flex:1;overflow-y:auto;">
+        <div class="sec-header">
+          <span class="sec-title">Contas</span>
+          <button class="btn btn-accent" @click="openContaModal()">+ Adicionar</button>
+        </div>
+        <template x-if="loading"><div class="fin-loading"><span class="spin">&#9696;</span></div></template>
+        <div class="fin-list" x-show="!loading">
+          <template x-if="contas.length===0"><div class="fin-empty">Nenhuma conta</div></template>
+          <template x-for="c in contas" :key="c.id">
+            <div class="fin-list-row">
+              <div class="fin-list-cell" x-text="c.nome"></div>
+              <span class="badge" :class="c.situacao==='ativa'?'badge-green':'badge-gray'" x-text="c.situacao==='ativa'?'Ativa':'Inativa'"></span>
+              <div class="fin-list-cell" style="color:var(--muted);font-size:.78rem;" x-text="'Saldo inicial: '+fmtBRL(c.saldo_inicial||0)"></div>
+              <div class="fin-list-actions">
+                <button class="btn-icon" @click="openContaEdit(c)">&#9998;</button>
+                <button class="btn-icon danger" @click="deleteConta(c.id)">&#128465;</button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </template>
+
+    <!-- ═══ ANÁLISE GERAL ═══ -->
+    <template x-if="sec==='analise'">
+      <div class="dash-wrap" x-init="$nextTick(() => { if (!analiseData) loadAnalise(); else initAnaliseCharts(); })">
+        <div class="sec-header" style="margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+          <span class="sec-title">Análise Financeira</span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="mp-wrap" @click.away="mp.open && mp.target==='analise' && (mp.open=false)">
+              <button class="mp-trigger" :class="mp.open && mp.target==='analise' && 'open'" @click="openMp('analise')">
+                <span x-text="mpBtnLabel('analise')"></span>
+                <span style="color:var(--muted);font-size:.8em;">▾</span>
+              </button>
+              <div class="mp-dropdown" x-show="mp.open && mp.target==='analise'" x-transition.opacity.duration.150ms>
+                <div class="mp-panels-row">
+                  <div class="mp-cal">
+                    <div class="mp-year-row">
+                      <button class="mp-nav-btn" @click.stop="mpPrevYear()">‹</button>
+                      <span class="mp-year-lbl" x-text="mp.viewYear"></span>
+                      <button class="mp-nav-btn mp-hidden">›</button>
+                    </div>
+                    <div class="mp-grid">
+                      <template x-for="(m,i) in mpMonthLabels" :key="i">
+                        <button class="mp-month" :class="mpMonthClass(mp.viewYear, i+1)" @click.stop="mpClick(mp.viewYear, i+1)" x-text="m"></button>
+                      </template>
+                    </div>
+                  </div>
+                  <div class="mp-vsep"></div>
+                  <div class="mp-cal">
+                    <div class="mp-year-row">
+                      <button class="mp-nav-btn mp-hidden">‹</button>
+                      <span class="mp-year-lbl" x-text="mp.viewYear+1"></span>
+                      <button class="mp-nav-btn" @click.stop="mpNextYear()">›</button>
+                    </div>
+                    <div class="mp-grid">
+                      <template x-for="(m,i) in mpMonthLabels" :key="i">
+                        <button class="mp-month" :class="mpMonthClass(mp.viewYear+1, i+1)" @click.stop="mpClick(mp.viewYear+1, i+1)" x-text="m"></button>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+                <div class="mp-actions">
+                  <button class="mp-cancel" @click.stop="mp.open=false">Cancelar</button>
+                  <button class="mp-apply" @click.stop="applyMp()">Aplicar</button>
+                </div>
+              </div>
+            </div>
+            <button class="btn btn-ghost" style="font-size:.75rem;" @click="analiseDe='';analiseAte='';analiseData=null;loadAnalise()">↻</button>
+          </div>
+        </div>
+
+        <template x-if="analiseLoading"><div class="imp-processing"><div class="imp-processing-icon">📊</div><div>Carregando dados...</div></div></template>
+        <template x-if="!analiseLoading && analiseData">
+          <div>
+            <div class="dash-kpis">
+              <div class="dash-kpi">
+                <div class="dash-kpi-label">Total Receitas</div>
+                <div class="dash-kpi-value green" x-text="fmtBRL(analiseData.total_receita||0)"></div>
+                <div class="dash-kpi-sub">quitadas no período</div>
+              </div>
+              <div class="dash-kpi">
+                <div class="dash-kpi-label">Total Despesas</div>
+                <div class="dash-kpi-value red" x-text="fmtBRL(analiseData.total_despesa||0)"></div>
+                <div class="dash-kpi-sub">pagas no período</div>
+              </div>
+              <div class="dash-kpi">
+                <div class="dash-kpi-label">Saldo</div>
+                <div class="dash-kpi-value" :class="(analiseData.saldo||0)>=0?'green':'red'" x-text="fmtBRL(analiseData.saldo||0)"></div>
+                <div class="dash-kpi-sub">receita − despesa</div>
+              </div>
+            </div>
+            <template x-if="(analiseData.mensal||[]).length">
+              <div>
+                <div class="dash-row cols-2">
+                  <div class="dash-box">
+                    <div class="dash-box-title">Evolução Mensal</div>
+                    <div style="height:240px;"><canvas id="chart-analise-mensal"></canvas></div>
+                  </div>
+                  <div class="dash-box">
+                    <div class="dash-box-title">Despesas por Categoria</div>
+                    <div style="height:240px;"><canvas id="chart-analise-cat"></canvas></div>
+                  </div>
+                </div>
+                <!-- Tabela de categorias -->
+                <div class="dash-box" style="margin-top:16px;" x-show="(analiseData.por_categoria||[]).length">
+                  <div class="dash-box-title">Detalhamento por Categoria</div>
+                  <table style="border-collapse:collapse;margin-top:8px;font-size:.88rem;">
+                    <colgroup>
+                      <col style="min-width:160px;">
+                      <col style="width:130px;">
+                      <col style="width:64px;">
+                      <col style="width:180px;">
+                    </colgroup>
+                    <thead>
+                      <tr style="border-bottom:1px solid var(--border);">
+                        <th style="text-align:left;padding:6px 8px;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;">Categoria</th>
+                        <th style="text-align:right;padding:6px 8px;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;">Total</th>
+                        <th style="text-align:right;padding:6px 8px;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;">%</th>
+                        <th style="padding:6px 8px;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;">Participação</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="(cat, i) in analiseData.por_categoria" :key="cat.categoria">
+                        <tr style="border-bottom:1px solid #1a1a1a;">
+                          <td style="padding:7px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                            <div style="display:flex;align-items:center;gap:8px;">
+                              <span :style="`width:10px;height:10px;border-radius:2px;flex-shrink:0;background:${['#ff4d00','#ef5350','#ff9800','#ffd54f','#4caf50','#26c6da','#7986cb','#ab47bc','#8d6e63','#78909c','#ec407a','#66bb6a'][i % 12]}`"></span>
+                              <span x-text="cat.categoria"></span>
+                            </div>
+                          </td>
+                          <td style="padding:7px 8px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;" x-text="fmtBRL(cat.total)"></td>
+                          <td style="padding:7px 8px;text-align:right;color:var(--muted);white-space:nowrap;" x-text="analiseData.total_despesa ? (cat.total/analiseData.total_despesa*100).toFixed(1)+'%' : '—'"></td>
+                          <td style="padding:7px 12px 7px 8px;">
+                            <div style="background:#2a2a2a;border-radius:4px;height:8px;width:100%;overflow:hidden;">
+                              <div :style="`height:100%;border-radius:4px;background:${['#ff4d00','#ef5350','#ff9800','#ffd54f','#4caf50','#26c6da','#7986cb','#ab47bc','#8d6e63','#78909c','#ec407a','#66bb6a'][i % 12]};width:${analiseData.por_categoria[0]?.total ? (cat.total/analiseData.por_categoria[0].total*100) : 0}%`"></div>
+                            </div>
+                          </td>
+                        </tr>
+                      </template>
+                      <tr style="border-top:2px solid var(--border);font-weight:600;">
+                        <td style="padding:8px 8px;">Total</td>
+                        <td style="padding:8px 8px;text-align:right;font-variant-numeric:tabular-nums;" x-text="fmtBRL(analiseData.total_despesa||0)"></td>
+                        <td style="padding:8px 8px;text-align:right;color:var(--muted);">100%</td>
+                        <td></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </template>
+            <template x-if="!(analiseData.mensal||[]).length">
+              <div style="text-align:center;padding:60px;color:var(--muted);">
+                Nenhum lançamento quitado no período.<br>
+                <span style="font-size:.85rem;">Use <strong>Lançamentos</strong> para registrar receitas e despesas.</span>
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+    </template>
+
+    <!-- ═══ ANÁLISE CC ═══ -->
+    <template x-if="sec==='cartao'">
+      <div class="dash-wrap" x-init="$nextTick(() => initCartaoCharts())">
+        <div class="sec-header" style="margin-bottom:20px;">
+          <span class="sec-title">Análise CC — Cartão de Crédito</span>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <div class="mp-wrap" @click.away="mp.open && mp.target==='cartao' && (mp.open=false)">
+              <button class="mp-trigger" :class="mp.open && mp.target==='cartao' && 'open'" @click="openMp('cartao')">
+                <span x-text="mpBtnLabel('cartao')"></span>
+                <span style="color:var(--muted);font-size:.8em;">▾</span>
+              </button>
+              <div class="mp-dropdown" x-show="mp.open && mp.target==='cartao'" x-transition.opacity.duration.150ms>
+                <div class="mp-panels-row">
+                  <div class="mp-cal">
+                    <div class="mp-year-row">
+                      <button class="mp-nav-btn" @click.stop="mpPrevYear()">‹</button>
+                      <span class="mp-year-lbl" x-text="mp.viewYear"></span>
+                      <button class="mp-nav-btn mp-hidden">›</button>
+                    </div>
+                    <div class="mp-grid">
+                      <template x-for="(m,i) in mpMonthLabels" :key="i">
+                        <button class="mp-month" :class="mpMonthClass(mp.viewYear, i+1)" @click.stop="mpClick(mp.viewYear, i+1)" x-text="m"></button>
+                      </template>
+                    </div>
+                  </div>
+                  <div class="mp-vsep"></div>
+                  <div class="mp-cal">
+                    <div class="mp-year-row">
+                      <button class="mp-nav-btn mp-hidden">‹</button>
+                      <span class="mp-year-lbl" x-text="mp.viewYear+1"></span>
+                      <button class="mp-nav-btn" @click.stop="mpNextYear()">›</button>
+                    </div>
+                    <div class="mp-grid">
+                      <template x-for="(m,i) in mpMonthLabels" :key="i">
+                        <button class="mp-month" :class="mpMonthClass(mp.viewYear+1, i+1)" @click.stop="mpClick(mp.viewYear+1, i+1)" x-text="m"></button>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+                <div class="mp-actions">
+                  <button class="mp-cancel" @click.stop="mp.open=false">Cancelar</button>
+                  <button class="mp-apply" @click.stop="applyMp()">Aplicar</button>
+                </div>
+              </div>
+            </div>
+            <button class="btn btn-ghost" style="font-size:.75rem;" @click="cartaoDe='';cartaoAte='';cartaoData=null;loadCartaoAnalise()">↻</button>
+          </div>
+        </div>
+        <template x-if="cartaoLoading"><div class="imp-processing"><div class="imp-processing-icon">💳</div><div>Carregando análise...</div></div></template>
+        <template x-if="!cartaoLoading && cartaoData">
+          <div>
+            <div class="dash-kpis">
+              <div class="dash-kpi"><div class="dash-kpi-label">Total Gasto</div><div class="dash-kpi-value red" x-text="fmtBRL(cartaoData.total_gasto||0)"></div><div class="dash-kpi-sub">todos os extratos</div></div>
+              <div class="dash-kpi"><div class="dash-kpi-label">Média Mensal</div><div class="dash-kpi-value" x-text="fmtBRL(cartaoData.media_mensal||0)"></div><div class="dash-kpi-sub" x-text="(cartaoData.mensal||[]).length+' meses'"></div></div>
+              <div class="dash-kpi"><div class="dash-kpi-label">Mês Mais Alto</div><div class="dash-kpi-value red" x-text="cartaoData.melhor_mes?.mes||'—'"></div><div class="dash-kpi-sub" x-text="cartaoData.melhor_mes?fmtBRL(cartaoData.melhor_mes.total):''"></div></div>
+            </div>
+            <div class="dash-row cols-2">
+              <div class="dash-box"><div class="dash-box-title">Gasto Mensal</div><div style="height:220px;"><canvas id="chart-cc-mensal"></canvas></div></div>
+              <div class="dash-box"><div class="dash-box-title">Por Categoria</div><div style="height:220px;"><canvas id="chart-cc-cat"></canvas></div></div>
+            </div>
+            <template x-if="(cartaoData.top_merchants||[]).length">
+              <div class="dash-row cols-1">
+                <div class="dash-box"><div class="dash-box-title">Top Estabelecimentos</div><div style="height:300px;"><canvas id="chart-cc-merch"></canvas></div></div>
+              </div>
+            </template>
+            <template x-if="(cartaoData.faturas||[]).length">
+              <div class="dash-row cols-1">
+                <div class="dash-box">
+                  <div class="dash-box-title">Faturas Importadas</div>
+                  <table style="width:100%;border-collapse:collapse;font-size:.8rem;">
+                    <thead><tr style="border-bottom:1px solid var(--border);">
+                      <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:.65rem;text-transform:uppercase;">Arquivo</th>
+                      <th style="padding:8px 10px;text-align:right;color:var(--muted);font-size:.65rem;text-transform:uppercase;">Itens</th>
+                      <th style="padding:8px 10px;text-align:right;color:var(--muted);font-size:.65rem;text-transform:uppercase;">Aprovados</th>
+                      <th style="padding:8px 10px;text-align:right;color:var(--muted);font-size:.65rem;text-transform:uppercase;">Total</th>
+                      <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:.65rem;text-transform:uppercase;">Importado em</th>
+                    </tr></thead>
+                    <tbody>
+                      <template x-for="f in cartaoData.faturas" :key="f.id">
+                        <tr style="border-bottom:1px solid #1a1a1a;">
+                          <td style="padding:7px 10px;" x-text="f.nome_arquivo"></td>
+                          <td style="padding:7px 10px;text-align:right;color:var(--muted);" x-text="f.total_itens"></td>
+                          <td style="padding:7px 10px;text-align:right;color:#4caf50;" x-text="f.itens_aprovados"></td>
+                          <td style="padding:7px 10px;text-align:right;color:#ef5350;" x-text="fmtBRL(f.total||0)"></td>
+                          <td style="padding:7px 10px;color:var(--muted);font-size:.75rem;" x-text="(f.created_at||'').slice(0,10)"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </template>
+            <template x-if="!(cartaoData.faturas||[]).length">
+              <div style="text-align:center;padding:60px;color:var(--muted);">Nenhuma fatura importada ainda.<br><span style="font-size:.85rem;">Use <strong>Importar Extrato</strong> para adicionar faturas.</span></div>
+            </template>
+          </div>
+        </template>
+      </div>
+    </template>
+
+    <!-- ═══ IMPORTAR ═══ -->
+    <template x-if="sec==='importar'">
+      <div class="imp-wrap">
+        <div class="sec-header" style="margin-bottom:20px;"><span class="sec-title">Importar Extrato / Fatura</span></div>
+
+        <template x-if="impStep==='upload'">
+          <div>
+            <div class="imp-dropzone" :class="impDragOver&&'drag-over'" @click="$refs.impFile.click()"
+              @dragover.prevent="impDragOver=true" @dragleave="impDragOver=false"
+              @drop.prevent="impDragOver=false;handleDrop($event)">
+              <div class="imp-dropzone-icon">📂</div>
+              <div class="imp-dropzone-title">Arraste um arquivo ou clique para selecionar</div>
+              <div class="imp-dropzone-sub" style="margin-top:6px;">PDF, CSV ou OFX — extrato bancário ou fatura de cartão</div>
+              <div style="margin-top:18px;display:flex;align-items:center;gap:10px;justify-content:center;flex-wrap:wrap;">
+                <span style="font-size:.75rem;color:var(--muted);">Conta:</span>
+                <select class="form-input form-select" style="width:200px;font-size:.8rem;" x-model="impContaId">
+                  <option value="">— selecionar —</option>
+                  <template x-for="c in contas" :key="c.id"><option :value="c.id" x-text="c.nome"></option></template>
+                </select>
+              </div>
+            </div>
+            <input type="file" x-ref="impFile" accept=".pdf,.csv,.ofx,.txt,.ret" style="display:none" @change="uploadExtrato($event.target.files[0])">
+            <template x-if="importacoes.length>0">
+              <div class="imp-history">
+                <div class="imp-history-title">Importações anteriores</div>
+                <template x-for="imp in importacoes" :key="imp.id">
+                  <div class="imp-history-row" @click="abrirImportacao(imp.id)">
+                    <span style="font-size:1.1rem;">📄</span>
+                    <span class="imp-history-name" x-text="imp.nome_arquivo"></span>
+                    <span class="imp-history-meta" x-text="imp.itens_aprovados+'/'+imp.total_itens+' aprovados'"></span>
+                    <span class="imp-history-meta" x-text="(imp.created_at||'').slice(0,10)"></span>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <template x-if="impStep==='processing'">
+          <div class="imp-processing">
+            <div class="imp-processing-icon">🤖</div>
+            <div>IA analisando o arquivo...</div>
+            <div style="font-size:.75rem;color:var(--muted);" x-text="impFileName"></div>
+          </div>
+        </template>
+
+        <template x-if="impStep==='review'">
+          <div>
+            <div class="imp-review-toolbar">
+              <button class="btn btn-ghost" @click="impStep='upload';loadImportacoes()">← Voltar</button>
+              <span class="imp-review-count" x-text="impItens.filter(i=>i.status==='pendente').length+' pendentes · '+impItens.filter(i=>i.status==='aprovado').length+' aprovados'"></span>
+              <button class="btn btn-ghost" style="font-size:.78rem;" @click="impItens.filter(i=>i.status==='pendente').forEach(i=>i._sel=true)">Selecionar todos</button>
+              <button class="btn btn-green" :disabled="!impItens.some(i=>i._sel&&i.status==='pendente')" @click="aprovarSelecionados()">✓ Aprovar selecionados</button>
+            </div>
+            <div class="imp-table-wrap">
+              <table class="imp-table">
+                <thead><tr>
+                  <th style="width:36px;"></th>
+                  <th>Data</th><th>Descrição</th><th>Valor</th><th>Tipo</th><th>Categoria</th><th>Status</th>
+                  <th class="col-actions"></th>
+                </tr></thead>
+                <tbody>
+                  <template x-for="item in impItens" :key="item.id">
+                    <tr :class="item.status">
+                      <td><input type="checkbox" x-model="item._sel" :disabled="item.status!=='pendente'"></td>
+                      <td>
+                        <span x-show="!item._editing" x-text="(item.data_lancamento||'').split('-').reverse().join('/')" style="font-size:.82rem;"></span>
+                        <input x-show="item._editing" class="imp-cell-edit" type="date" style="width:130px;" x-model="item.data_lancamento">
+                      </td>
+                      <td style="max-width:220px;overflow:hidden;">
+                        <span x-show="!item._editing" x-text="item.descricao" style="font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;max-width:210px;"></span>
+                        <input x-show="item._editing" class="imp-cell-edit" type="text" style="width:200px;" x-model="item.descricao">
+                      </td>
+                      <td>
+                        <span x-show="!item._editing" x-text="'R$ '+Number(item.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2})" style="font-size:.82rem;"></span>
+                        <input x-show="item._editing" class="imp-cell-edit" type="number" step="0.01" style="width:90px;" x-model="item.valor">
+                      </td>
+                      <td>
+                        <span x-show="!item._editing" class="imp-tipo-pill" :class="item.tipo" style="cursor:default;" x-text="item.tipo==='despesa'?'↓ Despesa':'↑ Receita'"></span>
+                        <button x-show="item._editing" class="imp-tipo-pill" :class="item.tipo" @click="item.tipo=item.tipo==='despesa'?'receita':'despesa'">
+                          <span x-text="item.tipo==='despesa'?'↓ Despesa':'↑ Receita'"></span>
+                        </button>
+                      </td>
+                      <td>
+                        <span x-show="!item._editing" style="font-size:.82rem;" x-text="categorias.find(c=>c.id==item.categoria_id)?.nome||item.categoria_sugerida||'—'"></span>
+                        <select x-show="item._editing" class="imp-cell-edit form-select" style="width:140px;" x-model="item.categoria_id">
+                          <option value="">— sem categoria</option>
+                          <template x-for="cat in categorias.filter(c=>c.tipo===(item.tipo==='despesa'?'despesa':'receita'))" :key="cat.id">
+                            <option :value="cat.id" x-text="cat.nome"></option>
+                          </template>
+                        </select>
+                      </td>
+                      <td><span class="imp-status-badge" :class="item.status" x-text="item.status"></span></td>
+                      <td class="col-actions">
+                        <span x-show="!item._editing" style="display:inline-flex;gap:4px;">
+                          <button class="btn-icon" x-show="item.status!=='rejeitado'" @click="item._orig={d:item.data_lancamento,desc:item.descricao,val:item.valor,tipo:item.tipo,cat:item.categoria_id};item._editing=true" style="font-size:.85rem;">✏</button>
+                          <button class="btn-icon danger" x-show="item.status!=='rejeitado'" @click="rejeitarItem(item)" style="font-size:.85rem;">🗑</button>
+                        </span>
+                        <span x-show="item._editing" style="display:inline-flex;gap:4px;">
+                          <button class="btn-icon" @click="salvarItemEdit(item)" style="color:#4caf50;font-size:1rem;">✓</button>
+                          <button class="btn-icon" @click="item.data_lancamento=item._orig.d;item.descricao=item._orig.desc;item.valor=item._orig.val;item.tipo=item._orig.tipo;item.categoria_id=item._orig.cat;item._editing=false" style="color:#888;font-size:1rem;">✗</button>
+                        </span>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </template>
+      </div>
+    </template>
+
+  </main>
+
+  <!-- MODAL LANÇAMENTO -->
+  <template x-if="lancModal">
+    <div class="modal-backdrop" @click.self="lancModal=false">
+      <div class="modal">
+        <div class="modal-header">
+          <span class="modal-title" x-text="lancForm.id?'Editar Lançamento':'Novo Lançamento'"></span>
+          <button class="modal-close" @click="lancModal=false">&#10005;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-row">
+            <div class="form-group full">
+              <div class="form-label">Tipo</div>
+              <div class="toggle-group">
+                <button class="toggle-btn" :class="lancForm.tipo==='receita'&&'active-green'" @click="lancForm.tipo='receita'">Receita</button>
+                <button class="toggle-btn" :class="lancForm.tipo==='despesa'&&'active-red'" @click="lancForm.tipo='despesa'">Despesa</button>
+              </div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Data</label>
+              <input class="form-input" type="date" x-model="lancForm.emissao">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Vencimento</label>
+              <input class="form-input" type="date" x-model="lancForm.vencimento">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group full">
+              <label class="form-label">Descrição *</label>
+              <input class="form-input" type="text" x-model="lancForm.descricao" placeholder="Ex: Supermercado, Salário...">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Valor (R$)</label>
+              <div class="input-prefix-wrap">
+                <span class="input-prefix">R$</span>
+                <input class="input-prefix-field" type="text" x-model="lancForm.valor_str" placeholder="0,00">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Categoria</label>
+              <select class="form-input form-select" x-model="lancForm.categoria_id">
+                <option value="">— Selecione —</option>
+                <template x-for="c in categorias" :key="c.id">
+                  <option :value="c.id" x-text="c.nome"></option>
+                </template>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Conta</label>
+              <select class="form-input form-select" x-model="lancForm.conta_id">
+                <option value="">— Selecione —</option>
+                <template x-for="c in contas" :key="c.id">
+                  <option :value="c.id" x-text="c.nome"></option>
+                </template>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Meio de Pagamento</label>
+              <select class="form-input form-select" x-model="lancForm.meio_pagamento">
+                <option value="">— Selecione —</option>
+                <option value="dinheiro">Dinheiro</option>
+                <option value="pix">PIX</option>
+                <option value="boleto">Boleto</option>
+                <option value="cartao">Cartão</option>
+                <option value="ted_doc">TED/DOC</option>
+                <option value="outros">Outros</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group full">
+              <label class="form-label">Situação</label>
+              <div class="toggle-group">
+                <button class="toggle-btn" :class="lancForm.situacao==='quitado'&&'active-green'" @click="lancForm.situacao='quitado'">Quitado</button>
+                <button class="toggle-btn" :class="lancForm.situacao==='em_aberto'&&'active-accent'" @click="lancForm.situacao='em_aberto'">Em aberto</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" @click="lancModal=false">Cancelar</button>
+          <button class="btn btn-accent" @click="saveLanc()" :disabled="saving"><span x-text="saving?'Salvando...':'Salvar'"></span></button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- MODAL CATEGORIA -->
+  <template x-if="catModal">
+    <div class="modal-backdrop" @click.self="catModal=false">
+      <div class="modal">
+        <div class="modal-header">
+          <span class="modal-title" x-text="catForm.id?'Editar Categoria':'Nova Categoria'"></span>
+          <button class="modal-close" @click="catModal=false">&#10005;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-row"><div class="form-group full"><label class="form-label">Nome *</label><input class="form-input" type="text" x-model="catForm.nome" placeholder="Ex: Alimentação"></div></div>
+          <div class="form-row">
+            <div class="form-group">
+              <div class="form-label">Tipo</div>
+              <div class="toggle-group">
+                <button class="toggle-btn" :class="catForm.tipo==='receita'&&'active-green'" @click="catForm.tipo='receita'">Receita</button>
+                <button class="toggle-btn" :class="catForm.tipo==='despesa'&&'active-red'" @click="catForm.tipo='despesa'">Despesa</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <div class="form-label">Situação</div>
+              <div class="toggle-group">
+                <button class="toggle-btn" :class="catForm.situacao==='ativa'&&'active-green'" @click="catForm.situacao='ativa'">Ativa</button>
+                <button class="toggle-btn" :class="catForm.situacao==='inativa'&&'active-accent'" @click="catForm.situacao='inativa'">Inativa</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" @click="catModal=false">Cancelar</button>
+          <button class="btn btn-accent" @click="saveCat()" :disabled="saving"><span x-text="saving?'Salvando...':'Salvar'"></span></button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- MODAL CONTA -->
+  <template x-if="contaModal">
+    <div class="modal-backdrop" @click.self="contaModal=false">
+      <div class="modal">
+        <div class="modal-header">
+          <span class="modal-title" x-text="contaForm.id?'Editar Conta':'Nova Conta'"></span>
+          <button class="modal-close" @click="contaModal=false">&#10005;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-row"><div class="form-group full"><label class="form-label">Nome *</label><input class="form-input" type="text" x-model="contaForm.nome" placeholder="Ex: Nubank, Caixa..."></div></div>
+          <div class="form-row">
+            <div class="form-group">
+              <div class="form-label">Situação</div>
+              <div class="toggle-group">
+                <button class="toggle-btn" :class="contaForm.situacao==='ativa'&&'active-green'" @click="contaForm.situacao='ativa'">Ativa</button>
+                <button class="toggle-btn" :class="contaForm.situacao==='inativa'&&'active-accent'" @click="contaForm.situacao='inativa'">Inativa</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Saldo Inicial (R$)</label>
+              <div class="input-prefix-wrap">
+                <span class="input-prefix">R$</span>
+                <input class="input-prefix-field" type="text" x-model="contaForm.saldo_str" placeholder="0,00">
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" @click="contaModal=false">Cancelar</button>
+          <button class="btn btn-accent" @click="saveConta()" :disabled="saving"><span x-text="saving?'Salvando...':'Salvar'"></span></button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <div class="fin-toast" :class="toast.type==='success'?'toast-success':'toast-error'" x-show="toast.show" x-transition x-text="toast.msg" style="display:none;"></div>
+</div>
+
+<script>
+window.fpApp = function() {
+  return {
+    sec: 'lancamentos',
+    loading: false,
+    saving: false,
+    filtro: 'todos',
+    currentMes: (() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'); })(),
+
+    lancamentos: [], saldos: [], summary: {},
+    contas: [], categorias: [],
+    lancModal: false, catModal: false, contaModal: false,
+    lancForm: {}, catForm: {}, contaForm: {},
+    toast: { show: false, msg: '', type: 'success' },
+
+    analiseData: null, analiseLoading: false, _analiseCharts: {},
+    analiseDe: '', analiseAte: '',
+    cartaoData: null, cartaoLoading: false, _ccCharts: {},
+    cartaoDe: '', cartaoAte: '',
+
+    mp: { open: false, target: null, step: 0, since: null, until: null, viewYear: new Date().getFullYear()-1 },
+    mpMonthLabels: ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'],
+
+    impStep: 'upload', impDragOver: false, impFileName: '',
+    impContaId: '', impId: null, impItens: [], importacoes: [],
+
+    get mesLabel() {
+      const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+      const [y, m] = this.currentMes.split('-');
+      return meses[parseInt(m)-1] + ' de ' + y;
+    },
+
+    get filteredLanc() {
+      const today = new Date().toISOString().slice(0,10);
+      if (this.filtro === 'receitas') return this.lancamentos.filter(l => l.tipo === 'receita');
+      if (this.filtro === 'despesas') return this.lancamentos.filter(l => l.tipo === 'despesa');
+      if (this.filtro === 'atrasados') return this.lancamentos.filter(l => l.situacao !== 'quitado' && l.vencimento < today);
+      return this.lancamentos;
+    },
+
+    filtroLabel(f) { return { todos:'Todos', receitas:'Receitas', despesas:'Despesas', atrasados:'Atrasados' }[f]; },
+
+    fmtBRL(v) { return 'R$ ' + Math.abs(parseFloat(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); },
+    parseBRL(s) { if (!s) return 0; return parseFloat(String(s).replace(/\./g,'').replace(',','.')) || 0; },
+    fmtDate(s) { if (!s) return '—'; const [y,m,d] = s.slice(0,10).split('-'); return d+'/'+m+'/'+y; },
+    today() { return new Date().toISOString().slice(0,10); },
+
+    showToast(msg, type='success') { this.toast = {show:true,msg,type}; setTimeout(()=>this.toast.show=false, 3200); },
+
+    async api(method, path, body) {
+      const opts = {method, headers:{'Content-Type':'application/json'}};
+      if (body) opts.body = JSON.stringify(body);
+      const res = await fetch(path, opts);
+      if (!res.ok) { const e = await res.json().catch(()=>({detail:res.statusText})); throw new Error(e.detail||'Erro'); }
+      return res.status===204 ? null : res.json();
+    },
+
+    async init() {
+      await Promise.all([this.loadLancamentos(), this.loadContas(), this.loadCategorias()]);
+    },
+
+    /* ── Month nav ── */
+    prevMes() { const [y,m] = this.currentMes.split('-').map(Number); const d = new Date(y,m-2,1); this.currentMes = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); this.loadLancamentos(); },
+    nextMes() { const [y,m] = this.currentMes.split('-').map(Number); const d = new Date(y,m,1);   this.currentMes = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); this.loadLancamentos(); },
+
+    /* ── Lançamentos ── */
+    async loadLancamentos() {
+      this.loading = true;
+      try {
+        const data = await this.api('GET', `/api/fp/lancamentos?mes=${this.currentMes}`);
+        this.lancamentos = data.lancamentos || [];
+        this.summary     = data.summary     || {};
+        this.saldos      = data.saldos      || [];
+      } catch(e) { this.showToast(e.message,'error'); }
+      finally { this.loading = false; }
+    },
+
+    openLancModal(tipo='receita') {
+      this.lancForm = { id:null, tipo, emissao:this.today(), vencimento:this.today(), descricao:'', valor_str:'', categoria_id:'', conta_id:'', meio_pagamento:'', situacao:'em_aberto' };
+      this.lancModal = true;
+    },
+
+    openLancEdit(l) {
+      this.lancForm = { id:l.id, tipo:l.tipo, emissao:(l.emissao||this.today()).slice(0,10), vencimento:(l.vencimento||this.today()).slice(0,10), descricao:l.descricao||'', valor_str: l.valor ? String(l.valor).replace('.',',') : '', categoria_id:l.categoria_id||'', conta_id:l.conta_id||'', meio_pagamento:l.meio_pagamento||'', situacao:l.situacao||'em_aberto' };
+      this.lancModal = true;
+    },
+
+    async saveLanc() {
+      if (!this.lancForm.descricao.trim()) { this.showToast('Descrição obrigatória','error'); return; }
+      this.saving = true;
+      try {
+        const v = this.parseBRL(this.lancForm.valor_str);
+        const payload = { tipo:this.lancForm.tipo, emissao:this.lancForm.emissao, vencimento:this.lancForm.vencimento||this.lancForm.emissao, descricao:this.lancForm.descricao, valor:v, valor_total:v, categoria_id:this.lancForm.categoria_id||null, conta_id:this.lancForm.conta_id||null, meio_pagamento:this.lancForm.meio_pagamento||null, situacao:this.lancForm.situacao };
+        if (this.lancForm.id) { await this.api('PUT', `/api/fp/lancamentos/${this.lancForm.id}`, payload); this.showToast('Atualizado'); }
+        else { await this.api('POST', '/api/fp/lancamentos', payload); this.showToast('Criado'); }
+        this.lancModal = false;
+        await this.loadLancamentos();
+      } catch(e) { this.showToast(e.message,'error'); }
+      finally { this.saving = false; }
+    },
+
+    async quitarLanc(l) {
+      try { await this.api('PATCH', `/api/fp/lancamentos/${l.id}/quitar`); await this.loadLancamentos(); this.showToast('Quitado'); }
+      catch(e) { this.showToast(e.message,'error'); }
+    },
+
+    async deleteLanc(id) {
+      if (!confirm('Excluir este lançamento?')) return;
+      try { await this.api('DELETE', `/api/fp/lancamentos/${id}`); await this.loadLancamentos(); this.showToast('Excluído'); }
+      catch(e) { this.showToast(e.message,'error'); }
+    },
+
+    /* ── Categorias ── */
+    async loadCategorias() {
+      try { const d = await this.api('GET','/api/fp/categorias'); this.categorias = d.categorias||[]; } catch(_) {}
+    },
+    openCatModal() { this.catForm={id:null,nome:'',tipo:'despesa',situacao:'ativa'}; this.catModal=true; },
+    openCatEdit(c) { this.catForm={id:c.id,nome:c.nome,tipo:c.tipo||'despesa',situacao:c.situacao||'ativa'}; this.catModal=true; },
+    async saveCat() {
+      if (!this.catForm.nome.trim()) { this.showToast('Nome obrigatório','error'); return; }
+      this.saving=true;
+      try {
+        const p={nome:this.catForm.nome,tipo:this.catForm.tipo,situacao:this.catForm.situacao};
+        if (this.catForm.id) { await this.api('PUT',`/api/fp/categorias/${this.catForm.id}`,p); this.showToast('Atualizado'); }
+        else { await this.api('POST','/api/fp/categorias',p); this.showToast('Criado'); }
+        this.catModal=false; await this.loadCategorias();
+      } catch(e) { this.showToast(e.message,'error'); }
+      finally { this.saving=false; }
+    },
+    async deleteCat(id) {
+      if (!confirm('Excluir?')) return;
+      try { await this.api('DELETE',`/api/fp/categorias/${id}`); await this.loadCategorias(); this.showToast('Excluído'); }
+      catch(e) { this.showToast(e.message,'error'); }
+    },
+
+    /* ── Contas ── */
+    async loadContas() {
+      try { const d = await this.api('GET','/api/fp/contas'); this.contas = d.contas||[]; } catch(_) {}
+    },
+    openContaModal() { this.contaForm={id:null,nome:'',situacao:'ativa',saldo_str:''}; this.contaModal=true; },
+    openContaEdit(c) { this.contaForm={id:c.id,nome:c.nome,situacao:c.situacao||'ativa',saldo_str:c.saldo_inicial?String(c.saldo_inicial).replace('.',','):''}; this.contaModal=true; },
+    async saveConta() {
+      if (!this.contaForm.nome.trim()) { this.showToast('Nome obrigatório','error'); return; }
+      this.saving=true;
+      try {
+        const p={nome:this.contaForm.nome,situacao:this.contaForm.situacao,saldo_inicial:this.parseBRL(this.contaForm.saldo_str)};
+        if (this.contaForm.id) { await this.api('PUT',`/api/fp/contas/${this.contaForm.id}`,p); this.showToast('Atualizado'); }
+        else { await this.api('POST','/api/fp/contas',p); this.showToast('Criado'); }
+        this.contaModal=false; await this.loadContas();
+      } catch(e) { this.showToast(e.message,'error'); }
+      finally { this.saving=false; }
+    },
+    async deleteConta(id) {
+      if (!confirm('Excluir esta conta?')) return;
+      try { await this.api('DELETE',`/api/fp/contas/${id}`); await this.loadContas(); this.showToast('Excluído'); }
+      catch(e) { this.showToast(e.message,'error'); }
+    },
+
+    /* ── Análise Geral ── */
+    async loadAnalise(de='', ate='') {
+      this.analiseLoading=true;
+      try {
+        const p=new URLSearchParams();
+        if (de||this.analiseDe) p.set('de',de||this.analiseDe);
+        if (ate||this.analiseAte) p.set('ate',ate||this.analiseAte);
+        const qs=p.toString()?'?'+p.toString():'';
+        this.analiseData = await this.api('GET','/api/fp/analise'+qs);
+      } catch(e) { this.showToast(e.message,'error'); }
+      // desativa loading ANTES de init charts para que os <canvas> já estejam no DOM
+      this.analiseLoading=false;
+      await this.$nextTick(); await this.$nextTick();
+      this.initAnaliseCharts();
+    },
+
+    initAnaliseCharts() {
+      if (!window.Chart||!this.analiseData) return;
+      Object.values(this._analiseCharts).forEach(c=>{try{c.destroy();}catch(_){}});
+      this._analiseCharts={};
+      const mensal = this.analiseData.mensal||[];
+      const COLORS = ['#ff4d00','#ef5350','#ff9800','#ffd54f','#4caf50','#26c6da','#7986cb','#ab47bc'];
+
+      const c1=document.getElementById('chart-analise-mensal');
+      if (c1&&mensal.length) {
+        this._analiseCharts.mensal=new Chart(c1,{type:'bar',data:{
+          labels:mensal.map(m=>m.mes),
+          datasets:[
+            {label:'Receita',data:mensal.map(m=>m.receita),backgroundColor:'rgba(76,175,80,0.3)',borderColor:'#4caf50',borderWidth:1.5,borderRadius:3},
+            {label:'Despesa',data:mensal.map(m=>m.despesa),backgroundColor:'rgba(239,83,80,0.3)',borderColor:'#ef5350',borderWidth:1.5,borderRadius:3},
+          ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:10,font:{size:10}}}},scales:{x:{grid:{color:'#1c1c1c'}},y:{grid:{color:'#1c1c1c'},ticks:{callback:v=>'R$'+(v/1000).toFixed(1)+'k'}}}}});
+      }
+
+      const cats=this.analiseData.por_categoria||[];
+      const c2=document.getElementById('chart-analise-cat');
+      if (c2&&cats.length) {
+        this._analiseCharts.cat=new Chart(c2,{type:'doughnut',data:{
+          labels:cats.map(c=>c.categoria),
+          datasets:[{data:cats.map(c=>c.total),backgroundColor:COLORS.slice(0,cats.length),borderColor:'#111',borderWidth:2}]},
+          options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{boxWidth:10,padding:8,font:{size:10}}},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${this.fmtBRL(ctx.parsed)}`}}}}});
+      }
+    },
+
+    /* ── Month picker ── */
+    mpFmtLabel(ym) { if (!ym) return '—'; const [y,m]=ym.split('-'); return `${this.mpMonthLabels[parseInt(m)-1]}/${y.slice(2)}`; },
+    mpBtnLabel(target) {
+      const fmt=ym=>this.mpFmtLabel(ym);
+      if (target==='analise') { if (!this.analiseDe) return 'Todo o período'; return `${fmt(this.analiseDe)} – ${fmt(this.analiseAte)}`; }
+      if (!this.cartaoDe) return 'Todo o período';
+      return `${fmt(this.cartaoDe)} – ${fmt(this.cartaoAte)}`;
+    },
+    openMp(target) {
+      const de=target==='analise'?this.analiseDe:this.cartaoDe;
+      const ate=target==='analise'?this.analiseAte:this.cartaoAte;
+      this.mp.target=target; this.mp.since=de||null; this.mp.until=ate||null;
+      this.mp.step=(de&&ate)?2:0;
+      this.mp.viewYear=de?parseInt(de.split('-')[0]):new Date().getFullYear()-1;
+      this.mp.open=true;
+    },
+    mpClick(year,month) {
+      const ym=`${year}-${String(month).padStart(2,'0')}`;
+      if (this.mp.step===0||this.mp.step===2) { this.mp.since=ym; this.mp.until=null; this.mp.step=1; }
+      else { if (ym<this.mp.since){this.mp.until=this.mp.since;this.mp.since=ym;}else{this.mp.until=ym;} this.mp.step=2; }
+    },
+    mpMonthClass(year,month) {
+      const ym=`${year}-${String(month).padStart(2,'0')}`;
+      const {since,until}=this.mp;
+      if (!since) return '';
+      const lo=since,hi=until||since;
+      if (ym===lo&&ym===hi) return 'mp-sel-start mp-sel-end';
+      if (ym===lo) return 'mp-sel-start'; if (ym===hi) return 'mp-sel-end';
+      if (ym>lo&&ym<hi) return 'mp-in-range'; return '';
+    },
+    mpPrevYear() { this.mp.viewYear--; },
+    mpNextYear() { this.mp.viewYear++; },
+    async applyMp() {
+      if (!this.mp.since) return;
+      const since=this.mp.since, until=this.mp.until||this.mp.since;
+      this.mp.open=false;
+      if (this.mp.target==='analise') { this.analiseDe=since; this.analiseAte=until; this.analiseData=null; await this.loadAnalise(); }
+      else { this.cartaoDe=since; this.cartaoAte=until; this.cartaoData=null; await this.loadCartaoAnalise(); }
+    },
+
+    /* ── Análise CC ── */
+    async loadCartaoAnalise() {
+      if (this.cartaoData) { await this.$nextTick(); await this.$nextTick(); this.initCartaoCharts(); return; }
+      this.cartaoLoading=true;
+      try {
+        const p=new URLSearchParams();
+        if (this.cartaoDe) p.set('de',this.cartaoDe);
+        if (this.cartaoAte) p.set('ate',this.cartaoAte);
+        const qs=p.toString()?'?'+p.toString():'';
+        this.cartaoData=await this.api('GET','/api/fp/cartao-analise'+qs);
+      } catch(e) { this.showToast(e.message,'error'); }
+      finally { this.cartaoLoading=false; }
+      await this.$nextTick(); await this.$nextTick();
+      this.initCartaoCharts();
+    },
+
+    initCartaoCharts() {
+      if (!window.Chart||!this.cartaoData) return;
+      Object.values(this._ccCharts).forEach(c=>{try{c.destroy();}catch(_){}});
+      this._ccCharts={};
+      const COLORS=['#ff4d00','#ef5350','#ff9800','#ffd54f','#4caf50','#26c6da','#7986cb','#ab47bc','#8d6e63','#78909c','#ec407a','#66bb6a'];
+
+      const mensal=this.cartaoData.mensal||[];
+      const c1=document.getElementById('chart-cc-mensal');
+      if (c1&&mensal.length) {
+        this._ccCharts.mensal=new Chart(c1,{type:'bar',data:{labels:mensal.map(m=>m.mes),datasets:[{label:'Total',data:mensal.map(m=>m.total),backgroundColor:'rgba(239,83,80,0.3)',borderColor:'#ef5350',borderWidth:1.5,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${this.fmtBRL(ctx.raw)}`}}},scales:{x:{grid:{color:'#1c1c1c'}},y:{grid:{color:'#1c1c1c'},ticks:{callback:v=>'R$'+(v/1000).toFixed(1)+'k'}}}}});
+      }
+
+      const cats=this.cartaoData.por_categoria||[];
+      const c2=document.getElementById('chart-cc-cat');
+      if (c2&&cats.length) {
+        this._ccCharts.cat=new Chart(c2,{type:'doughnut',data:{labels:cats.map(c=>c.categoria),datasets:[{data:cats.map(c=>c.total),backgroundColor:COLORS.slice(0,cats.length),borderColor:'#111',borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{boxWidth:10,padding:8,font:{size:10}}},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${this.fmtBRL(ctx.parsed)}`}}}}});
+      }
+
+      const merch=this.cartaoData.top_merchants||[];
+      const c3=document.getElementById('chart-cc-merch');
+      if (c3&&merch.length) {
+        this._ccCharts.merch=new Chart(c3,{type:'bar',data:{labels:merch.map(m=>m.nome),datasets:[{label:'Total',data:merch.map(m=>m.total),backgroundColor:'rgba(121,134,203,0.35)',borderColor:'#7986cb',borderWidth:1.5,borderRadius:3}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${this.fmtBRL(ctx.raw)}`}}},scales:{x:{grid:{color:'#1c1c1c'},ticks:{callback:v=>'R$'+(v/1000).toFixed(1)+'k'}},y:{grid:{display:false},ticks:{font:{size:10}}}}}});
+      }
+    },
+
+    /* ── Importar ── */
+    async loadImportacoes() {
+      try { const d=await this.api('GET','/api/fp/importacoes'); this.importacoes=d.importacoes||[]; } catch(_) {}
+    },
+
+    handleDrop(e) { const f=e.dataTransfer?.files?.[0]; if(f) this.uploadExtrato(f); },
+
+    async uploadExtrato(file) {
+      if (!file) return;
+      this.impFileName=file.name; this.impStep='processing';
+      try {
+        const fd=new FormData(); fd.append('arquivo',file);
+        if (this.impContaId) fd.append('conta_id',this.impContaId);
+        const res=await fetch('/api/fp/importar',{method:'POST',body:fd});
+        if (!res.ok) { const e=await res.json().catch(()=>({detail:'Erro'})); throw new Error(e.detail); }
+        const data=await res.json();
+        this.impId=data.id;
+        await this.abrirImportacao(data.id);
+      } catch(e) { this.showToast(e.message,'error'); this.impStep='upload'; }
+    },
+
+    async abrirImportacao(id) {
+      this.impId=id;
+      try {
+        const d=await this.api('GET',`/api/fp/importacoes/${id}/itens`);
+        this.impItens=(d.itens||[]).map(i=>({...i,_sel:i.status==='pendente',_editing:false,_orig:null}));
+        this.impStep='review';
+      } catch(e) { this.showToast(e.message,'error'); }
+    },
+
+    async aprovarSelecionados() {
+      const ids=this.impItens.filter(i=>i._sel&&i.status==='pendente').map(i=>i.id);
+      if (!ids.length) return;
+      try {
+        await this.api('POST',`/api/fp/importacoes/${this.impId}/aprovar`,{item_ids:ids});
+        await this.abrirImportacao(this.impId);
+        this.showToast(`${ids.length} aprovado(s)`);
+      } catch(e) { this.showToast(e.message,'error'); }
+    },
+
+    async salvarItemEdit(item) {
+      try {
+        await this.api('PUT',`/api/fp/importacao-item/${item.id}`,{data_lancamento:item.data_lancamento,descricao:item.descricao,valor:parseFloat(item.valor)||0,tipo:item.tipo,categoria_id:item.categoria_id||null});
+        item._editing=false; this.showToast('Salvo');
+      } catch(e) { this.showToast(e.message,'error'); }
+    },
+
+    async rejeitarItem(item) {
+      if (!confirm('Remover este lançamento?')) return;
+      try {
+        await this.api('DELETE',`/api/fp/importacao-item/${item.id}`);
+        this.impItens=this.impItens.filter(i=>i.id!==item.id);
+        this.showToast('Removido');
+      } catch(e) { this.showToast(e.message,'error'); }
+    },
+  };
+};
+</script>
+</body>
+</html>

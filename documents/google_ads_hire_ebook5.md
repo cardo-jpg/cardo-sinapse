@@ -1,5 +1,5 @@
 # Google Ads — Hire Brazil — Funil Ebook 5 Oportunidades [HIRE_EBOOK5]
-**Atualizado em:** 17/04/2026 17:06
+**Atualizado em:** 25/04/2026 23:43
 
 | Date | Campanha | Investido | Leads | Vendas | Faturamento |
 |---|---|---|---|---|---|
@@ -250,11 +250,23 @@
 | 02/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 20,93 | 15 | 0 | R$ 0,00 |  |  |  |  |  |  |  | 02/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 20,93 | 15 |
 | 03/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 23,63 | 27 | 0 | R$ 0,00 |  |  |  |  |  |  |  | 03/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 23,63 | 27 |
 | 04/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 22,41 | 18 | 0 | R$ 0,00 |  |  |  |  |  |  |  | 04/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 22,41 | 18 |
-| 05/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 59,36 | 23 | 0 | R$ 0,00 |  |  |  |  |  |  |  | 05/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 29,55 | 23 |
-| 06/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 35,36 | 26 | 0 | R$ 0,00 |  |  |  |  |  |  |  | 06/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 19,62 | 26 |
-| 07/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 42,50 | 28 | 0 | R$ 0,00 |  |  |  |  |  |  |  | 07/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 29,54 | 28 |
-| 08/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 35,36 | 35 | 0 | R$ 0,00 |
-| 09/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 40,36 | 15 | 0 | R$ 0,00 |
+| 05/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 29,55 | 23 | 0 | R$ 0,00 |  |  |  |  |  |  |  | 05/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 29,55 | 23 |
+| 06/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 19,62 | 26 | 0 | R$ 0,00 |  |  |  |  |  |  |  | 06/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 19,62 | 26 |
+| 07/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 29,54 | 28 | 0 | R$ 0,00 |  |  |  |  |  |  |  | 07/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 29,54 | 28 |
+| 08/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 22,84 | 35 | 0 | R$ 0,00 |
+| 09/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 19,01 | 15 | 0 | R$ 0,00 |
 | 10/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 16,84 | 14 | 0 | R$ 0,00 |
 | 11/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 22,40 | 20 | 0 | R$ 0,00 |
 | 12/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 26,02 | 20 | 0 | R$ 0,00 |
+| 13/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 17,19 | 18 | 0 | R$ 0,00 |
+| 14/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 16,35 | 16 | 0 | R$ 0,00 |
+| 15/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 26,71 | 20 | 0 | R$ 0,00 |
+| 16/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 29,65 | 14 | 0 | R$ 0,00 |
+| 17/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 31,23 | 22 | 0 | R$ 0,00 |
+| 18/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 33,28 | 22 | 0 | R$ 0,00 |
+| 19/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 33,24 | 27 |  |  |
+| 20/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 40,76 | 25 |  |  |
+| 21/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 31,65 | 21 |  |  |
+| 22/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 27,17 | 23 |  |  |
+| 23/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 27,77 | 33 |  |  |
+| 24/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 29,63 | 23 |  |  |

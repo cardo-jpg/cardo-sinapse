@@ -1,5 +1,5 @@
 # Google Ads — Gráfica NF — Meta Ads (Público) [NF_META]
-**Atualizado em:** 17/04/2026 17:06
+**Atualizado em:** 25/04/2026 23:43
 
 | Data | Campanha | Público | Investimento | Impressões | Cliques | Leads |
 |---|---|---|---|---|---|---|
@@ -611,7 +611,23 @@
 | 2026-04-14 | NF_FB_Engajamento_Whats_Sacola_F_Nat | Aberto | 14,34 | 412 | 2 | 1 |
 | 2026-04-15 | NF_FB_Engajamento_Whats_Cartela_F | Aberto | 8,22 | 341 | 0 | 0 |
 | 2026-04-15 | NF_FB_Engajamento_Whats_Sacola_F_Nat | Aberto | 9,53 | 327 | 0 | 0 |
-| 2026-04-16 | NF_FB_Engajamento_Whats_Cartela_F | Aberto | 12,13 | 684 | 3 | 1 |
-| 2026-04-16 | NF_FB_Engajamento_Whats_Sacola_F_Nat | Aberto | 9,66 | 394 | 2 | 2 |
-| 2026-04-17 | NF_FB_Engajamento_Whats_Cartela_F | Aberto | 3,82 | 204 | 0 | 0 |
-| 2026-04-17 | NF_FB_Engajamento_Whats_Sacola_F_Nat | Aberto | 2,21 | 84 | 0 | 0 |
+| 2026-04-16 | NF_FB_Engajamento_Whats_Cartela_F | Aberto | 12,15 | 688 | 3 | 1 |
+| 2026-04-16 | NF_FB_Engajamento_Whats_Sacola_F_Nat | Aberto | 9,67 | 395 | 2 | 2 |
+| 2026-04-17 | NF_FB_Engajamento_Whats_Cartela_F | Aberto | 9,92 | 524 | 1 | 0 |
+| 2026-04-17 | NF_FB_Engajamento_Whats_Sacola_F_Nat | Aberto | 9,61 | 263 | 4 | 3 |
+| 2026-04-18 | NF_FB_Engajamento_Whats_Cartela_F | Aberto | 7,06 | 398 | 0 | 0 |
+| 2026-04-18 | NF_FB_Engajamento_Whats_Sacola_F_Nat | Aberto | 5,88 | 212 | 2 | 1 |
+| 2026-04-19 | NF_FB_Engajamento_Whats_Cartela_F | Aberto | 4,67 | 173 | 0 | 0 |
+| 2026-04-19 | NF_FB_Engajamento_Whats_Sacola_F_Nat | Aberto | 7,02 | 126 | 1 | 0 |
+| 2026-04-20 | NF_FB_Engajamento_Whats_Cartela_F | Aberto | 13,74 | 577 | 1 | 1 |
+| 2026-04-20 | NF_FB_Engajamento_Whats_Sacola_F_Nat | Aberto | 9,31 | 225 | 4 | 3 |
+| 2026-04-21 | NF_FB_Engajamento_Whats_Cartela_F | Aberto | 12,68 | 550 | 2 | 2 |
+| 2026-04-21 | NF_FB_Engajamento_Whats_Sacola_F_Nat | Aberto | 12,56 | 324 | 3 | 3 |
+| 2026-04-22 | NF_FB_Engajamento_Whats_Cartela_F | Aberto | 6,33 | 376 | 1 | 0 |
+| 2026-04-22 | NF_FB_Engajamento_Whats_Sacola_F_Nat | Aberto | 9,78 | 237 | 4 | 2 |
+| 2026-04-23 | NF_FB_Engajamento_Whats_Cartela_F | Aberto | 7,89 | 396 | 0 | 0 |
+| 2026-04-23 | NF_FB_Engajamento_Whats_Sacola_F_Nat | Aberto | 7,61 | 203 | 2 | 1 |
+| 2026-04-24 | NF_FB_Engajamento_Whats_Cartela_F | Aberto | 5,35 | 310 | 0 | 0 |
+| 2026-04-24 | NF_FB_Engajamento_Whats_Sacola_F_Nat | Aberto | 6,35 | 141 | 0 | 0 |
+| 2026-04-25 | NF_FB_Engajamento_Whats_Cartela_F | Aberto | 1,58 | 73 | 0 | 0 |
+| 2026-04-25 | NF_FB_Engajamento_Whats_Sacola_F_Nat | Aberto | 1,86 | 38 | 0 | 0 |

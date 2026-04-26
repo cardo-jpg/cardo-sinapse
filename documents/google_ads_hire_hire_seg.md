@@ -1,5 +1,5 @@
 # Google Ads — Hire Brazil — Seguidores HIRE [HIRE_HIRE_SEG]
-**Atualizado em:** 17/04/2026 17:06
+**Atualizado em:** 25/04/2026 23:43
 
 | DATA | Novos Seguidores | Deixaram de Seguir | Geral | Seguidores Acumulados | Crescimento | Investimento diário | Custo por novos seguidores | Cliques | CPC | Impressões | CPM |
 |---|---|---|---|---|---|---|---|---|---|---|---|

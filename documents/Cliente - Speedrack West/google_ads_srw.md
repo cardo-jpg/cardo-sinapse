@@ -1,4 +1,4 @@
-# Google Ads — SpeedRack West [SRW]
+# Google Ads — Speedrack West [SRW]
 **Atualizado em:** 21/03/2026 09:04
 
 | Campaign performance |

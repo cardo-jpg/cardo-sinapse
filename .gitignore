@@ -16,3 +16,8 @@ documents/**/Google Chat/
 !package.json
 data/
 sinapse_api_design.rtf
+sinapse.db
+backend/gestao.db
+Financeiro/
+Finanças Pessoais/
+scripts/

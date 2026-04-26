@@ -5,23 +5,46 @@
   </div>
 
   <div class="sinapse-nav-section">
-    <a href="/trafego" data-label="Dashboard"
-       class="sinapse-nav-item {% if active_page=='trafego' %}active{% endif %}">
-      <span class="sinapse-nav-icon">📊</span> Dashboard
+    <div class="sinapse-nav-label">Ferramentas</div>
+
+    {% if nav_fin_pessoais %}
+    <a href="/financas-pessoais" data-label="Finanças Pessoais"
+       class="sinapse-nav-item {% if active_page=='financas_pessoais' %}active{% endif %}">
+      <span class="sinapse-nav-icon">💸</span> Finanças Pessoais
     </a>
-    <a href="/ata" data-label="Ata de Reunião"
-       class="sinapse-nav-item {% if active_page=='ata' %}active{% endif %}">
-      <span class="sinapse-nav-icon">📝</span> Ata de Reunião
-    </a>
+    {% endif %}
+
     <a href="/conversar" data-label="Cérebro"
        class="sinapse-nav-item {% if active_page=='conversar' %}active{% endif %}">
       <span class="sinapse-nav-icon">🧠</span> Cérebro
     </a>
-    <a href="/tarefas" data-label="Tarefas"
-       class="sinapse-nav-item {% if active_page=='tarefas' %}active{% endif %}">
-      <span class="sinapse-nav-icon">✅</span> Tarefas
+    <a href="/financeiro" data-label="Financeiro"
+       class="sinapse-nav-item {% if active_page=='financeiro' %}active{% endif %}">
+      <span class="sinapse-nav-icon">💰</span> Financeiro
+    </a>
+    <a href="/gestao" data-label="Gestão"
+       class="sinapse-nav-item {% if active_page=='gestao' %}active{% endif %}">
+      <span class="sinapse-nav-icon">📋</span> Gestão
+    </a>
+    <a href="/ata" data-label="Gerador de Atas"
+       class="sinapse-nav-item {% if active_page=='ata' %}active{% endif %}">
+      <span class="sinapse-nav-icon">📝</span> Gerador de Atas
+    </a>
+    <a href="/trafego" data-label="Dashboard"
+       class="sinapse-nav-item {% if active_page=='trafego' %}active{% endif %}">
+      <span class="sinapse-nav-icon">📊</span> Dashboard
     </a>
   </div>
+
+  {% if nav_is_admin %}
+  <div class="sinapse-nav-section" style="margin-top:auto;">
+    <div class="sinapse-nav-label">Sistema</div>
+    <a href="/config" data-label="Configurações"
+       class="sinapse-nav-item {% if active_page=='config' %}active{% endif %}">
+      <span class="sinapse-nav-icon">⚙️</span> Configurações
+    </a>
+  </div>
+  {% endif %}
 
   <div class="sinapse-nav-footer">
     <span class="sinapse-nav-user">{{ nav_username or '' }}</span>
@@ -31,6 +54,13 @@
 
 <script>
 (function() {
+  if (window.self !== window.top) {
+    document.addEventListener('DOMContentLoaded', function() {
+      const nav = document.getElementById('sinapseNav');
+      if (nav) nav.remove();
+    });
+    return;
+  }
   const nav = document.getElementById('sinapseNav');
   if (localStorage.getItem('sinapseNavCollapsed') === '1') nav.classList.add('collapsed');
   window.toggleNav = function() {

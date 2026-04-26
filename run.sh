@@ -15,5 +15,5 @@ fi
 source venv/bin/activate
 pip install -r requirements.txt -q
 
-echo "Cardô Brain rodando em http://localhost:8000"
-uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+echo "Cardô Brain rodando em http://localhost:8001"
+uvicorn backend.main:app --host 0.0.0.0 --port 8001 --reload
