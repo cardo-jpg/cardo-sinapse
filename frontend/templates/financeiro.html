@@ -169,17 +169,6 @@
     .fin-total-label { font-size: .63rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
     .fin-total-value { font-size: .9rem; font-weight: 700; }
 
-    /* ── right sidebar (saldos) ── */
-    .fin-saldos {
-      width: 210px; flex-shrink: 0;
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 10px; padding: 14px; align-self: flex-start;
-    }
-    .fin-saldos-title { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin-bottom: 12px; }
-    .saldo-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); }
-    .saldo-row:last-child { border-bottom: none; }
-    .saldo-nome { font-size: .78rem; color: var(--text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 8px; }
-    .saldo-val { font-size: .78rem; font-weight: 700; }
 
     /* ── card grid (clientes/fornecedores) ── */
     .contact-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
@@ -631,19 +620,6 @@
             </div>
           </div>
 
-          <!-- right saldos -->
-          <div class="fin-saldos" x-show="!loading">
-            <div class="fin-saldos-title">Saldo por Conta</div>
-            <template x-if="saldos.length===0">
-              <div style="font-size:.75rem; color:var(--muted); text-align:center; padding:12px 0;">Nenhuma conta</div>
-            </template>
-            <template x-for="s in saldos" :key="s.conta_id">
-              <div class="saldo-row">
-                <span class="saldo-nome" x-text="s.conta_nome"></span>
-                <span class="saldo-val" :class="s.saldo>=0?'green':'red'" x-text="formatBRL(s.saldo)"></span>
-              </div>
-            </template>
-          </div>
         </div>
       </div>
     </template>
@@ -1916,7 +1892,7 @@ window.finApp = function() {
     /* ── data ── */
     lancamentos: [],
     transferencias: [],
-    saldos: [],
+
     summary: {},
     bottomTotals: {},
     contas: [],
@@ -2070,7 +2046,6 @@ window.finApp = function() {
         this.loadContas(),
         this.loadCategorias(),
         this.loadCentros(),
-        this.loadSaldos(),
         this.loadClientes(),
         this.loadFornecedores(),
       ]);
@@ -2101,7 +2076,6 @@ window.finApp = function() {
         this.lancamentos = data.lancamentos || [];
         this.summary = data.summary || {};
         this.bottomTotals = data.bottom_totals || {};
-        await this.loadSaldos();
       } catch(e) { this.showToast(e.message, 'error'); }
       finally { this.loading = false; }
     },
@@ -2276,12 +2250,6 @@ window.finApp = function() {
       });
     },
 
-    /* ══════════════════════════ SALDOS ══════════════════════════ */
-    async loadSaldos() {
-      try {
-        this.saldos = await this.api('GET', '/api/fin/saldos');
-      } catch(e) { /* silent */ }
-    },
 
     /* ══════════════════════════ TRANSFERÊNCIAS ══════════════════════════ */
     async loadTransferencias() {
@@ -2314,7 +2282,6 @@ window.finApp = function() {
         this.transfModal = false;
         this.showToast('Transferência registrada');
         if (this.currentSection === 'transferencias') await this.loadTransferencias();
-        await this.loadSaldos();
       } catch(e) { this.showToast(e.message, 'error'); }
       finally { this.saving = false; }
     },
@@ -2367,7 +2334,6 @@ window.finApp = function() {
         }
         this.contaModal = false;
         await this.loadContas();
-        await this.loadSaldos();
       } catch(e) { this.showToast(e.message, 'error'); }
       finally { this.saving = false; }
     },
