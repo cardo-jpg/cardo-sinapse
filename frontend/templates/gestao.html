@@ -713,7 +713,9 @@
     .mini-actions { display: flex; gap: 8px; justify-content: flex-end; }
     .cf-options-list { display: flex; flex-direction: column; gap: 3px; margin-bottom: 4px; max-height: 200px; overflow-y: auto; }
     .cf-option-row { display: flex; align-items: center; gap: 8px; }
-    .cf-option-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .cf-option-color-wrap { position: relative; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; }
+    .cf-option-color-input { position: absolute; opacity: 0; width: 100%; height: 100%; cursor: pointer; border: none; padding: 0; }
+    .cf-option-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; display: block; }
     .cf-option-input { flex: 1; background: #111; border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; color: var(--text); font-size: .83rem; outline: none; }
     .cf-option-input:focus { border-color: var(--accent); }
     .cf-option-del { background: none; border: none; color: #333; cursor: pointer; font-size: .75rem; padding: 3px 5px; border-radius: 4px; transition: color .12s; }
@@ -1670,10 +1672,15 @@
           <div class="cf-options-list">
             <template x-for="(opt, idx) in cfOptionsList" :key="idx">
               <div class="cf-option-row">
-                <span class="cf-option-dot" :style="`background:${cfOptionColors[idx % cfOptionColors.length]}`"></span>
+                <label class="cf-option-color-wrap" :title="'Cor da opção'">
+                  <span class="cf-option-dot" :style="`background:${opt.color}`"></span>
+                  <input type="color" class="cf-option-color-input"
+                         :value="opt.color"
+                         @input="cfOptionsList[idx] = {...cfOptionsList[idx], color: $event.target.value}">
+                </label>
                 <input class="cf-option-input" type="text"
-                       :value="cfOptionsList[idx]"
-                       @input="cfOptionsList[idx]=$event.target.value"
+                       :value="opt.name"
+                       @input="cfOptionsList[idx] = {...cfOptionsList[idx], name: $event.target.value}"
                        placeholder="Nome da opção"
                        @keydown.enter.prevent="addCfOption()">
                 <button class="cf-option-del" @click.prevent="removeCfOption(idx)" title="Remover">✕</button>
@@ -2820,13 +2827,14 @@ document.addEventListener('alpine:init', () => {
     statusPickerPos: { x: 0, y: 0 },
     statusPickerQ: '',
     get gridCols() {
-      const tarefa = this.colWidths.tarefa > 0 ? `${this.colWidths.tarefa}px` : 'minmax(150px,1fr)';
-      let c = tarefa;
+      const locked = this.colWidths.tarefa > 0;
+      let c = locked ? `${this.colWidths.tarefa}px` : '1fr';
       if (this.cols.status)      c += ` ${this.colWidths.status}px`;
       if (this.cols.responsavel) c += ` ${this.colWidths.responsavel}px`;
       if (this.cols.prioridade)  c += ` ${this.colWidths.prioridade}px`;
       if (this.cols.prazo)       c += ` ${this.colWidths.prazo}px`;
-      c += ' 36px minmax(0,1fr)';
+      c += ' 36px';
+      if (locked) c += ' minmax(0,1fr)';
       return c;
     },
 
@@ -2874,7 +2882,7 @@ document.addEventListener('alpine:init', () => {
     propEditing: { status: false, responsavel: false, prazo: false, prioridade: false },
 
     cfModal: false, cfName: '', cfType: 'text',
-    cfOptionsList: ['', ''],
+    cfOptionsList: [],
     cfOptionColors: ['#9333ea','#3b82f6','#f59e0b','#22c55e','#ef4444','#06b6d4','#f97316','#ec4899'],
 
     newSpaceModal:false, newFolderModal:false, newListModal:false,
@@ -3193,8 +3201,9 @@ document.addEventListener('alpine:init', () => {
       return {text:'T', number:'#', date:'📅', dropdown:'▾'}[type] || 'T';
     },
 
-    openCfModal() { this.cfModal=true; this.cfName=''; this.cfType='text'; this.cfOptionsList=['','']; },
-    addCfOption() { this.cfOptionsList.push(''); },
+    _newCfOpt(i) { return { name: '', color: this.cfOptionColors[i % this.cfOptionColors.length] }; },
+    openCfModal() { this.cfModal=true; this.cfName=''; this.cfType='text'; this.cfOptionsList=[this._newCfOpt(0), this._newCfOpt(1)]; },
+    addCfOption() { this.cfOptionsList.push(this._newCfOpt(this.cfOptionsList.length)); },
     removeCfOption(idx) { if (this.cfOptionsList.length > 1) this.cfOptionsList.splice(idx, 1); },
     async createCustomField() {
       if (!this.cfName.trim() || !this.activeList) return;
@@ -3202,7 +3211,7 @@ document.addEventListener('alpine:init', () => {
         id: 'cf_' + Date.now(),
         name: this.cfName.trim(),
         type: this.cfType,
-        options: this.cfType === 'dropdown' ? this.cfOptionsList.map(o=>o.trim()).filter(Boolean) : [],
+        options: this.cfType === 'dropdown' ? this.cfOptionsList.filter(o=>o.name.trim()).map(o=>({name:o.name.trim(),color:o.color})) : [],
       };
       const updated = [...(this.activeList.custom_fields || []), newField];
       await fetch(`/api/gestao/lists/${this.activeList.id}`, {
