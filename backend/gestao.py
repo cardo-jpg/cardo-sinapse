@@ -193,13 +193,13 @@ def init_db():
         conn.commit()
 
         # Seed spaces if empty
-        cur.execute("SELECT COUNT(*) FROM spaces")
-        if cur.fetchone()[0] == 0:
+        cur.execute("SELECT COUNT(*) AS c FROM spaces")
+        if cur.fetchone()['c'] == 0:
             _seed(conn, cur)
 
         # Seed features if empty
-        cur.execute("SELECT COUNT(*) FROM features")
-        if cur.fetchone()[0] == 0:
+        cur.execute("SELECT COUNT(*) AS c FROM features")
+        if cur.fetchone()['c'] == 0:
             _seed_features(conn, cur)
 
         conn.commit()
