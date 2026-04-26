@@ -119,6 +119,11 @@
     .fin-card-value.green { color: #4caf50; }
     .fin-card-value.red { color: #ef5350; }
     .fin-card-value.gray { color: var(--muted); }
+    .fin-card-click { cursor: pointer; transition: border-color .15s, background .15s; }
+    .fin-card-click:hover { border-color: #555; background: #1e1e1e; }
+    .fin-card-active { border-color: var(--accent) !important; background: #1a1200 !important; }
+    .fin-table .td-actions { display: flex; gap: 2px; white-space: nowrap; }
+    .fin-table th:last-child, .fin-table td:last-child { width: 90px; min-width: 90px; }
 
     /* ── content area ── */
     .fin-content { flex: 1; display: flex; gap: 0; min-height: 0; padding: 16px 28px 24px; gap: 16px; }
@@ -475,6 +480,9 @@
         <span>🏭</span> Fornecedores
       </button>
       <div class="fin-nav-sep"></div>
+      <button class="fin-nav-item" :class="currentSection==='fluxo' && 'active'" @click="currentSection='fluxo'; loadFluxo()">
+        <span>📈</span> Fluxo de Caixa
+      </button>
       <button class="fin-nav-item" :class="currentSection==='analise' && 'active'" @click="currentSection='analise'; loadDashboard()">
         <span>📊</span> Análise
       </button>
@@ -514,7 +522,7 @@
 
         <div class="fin-filters">
           <template x-for="f in ['todos','a_receber','a_pagar','atrasados']" :key="f">
-            <button class="fin-pill" :class="filtro===f && 'active'" @click="filtro=f" x-text="filtroLabel(f)"></button>
+            <button class="fin-pill" :class="filtro===f && 'active'" @click="filtro=f; selectedIds=[]" x-text="filtroLabel(f)"></button>
           </template>
           <template x-if="selectedIds.length > 0">
             <div style="display:flex;align-items:center;gap:6px;margin-left:auto;">
@@ -526,23 +534,23 @@
         </div>
 
         <div class="fin-summary">
-          <div class="fin-card">
+          <div class="fin-card fin-card-click" :class="filtro==='em_aberto' && 'fin-card-active'" @click="filtro='em_aberto'; selectedIds=[]">
             <div class="fin-card-label">Em Aberto</div>
             <div class="fin-card-value gray" x-text="formatBRL(summary.em_aberto||0)"></div>
           </div>
-          <div class="fin-card">
+          <div class="fin-card fin-card-click" :class="filtro==='a_receber' && 'fin-card-active'" @click="filtro='a_receber'; selectedIds=[]">
             <div class="fin-card-label">A Receber</div>
             <div class="fin-card-value green" x-text="formatBRL(summary.a_receber||0)"></div>
           </div>
-          <div class="fin-card">
+          <div class="fin-card fin-card-click" :class="filtro==='a_pagar' && 'fin-card-active'" @click="filtro='a_pagar'; selectedIds=[]">
             <div class="fin-card-label">A Pagar</div>
             <div class="fin-card-value red" x-text="formatBRL(summary.a_pagar||0)"></div>
           </div>
-          <div class="fin-card">
+          <div class="fin-card fin-card-click" :class="filtro==='recebidos' && 'fin-card-active'" @click="filtro='recebidos'; selectedIds=[]">
             <div class="fin-card-label">Recebidos</div>
             <div class="fin-card-value green" x-text="formatBRL(summary.recebidos||0)"></div>
           </div>
-          <div class="fin-card">
+          <div class="fin-card fin-card-click" :class="filtro==='pagos' && 'fin-card-active'" @click="filtro='pagos'; selectedIds=[]">
             <div class="fin-card-label">Pagos</div>
             <div class="fin-card-value red" x-text="formatBRL(summary.pagos||0)"></div>
           </div>
@@ -638,6 +646,88 @@
             </template>
           </div>
         </div>
+      </div>
+    </template>
+
+    <!-- ═══════════════════════════════ FLUXO DE CAIXA ═══════════════════════════ -->
+    <template x-if="currentSection==='fluxo'">
+      <div style="padding:24px 28px; flex:1; overflow-y:auto;">
+        <div class="sec-header" style="margin-bottom:16px;">
+          <span class="sec-title">Fluxo de Caixa</span>
+          <div class="fin-month-nav">
+            <button class="fin-month-btn" @click="fluxoAno--; loadFluxo()">&#8592;</button>
+            <span class="fin-month-label" x-text="fluxoAno"></span>
+            <button class="fin-month-btn" @click="fluxoAno++; loadFluxo()">&#8594;</button>
+          </div>
+        </div>
+
+        <template x-if="fluxoLoading">
+          <div class="fin-loading"><span class="spin">&#9696;</span> Carregando...</div>
+        </template>
+
+        <template x-if="!fluxoLoading && fluxo.length">
+          <div>
+            <!-- Chart -->
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px;">
+              <canvas id="fluxoChart" height="90"></canvas>
+            </div>
+
+            <!-- Note -->
+            <p style="font-size:.78rem;color:var(--muted);margin-bottom:12px;">O Fluxo de Caixa não considera transferências entre contas correntes.</p>
+
+            <!-- Table -->
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:auto;">
+              <table style="border-collapse:collapse;width:100%;font-size:.8rem;min-width:900px;">
+                <thead>
+                  <tr>
+                    <th style="padding:10px 14px;text-align:left;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border);min-width:130px;"></th>
+                    <template x-for="m in fluxo" :key="m.mes">
+                      <th style="padding:10px 8px;text-align:right;font-weight:600;border-bottom:1px solid var(--border);white-space:nowrap;"
+                          :style="m.realizado ? 'color:var(--text)' : 'color:#888'"
+                          x-text="m.label"></th>
+                    </template>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- Receber row -->
+                  <tr style="border-bottom:1px solid var(--border)20;">
+                    <td style="padding:9px 14px;color:var(--muted);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Receitas</td>
+                    <template x-for="m in fluxo" :key="m.mes">
+                      <td style="padding:9px 8px;text-align:right;color:#4caf50;font-weight:500;"
+                          x-text="formatBRL(m.realizado ? m.recebidos : m.receber)"></td>
+                    </template>
+                  </tr>
+                  <!-- Pagar row -->
+                  <tr style="border-bottom:1px solid var(--border)20;">
+                    <td style="padding:9px 14px;color:var(--muted);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Despesas</td>
+                    <template x-for="m in fluxo" :key="m.mes">
+                      <td style="padding:9px 8px;text-align:right;color:#ef5350;font-weight:500;"
+                          x-text="formatBRL(m.realizado ? m.pagos : m.pagar)"></td>
+                    </template>
+                  </tr>
+                  <!-- Saldo Operacional -->
+                  <tr style="border-top:2px solid var(--border);border-bottom:1px solid var(--border)20;">
+                    <td style="padding:9px 14px;color:var(--text);font-weight:700;font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;">Saldo Operacional</td>
+                    <template x-for="m in fluxo" :key="m.mes">
+                      <td style="padding:9px 8px;text-align:right;font-weight:700;"
+                          :style="m.saldo_op >= 0 ? 'color:#4caf50' : 'color:#ef5350'"
+                          x-text="(m.saldo_op >= 0 ? '' : '-') + formatBRL(Math.abs(m.saldo_op))"></td>
+                    </template>
+                  </tr>
+                  <!-- Saldo Acumulado -->
+                  <tr style="background:#ffffff05;">
+                    <td style="padding:9px 14px;color:var(--text);font-weight:700;font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;">Saldo Acumulado</td>
+                    <template x-for="m in fluxo" :key="m.mes">
+                      <td style="padding:9px 8px;text-align:right;font-weight:700;"
+                          :style="m.saldo_acum >= 0 ? 'color:#4caf50' : 'color:#ef5350'"
+                          x-text="(m.saldo_acum >= 0 ? '' : '-') + formatBRL(Math.abs(m.saldo_acum))"></td>
+                    </template>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </template>
       </div>
     </template>
 
@@ -1814,6 +1904,9 @@ window.finApp = function() {
     loading: false,
     saving: false,
     filtro: 'todos',
+    fluxo: [],
+    fluxoAno: new Date().getFullYear(),
+    fluxoLoading: false,
 
     /* ── month ── */
     currentMes: (function() {
@@ -1920,6 +2013,9 @@ window.finApp = function() {
       if (this.filtro === 'todos') return this.lancamentos;
       if (this.filtro === 'a_receber') return this.lancamentos.filter(l => l.tipo === 'receber' && l.situacao !== 'quitado');
       if (this.filtro === 'a_pagar') return this.lancamentos.filter(l => l.tipo === 'pagar' && l.situacao !== 'quitado');
+      if (this.filtro === 'em_aberto') return this.lancamentos.filter(l => l.situacao !== 'quitado');
+      if (this.filtro === 'recebidos') return this.lancamentos.filter(l => l.tipo === 'receber' && l.situacao === 'quitado');
+      if (this.filtro === 'pagos') return this.lancamentos.filter(l => l.tipo === 'pagar' && l.situacao === 'quitado');
       if (this.filtro === 'atrasados') {
         const today = new Date().toISOString().slice(0, 10);
         return this.lancamentos.filter(l => l.situacao !== 'quitado' && l.vencimento < today);
@@ -2137,6 +2233,48 @@ window.finApp = function() {
         this.showToast('Lançamento excluído');
         await this.loadLancamentos();
       } catch(e) { this.showToast(e.message, 'error'); }
+    },
+
+    /* ══════════════════════════ FLUXO DE CAIXA ══════════════════════════ */
+    async loadFluxo() {
+      this.fluxoLoading = true;
+      try {
+        const data = await this.api('GET', `/api/fin/fluxo-caixa?ano=${this.fluxoAno}`);
+        this.fluxo = data.fluxo || [];
+        await this.$nextTick();
+        this.initFluxoChart();
+      } catch(e) { this.showToast(e.message, 'error'); }
+      finally { this.fluxoLoading = false; }
+    },
+
+    initFluxoChart() {
+      const canvas = document.getElementById('fluxoChart');
+      if (!canvas) return;
+      if (canvas._chartInstance) { canvas._chartInstance.destroy(); }
+      const labels = this.fluxo.map(m => m.label);
+      const receber = this.fluxo.map(m => m.realizado ? m.recebidos : m.receber);
+      const pagar   = this.fluxo.map(m => m.realizado ? m.pagos : m.pagar);
+      const saldoOp = this.fluxo.map(m => m.saldo_op);
+      const saldoAc = this.fluxo.map(m => m.saldo_acum);
+      canvas._chartInstance = new Chart(canvas, {
+        data: {
+          labels,
+          datasets: [
+            { type: 'bar', label: 'Receitas', data: receber, backgroundColor: '#4caf5060', borderColor: '#4caf50', borderWidth: 1 },
+            { type: 'bar', label: 'Despesas', data: pagar, backgroundColor: '#ef535060', borderColor: '#ef5350', borderWidth: 1 },
+            { type: 'line', label: 'Saldo Operacional', data: saldoOp, borderColor: '#ffc107', backgroundColor: 'transparent', tension: 0.3, pointRadius: 3 },
+            { type: 'line', label: 'Saldo Acumulado', data: saldoAc, borderColor: '#00bcd4', backgroundColor: 'transparent', tension: 0.3, pointRadius: 3 },
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { labels: { color: '#aaa', font: { size: 11 } } } },
+          scales: {
+            x: { ticks: { color: '#888' }, grid: { color: '#ffffff10' } },
+            y: { ticks: { color: '#888', callback: v => 'R$'+v.toLocaleString('pt-BR') }, grid: { color: '#ffffff10' } }
+          }
+        }
+      });
     },
 
     /* ══════════════════════════ SALDOS ══════════════════════════ */

@@ -705,9 +705,16 @@ async def api_list_lancamentos(request: Request, mes: str = None):
                 (like_mes,),
             ).fetchone()[0]
 
-            _siga_mes = _siga_summary_for_mes(mes)
-            recebidos = _siga_mes['receber']
-            pagos     = _siga_mes['pagar']
+            recebidos = conn.execute(
+                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos "
+                "WHERE tipo='receber' AND situacao='quitado' AND vencimento LIKE ? AND COALESCE(origem,'manual')!='cc'",
+                (like_mes,),
+            ).fetchone()[0]
+            pagos = conn.execute(
+                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos "
+                "WHERE tipo='pagar' AND situacao='quitado' AND vencimento LIKE ? AND COALESCE(origem,'manual')!='cc'",
+                (like_mes,),
+            ).fetchone()[0]
 
             # bottom totals: overdue per type for selected month
             atrasados_receber = conn.execute(
@@ -750,6 +757,7 @@ async def api_list_lancamentos(request: Request, mes: str = None):
         "mes_receber":       round(float(mes_receber), 2),
         "atrasados_pagar":   round(float(atrasados_pagar), 2),
         "mes_pagar":         round(float(mes_pagar), 2),
+        "total":             round(float(recebidos) - float(pagos), 2),
     }
 
     return {
@@ -1030,6 +1038,53 @@ async def api_saldos(request: Request):
             })
 
     return {"saldos": saldos}
+
+
+@router.get("/api/fin/fluxo-caixa")
+async def api_fluxo_caixa(request: Request, ano: int = None):
+    _require(request)
+    if not ano:
+        ano = date.today().year
+    today_str = date.today().isoformat()
+    labels = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+    resultado = []
+
+    with get_db() as conn:
+        for m in range(1, 13):
+            like = f"{ano}-{m:02d}%"
+            receber = float(conn.execute(
+                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos "
+                "WHERE tipo='receber' AND vencimento LIKE ? AND COALESCE(origem,'manual')!='cc'",
+                (like,)).fetchone()[0])
+            pagar = float(conn.execute(
+                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos "
+                "WHERE tipo='pagar' AND vencimento LIKE ? AND COALESCE(origem,'manual')!='cc'",
+                (like,)).fetchone()[0])
+            recebidos = float(conn.execute(
+                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos "
+                "WHERE tipo='receber' AND situacao='quitado' AND vencimento LIKE ? AND COALESCE(origem,'manual')!='cc'",
+                (like,)).fetchone()[0])
+            pagos = float(conn.execute(
+                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos "
+                "WHERE tipo='pagar' AND situacao='quitado' AND vencimento LIKE ? AND COALESCE(origem,'manual')!='cc'",
+                (like,)).fetchone()[0])
+            mes_str = f"{ano}-{m:02d}"
+            realizado = mes_str < today_str[:7]
+            saldo_op = (recebidos - pagos) if realizado else (receber - pagar)
+            resultado.append({
+                'mes': m, 'label': labels[m-1],
+                'receber': receber, 'pagar': pagar,
+                'recebidos': recebidos, 'pagos': pagos,
+                'saldo_op': round(saldo_op, 2),
+                'realizado': realizado,
+            })
+
+    saldo_acum = 0.0
+    for r in resultado:
+        saldo_acum += r['saldo_op']
+        r['saldo_acum'] = round(saldo_acum, 2)
+
+    return {'fluxo': resultado, 'ano': ano}
 
 
 # ── Importação de extratos ────────────────────────────────────────────────────
