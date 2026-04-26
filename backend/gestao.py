@@ -4,7 +4,6 @@ import json
 import uuid
 import hmac
 import hashlib
-import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
@@ -13,12 +12,13 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from dotenv import load_dotenv
 
+from backend.db import get_conn, dict_cursor
+
 load_dotenv()
 
 router = APIRouter()
 
-BASE_DIR = Path(__file__).parent.parent
-DB_PATH  = BASE_DIR / "data" / "gestao.db"
+BASE_DIR  = Path(__file__).parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "frontend" / "templates"))
 
 SECRET_KEY = os.getenv("SECRET_KEY", "sinapse-secret-2026")
@@ -44,12 +44,15 @@ def _user_exists(username: str) -> bool:
     if username in USERS:
         return True
     try:
-        con = sqlite3.connect(BASE_DIR / "data" / "users.db")
-        row = con.execute("SELECT 1 FROM users WHERE username=?", (username,)).fetchone()
-        con.close()
+        conn = get_conn()
+        cur = dict_cursor(conn)
+        cur.execute("SELECT 1 FROM users WHERE username=%s", (username,))
+        row = cur.fetchone()
+        conn.close()
         return row is not None
     except Exception:
         return False
+
 
 def _verify(request: Request) -> Optional[str]:
     cookie = request.cookies.get("session", "")
@@ -70,119 +73,142 @@ def _require(request: Request) -> str:
 
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+    return get_conn()
 
 
 def init_db():
-    DB_PATH.parent.mkdir(exist_ok=True)
-    with get_db() as conn:
-        conn.executescript("""
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS spaces (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                color TEXT DEFAULT '#ff4d00',
-                icon TEXT DEFAULT '⚡',
-                position INTEGER DEFAULT 0,
+                id         TEXT PRIMARY KEY,
+                name       TEXT NOT NULL,
+                color      TEXT DEFAULT '#ff4d00',
+                icon       TEXT DEFAULT '⚡',
+                position   INTEGER DEFAULT 0,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
-            );
+            )
+        """)
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS folders (
-                id TEXT PRIMARY KEY,
-                space_id TEXT NOT NULL,
-                name TEXT NOT NULL,
-                position INTEGER DEFAULT 0,
+                id         TEXT PRIMARY KEY,
+                space_id   TEXT NOT NULL,
+                name       TEXT NOT NULL,
+                position   INTEGER DEFAULT 0,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (space_id) REFERENCES spaces(id) ON DELETE CASCADE
-            );
+            )
+        """)
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS lists (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                space_id TEXT NOT NULL,
-                folder_id TEXT,
-                position INTEGER DEFAULT 0,
+                id         TEXT PRIMARY KEY,
+                name       TEXT NOT NULL,
+                space_id   TEXT NOT NULL,
+                folder_id  TEXT,
+                position   INTEGER DEFAULT 0,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (space_id) REFERENCES spaces(id) ON DELETE CASCADE,
+                FOREIGN KEY (space_id)  REFERENCES spaces(id)  ON DELETE CASCADE,
                 FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE CASCADE
-            );
+            )
+        """)
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS tasks (
-                id TEXT PRIMARY KEY,
-                list_id TEXT NOT NULL,
-                title TEXT NOT NULL,
-                description TEXT DEFAULT '',
-                assignees TEXT DEFAULT '[]',
-                due_date TEXT,
-                status TEXT DEFAULT 'aberto',
-                priority TEXT DEFAULT 'normal',
+                id             TEXT PRIMARY KEY,
+                list_id        TEXT NOT NULL,
+                title          TEXT NOT NULL,
+                description    TEXT DEFAULT '',
+                assignees      TEXT DEFAULT '[]',
+                due_date       TEXT,
+                status         TEXT DEFAULT 'aberto',
+                priority       TEXT DEFAULT 'normal',
                 parent_task_id TEXT,
-                position INTEGER DEFAULT 0,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                position       INTEGER DEFAULT 0,
+                created_at     TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (list_id) REFERENCES lists(id) ON DELETE CASCADE
-            );
+            )
+        """)
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS documents (
-                id TEXT PRIMARY KEY,
-                title TEXT NOT NULL DEFAULT 'Sem título',
-                content TEXT DEFAULT '',
-                space_id TEXT NOT NULL,
-                folder_id TEXT,
-                position INTEGER DEFAULT 0,
+                id         TEXT PRIMARY KEY,
+                title      TEXT NOT NULL DEFAULT 'Sem título',
+                content    TEXT DEFAULT '',
+                space_id   TEXT NOT NULL,
+                folder_id  TEXT,
+                position   INTEGER DEFAULT 0,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (space_id) REFERENCES spaces(id) ON DELETE CASCADE,
+                FOREIGN KEY (space_id)  REFERENCES spaces(id)  ON DELETE CASCADE,
                 FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE CASCADE
-            );
-            CREATE TABLE IF NOT EXISTS features (
-                id TEXT PRIMARY KEY,
-                space_id TEXT NOT NULL,
-                url TEXT NOT NULL,
-                label TEXT NOT NULL,
-                icon TEXT DEFAULT '📋',
-                position INTEGER DEFAULT 0,
-                FOREIGN KEY (space_id) REFERENCES spaces(id) ON DELETE CASCADE
-            );
+            )
         """)
-        # migrations — add columns that may not exist in older DBs
-        for sql in [
-            "ALTER TABLE folders ADD COLUMN color          TEXT    DEFAULT '#6b7280'",
-            "ALTER TABLE lists   ADD COLUMN color          TEXT    DEFAULT '#6b7280'",
-            "ALTER TABLE lists   ADD COLUMN icon           TEXT    DEFAULT ''",
-            "ALTER TABLE spaces  ADD COLUMN custom_statuses TEXT   DEFAULT ''",
-            "ALTER TABLE spaces  ADD COLUMN archived       INTEGER DEFAULT 0",
-            "ALTER TABLE folders ADD COLUMN archived       INTEGER DEFAULT 0",
-            "ALTER TABLE lists   ADD COLUMN archived       INTEGER DEFAULT 0",
-            "ALTER TABLE spaces  ADD COLUMN permissions    TEXT    DEFAULT ''",
-            "ALTER TABLE folders ADD COLUMN permissions    TEXT    DEFAULT ''",
-            "ALTER TABLE lists   ADD COLUMN permissions    TEXT    DEFAULT ''",
-            "ALTER TABLE documents ADD COLUMN parent_id   TEXT",
-            "ALTER TABLE features  ADD COLUMN folder_id   TEXT",
-            "ALTER TABLE lists     ADD COLUMN custom_fields TEXT DEFAULT '[]'",
-            "ALTER TABLE tasks     ADD COLUMN extra_data  TEXT DEFAULT '{}'",
-            """CREATE TABLE IF NOT EXISTS document_versions (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS features (
+                id         TEXT PRIMARY KEY,
+                space_id   TEXT NOT NULL,
+                url        TEXT NOT NULL,
+                label      TEXT NOT NULL,
+                icon       TEXT DEFAULT '📋',
+                position   INTEGER DEFAULT 0,
+                FOREIGN KEY (space_id) REFERENCES spaces(id) ON DELETE CASCADE
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS document_versions (
+                id         SERIAL PRIMARY KEY,
                 doc_id     TEXT NOT NULL,
                 title      TEXT NOT NULL DEFAULT '',
                 content    TEXT NOT NULL DEFAULT '',
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (doc_id) REFERENCES documents(id) ON DELETE CASCADE
-            )""",
-        ]:
-            try:
-                conn.execute(sql); conn.commit()
-            except Exception:
-                pass
+            )
+        """)
 
-        if conn.execute("SELECT COUNT(*) FROM spaces").fetchone()[0] == 0:
-            _seed(conn)
-
-        # seed features if table is empty
-        if conn.execute("SELECT COUNT(*) FROM features").fetchone()[0] == 0:
-            _seed_features(conn)
+        # ADD COLUMN migrations — PostgreSQL: use DO blocks to avoid errors on re-run
+        migrations = [
+            ("folders",   "color",          "TEXT DEFAULT '#6b7280'"),
+            ("lists",     "color",          "TEXT DEFAULT '#6b7280'"),
+            ("lists",     "icon",           "TEXT DEFAULT ''"),
+            ("spaces",    "custom_statuses","TEXT DEFAULT ''"),
+            ("spaces",    "archived",       "INTEGER DEFAULT 0"),
+            ("folders",   "archived",       "INTEGER DEFAULT 0"),
+            ("lists",     "archived",       "INTEGER DEFAULT 0"),
+            ("spaces",    "permissions",    "TEXT DEFAULT ''"),
+            ("folders",   "permissions",    "TEXT DEFAULT ''"),
+            ("lists",     "permissions",    "TEXT DEFAULT ''"),
+            ("documents", "parent_id",      "TEXT"),
+            ("features",  "folder_id",      "TEXT"),
+            ("lists",     "custom_fields",  "TEXT DEFAULT '[]'"),
+            ("tasks",     "extra_data",     "TEXT DEFAULT '{}'"),
+        ]
+        for table, col, col_def in migrations:
+            cur.execute(f"""
+                DO $$
+                BEGIN
+                    ALTER TABLE {table} ADD COLUMN {col} {col_def};
+                EXCEPTION WHEN duplicate_column THEN NULL;
+                END $$;
+            """)
 
         conn.commit()
 
+        # Seed spaces if empty
+        cur.execute("SELECT COUNT(*) FROM spaces")
+        if cur.fetchone()[0] == 0:
+            _seed(conn, cur)
 
-def _seed(conn):
+        # Seed features if empty
+        cur.execute("SELECT COUNT(*) FROM features")
+        if cur.fetchone()[0] == 0:
+            _seed_features(conn, cur)
+
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
+
+
+def _seed(conn, cur):
     now = datetime.now().isoformat()
 
     spaces = [
@@ -191,7 +217,10 @@ def _seed(conn):
         ("comercial",   "Comercial",   "#22c55e", "💼", 2),
     ]
     for sid, name, color, icon, pos in spaces:
-        conn.execute("INSERT INTO spaces (id,name,color,icon,position,created_at) VALUES (?,?,?,?,?,?)", (sid, name, color, icon, pos, now))
+        cur.execute(
+            "INSERT INTO spaces (id,name,color,icon,position,created_at) VALUES (%s,%s,%s,%s,%s,%s)",
+            (sid, name, color, icon, pos, now),
+        )
 
     folders = [
         ("op_trafego",  "operacional", "Tráfego Pago",    0),
@@ -201,7 +230,10 @@ def _seed(conn):
         ("gest_equipe", "gestao",      "Equipe",           0),
     ]
     for fid, sid, name, pos in folders:
-        conn.execute("INSERT INTO folders (id,space_id,name,position,created_at) VALUES (?,?,?,?,?)", (fid, sid, name, pos, now))
+        cur.execute(
+            "INSERT INTO folders (id,space_id,name,position,created_at) VALUES (%s,%s,%s,%s,%s)",
+            (fid, sid, name, pos, now),
+        )
 
     lists = [
         ("list_traf_tarefas", "Tarefas Pontuais",        "operacional", "op_trafego",  0),
@@ -213,7 +245,10 @@ def _seed(conn):
         ("list_gest_reu",     "Reuniões Internas",        "gestao",      "gest_equipe", 0),
     ]
     for lid, name, sid, fid, pos in lists:
-        conn.execute("INSERT INTO lists (id,name,space_id,folder_id,position,created_at) VALUES (?,?,?,?,?,?)", (lid, name, sid, fid, pos, now))
+        cur.execute(
+            "INSERT INTO lists (id,name,space_id,folder_id,position,created_at) VALUES (%s,%s,%s,%s,%s,%s)",
+            (lid, name, sid, fid, pos, now),
+        )
 
     tasks = [
         ("list_traf_tarefas", "Configurar campanha Google Ads – Hire Brazil", '["victor"]', "2026-04-30", "progresso", "high"),
@@ -228,20 +263,22 @@ def _seed(conn):
         ("list_auto",         "Webhook notificações de leads – Scale Army",   '["victor"]', "2026-05-10", "aberto",   "normal"),
     ]
     for i, (lid, title, assignees, due, status, priority) in enumerate(tasks):
-        conn.execute(
-            "INSERT INTO tasks (id,list_id,title,description,assignees,due_date,status,priority,parent_task_id,position,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        cur.execute(
+            "INSERT INTO tasks (id,list_id,title,description,assignees,due_date,status,priority,parent_task_id,position,created_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
             (str(uuid.uuid4()), lid, title, "", assignees, due, status, priority, None, i, now),
         )
 
+    conn.commit()
 
-def _seed_features(conn):
+
+def _seed_features(conn, cur):
     rows = [
-        ("feat_dashboard", "operacional", "/trafego", "Dashboards",     "📊", 0),
-        ("feat_ata",       "operacional", "/ata",      "Gerador de Atas","📝", 1),
+        ("feat_dashboard", "operacional", "/trafego", "Dashboards",      "📊", 0),
+        ("feat_ata",       "operacional", "/ata",      "Gerador de Atas", "📝", 1),
     ]
     for fid, sid, url, label, icon, pos in rows:
-        conn.execute(
-            "INSERT OR IGNORE INTO features (id,space_id,url,label,icon,position) VALUES (?,?,?,?,?,?)",
+        cur.execute(
+            "INSERT INTO features (id,space_id,url,label,icon,position) VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING",
             (fid, sid, url, label, icon, pos),
         )
     conn.commit()
@@ -270,25 +307,40 @@ async def page_gestao(request: Request):
 
 def _can_see(item: dict, username: str) -> bool:
     p = item.get("permissions") or ""
-    if not p: return True
-    try: return username in json.loads(p)
-    except: return True
+    if not p:
+        return True
+    try:
+        return username in json.loads(p)
+    except Exception:
+        return True
 
 
 @router.get("/api/gestao/tree")
 async def api_tree(request: Request):
     username = _require(request)
-    with get_db() as conn:
-        spaces   = [dict(r) for r in conn.execute("SELECT * FROM spaces  WHERE archived=0 ORDER BY position, name")]
-        folders  = [dict(r) for r in conn.execute("SELECT * FROM folders WHERE archived=0 ORDER BY position, name")]
-        lists    = [dict(r) for r in conn.execute("SELECT * FROM lists   WHERE archived=0 ORDER BY position, name")]
-        docs     = [dict(r) for r in conn.execute("SELECT id,title,space_id,folder_id,position FROM documents WHERE parent_id IS NULL ORDER BY position, title")]
-        features = [dict(r) for r in conn.execute("SELECT * FROM features ORDER BY position")]
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT * FROM spaces  WHERE archived=0 ORDER BY position, name")
+        spaces = [dict(r) for r in cur.fetchall()]
+        cur.execute("SELECT * FROM folders WHERE archived=0 ORDER BY position, name")
+        folders = [dict(r) for r in cur.fetchall()]
+        cur.execute("SELECT * FROM lists   WHERE archived=0 ORDER BY position, name")
+        lists = [dict(r) for r in cur.fetchall()]
+        cur.execute("SELECT id,title,space_id,folder_id,position FROM documents WHERE parent_id IS NULL ORDER BY position, title")
+        docs = [dict(r) for r in cur.fetchall()]
+        cur.execute("SELECT * FROM features ORDER BY position")
+        features = [dict(r) for r in cur.fetchall()]
+    finally:
+        cur.close()
+        conn.close()
+
     spaces  = [s for s in spaces  if _can_see(s, username)]
     folders = [f for f in folders if _can_see(f, username)]
     for l in lists:
         l["custom_fields"] = json.loads(l.get("custom_fields") or "[]")
-    lists   = [l for l in lists   if _can_see(l, username)]
+    lists = [l for l in lists if _can_see(l, username)]
+
     for space in spaces:
         sfolds = [f for f in folders if f["space_id"] == space["id"]]
         for folder in sfolds:
@@ -309,30 +361,45 @@ async def api_create_document(request: Request):
     _require(request)
     data = await request.json()
     now = datetime.now().isoformat()
-    doc_id = str(uuid.uuid4())
-    title = data.get("title", "Sem título").strip() or "Sem título"
-    space_id = data["space_id"]
+    doc_id    = str(uuid.uuid4())
+    title     = data.get("title", "Sem título").strip() or "Sem título"
+    space_id  = data["space_id"]
     folder_id = data.get("folder_id") or None
     parent_id = data.get("parent_id") or None
-    with get_db() as conn:
-        pos = (conn.execute(
-            "SELECT COALESCE(MAX(position),0) FROM documents WHERE space_id=?", (space_id,)
-        ).fetchone()[0] or 0) + 1
-        conn.execute(
-            "INSERT INTO documents (id,title,content,space_id,folder_id,parent_id,position,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
+
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute(
+            "SELECT COALESCE(MAX(position),0) FROM documents WHERE space_id=%s", (space_id,)
+        )
+        pos = (cur.fetchone()["coalesce"] or 0) + 1
+        cur.execute(
+            "INSERT INTO documents (id,title,content,space_id,folder_id,parent_id,position,created_at,updated_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
             (doc_id, title, "", space_id, folder_id, parent_id, pos, now, now),
         )
         conn.commit()
-        doc = dict(conn.execute("SELECT * FROM documents WHERE id=?", (doc_id,)).fetchone())
+        cur.execute("SELECT * FROM documents WHERE id=%s", (doc_id,))
+        doc = dict(cur.fetchone())
+    finally:
+        cur.close()
+        conn.close()
     return {"document": doc}
 
 
 @router.get("/api/gestao/documents/{doc_id}")
 async def api_get_document(doc_id: str, request: Request):
     _require(request)
-    with get_db() as conn:
-        row = conn.execute("SELECT * FROM documents WHERE id=?", (doc_id,)).fetchone()
-    if not row: raise HTTPException(404, "Documento não encontrado")
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT * FROM documents WHERE id=%s", (doc_id,))
+        row = cur.fetchone()
+    finally:
+        cur.close()
+        conn.close()
+    if not row:
+        raise HTTPException(404, "Documento não encontrado")
     return {"document": dict(row)}
 
 
@@ -342,62 +409,87 @@ async def api_patch_document(doc_id: str, request: Request):
     data = await request.json()
     allowed = {"title", "content"}
     fields = {k: v for k, v in data.items() if k in allowed}
-    if not fields: raise HTTPException(400, "Nada para atualizar")
+    if not fields:
+        raise HTTPException(400, "Nada para atualizar")
     now = datetime.now().isoformat()
     fields["updated_at"] = now
-    set_clause = ", ".join(f"{k}=?" for k in fields)
+
+    set_clause = ", ".join(f"{k}=%s" for k in fields)
     values = list(fields.values()) + [doc_id]
-    with get_db() as conn:
-        current = dict(conn.execute("SELECT * FROM documents WHERE id=?", (doc_id,)).fetchone())
-        # save version if content changed and last version is > 5 minutes old
+
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT * FROM documents WHERE id=%s", (doc_id,))
+        current = dict(cur.fetchone())
+
         if "content" in fields:
-            last_ver = conn.execute(
-                "SELECT created_at FROM document_versions WHERE doc_id=? ORDER BY id DESC LIMIT 1",
-                (doc_id,)
-            ).fetchone()
+            cur.execute(
+                "SELECT created_at FROM document_versions WHERE doc_id=%s ORDER BY id DESC LIMIT 1",
+                (doc_id,),
+            )
+            last_ver = cur.fetchone()
             should_snap = True
             if last_ver:
                 try:
-                    last_dt = datetime.fromisoformat(last_ver[0])
+                    last_dt = datetime.fromisoformat(last_ver["created_at"])
                     should_snap = (datetime.now() - last_dt) > timedelta(minutes=5)
                 except Exception:
                     pass
             if should_snap:
-                conn.execute(
-                    "INSERT INTO document_versions (doc_id, title, content, created_at) VALUES (?,?,?,?)",
+                cur.execute(
+                    "INSERT INTO document_versions (doc_id, title, content, created_at) VALUES (%s,%s,%s,%s)",
                     (doc_id, current["title"], current["content"] or "", now),
                 )
-                # keep at most 50 versions per doc
-                conn.execute("""
-                    DELETE FROM document_versions WHERE doc_id=? AND id NOT IN (
-                        SELECT id FROM document_versions WHERE doc_id=? ORDER BY id DESC LIMIT 50
+                # Keep at most 50 versions per doc
+                cur.execute("""
+                    DELETE FROM document_versions WHERE doc_id=%s AND id NOT IN (
+                        SELECT id FROM document_versions WHERE doc_id=%s ORDER BY id DESC LIMIT 50
                     )
                 """, (doc_id, doc_id))
-        conn.execute(f"UPDATE documents SET {set_clause} WHERE id=?", values)
+
+        cur.execute(f"UPDATE documents SET {set_clause} WHERE id=%s", values)
         conn.commit()
-        doc = dict(conn.execute("SELECT * FROM documents WHERE id=?", (doc_id,)).fetchone())
+        cur.execute("SELECT * FROM documents WHERE id=%s", (doc_id,))
+        doc = dict(cur.fetchone())
+    finally:
+        cur.close()
+        conn.close()
     return {"document": doc}
 
 
 @router.get("/api/gestao/documents/{doc_id}/versions")
 async def api_doc_versions(doc_id: str, request: Request):
     _require(request)
-    with get_db() as conn:
-        rows = conn.execute(
-            "SELECT id, title, created_at FROM document_versions WHERE doc_id=? ORDER BY id DESC",
-            (doc_id,)
-        ).fetchall()
-    return {"versions": [dict(r) for r in rows]}
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute(
+            "SELECT id, title, created_at FROM document_versions WHERE doc_id=%s ORDER BY id DESC",
+            (doc_id,),
+        )
+        rows = [dict(r) for r in cur.fetchall()]
+    finally:
+        cur.close()
+        conn.close()
+    return {"versions": rows}
 
 
 @router.get("/api/gestao/documents/{doc_id}/versions/{vid}")
 async def api_doc_version_get(doc_id: str, vid: int, request: Request):
     _require(request)
-    with get_db() as conn:
-        row = conn.execute(
-            "SELECT * FROM document_versions WHERE id=? AND doc_id=?", (vid, doc_id)
-        ).fetchone()
-    if not row: raise HTTPException(404, "Versão não encontrada")
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute(
+            "SELECT * FROM document_versions WHERE id=%s AND doc_id=%s", (vid, doc_id)
+        )
+        row = cur.fetchone()
+    finally:
+        cur.close()
+        conn.close()
+    if not row:
+        raise HTTPException(404, "Versão não encontrada")
     return {"version": dict(row)}
 
 
@@ -405,25 +497,32 @@ async def api_doc_version_get(doc_id: str, vid: int, request: Request):
 async def api_doc_version_restore(doc_id: str, vid: int, request: Request):
     _require(request)
     now = datetime.now().isoformat()
-    with get_db() as conn:
-        ver = conn.execute(
-            "SELECT * FROM document_versions WHERE id=? AND doc_id=?", (vid, doc_id)
-        ).fetchone()
-        if not ver: raise HTTPException(404, "Versão não encontrada")
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute(
+            "SELECT * FROM document_versions WHERE id=%s AND doc_id=%s", (vid, doc_id)
+        )
+        ver = cur.fetchone()
+        if not ver:
+            raise HTTPException(404, "Versão não encontrada")
         ver = dict(ver)
-        # save current state as a new version before restoring
-        current = dict(conn.execute("SELECT * FROM documents WHERE id=?", (doc_id,)).fetchone())
-        conn.execute(
-            "INSERT INTO document_versions (doc_id, title, content, created_at) VALUES (?,?,?,?)",
+        cur.execute("SELECT * FROM documents WHERE id=%s", (doc_id,))
+        current = dict(cur.fetchone())
+        cur.execute(
+            "INSERT INTO document_versions (doc_id, title, content, created_at) VALUES (%s,%s,%s,%s)",
             (doc_id, current["title"], current["content"] or "", now),
         )
-        # restore
-        conn.execute(
-            "UPDATE documents SET title=?, content=?, updated_at=? WHERE id=?",
+        cur.execute(
+            "UPDATE documents SET title=%s, content=%s, updated_at=%s WHERE id=%s",
             (ver["title"], ver["content"], now, doc_id),
         )
         conn.commit()
-        doc = dict(conn.execute("SELECT * FROM documents WHERE id=?", (doc_id,)).fetchone())
+        cur.execute("SELECT * FROM documents WHERE id=%s", (doc_id,))
+        doc = dict(cur.fetchone())
+    finally:
+        cur.close()
+        conn.close()
     return {"document": doc}
 
 
@@ -446,13 +545,22 @@ def _snippet(text: str, query: str, radius: int = 60) -> str:
 async def api_search(q: str, request: Request):
     _require(request)
     q = q.strip()
-    if not q: return {"docs": [], "tasks": []}
-    with get_db() as conn:
-        docs  = [dict(r) for r in conn.execute("SELECT id, title, content, space_id FROM documents")]
-        tasks = [dict(r) for r in conn.execute(
+    if not q:
+        return {"docs": [], "tasks": []}
+
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT id, title, content, space_id FROM documents")
+        docs = [dict(r) for r in cur.fetchall()]
+        cur.execute(
             "SELECT t.id, t.title, t.status, t.priority, t.due_date, t.list_id, l.name as list_name "
-            "FROM tasks t JOIN lists l ON l.id=t.list_id", ()
-        )]
+            "FROM tasks t JOIN lists l ON l.id=t.list_id"
+        )
+        tasks = [dict(r) for r in cur.fetchall()]
+    finally:
+        cur.close()
+        conn.close()
 
     q_low = q.lower()
     doc_results = []
@@ -480,72 +588,101 @@ async def api_search(q: str, request: Request):
 @router.delete("/api/gestao/documents/{doc_id}")
 async def api_delete_document(doc_id: str, request: Request):
     _require(request)
-    with get_db() as conn:
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
         def _del_children(pid):
-            kids = [r[0] for r in conn.execute("SELECT id FROM documents WHERE parent_id=?", (pid,))]
+            cur.execute("SELECT id FROM documents WHERE parent_id=%s", (pid,))
+            kids = [r["id"] for r in cur.fetchall()]
             for kid in kids:
                 _del_children(kid)
-                conn.execute("DELETE FROM documents WHERE id=?", (kid,))
+                cur.execute("DELETE FROM documents WHERE id=%s", (kid,))
         _del_children(doc_id)
-        conn.execute("DELETE FROM documents WHERE id=?", (doc_id,))
+        cur.execute("DELETE FROM documents WHERE id=%s", (doc_id,))
         conn.commit()
+    finally:
+        cur.close()
+        conn.close()
     return {"ok": True}
 
 
 @router.get("/api/gestao/documents/{doc_id}/family")
 async def api_document_family(doc_id: str, request: Request):
     _require(request)
-    with get_db() as conn:
-        row = conn.execute("SELECT id, title, parent_id FROM documents WHERE id=?", (doc_id,)).fetchone()
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT id, title, parent_id FROM documents WHERE id=%s", (doc_id,))
+        row = cur.fetchone()
         if not row:
             raise HTTPException(404, "Documento não encontrado")
-        # climb to root
         current = dict(row)
         visited: set = set()
         while current.get("parent_id") and current["parent_id"] not in visited:
             visited.add(current["id"])
-            parent = conn.execute("SELECT id, title, parent_id FROM documents WHERE id=?", (current["parent_id"],)).fetchone()
+            cur.execute("SELECT id, title, parent_id FROM documents WHERE id=%s", (current["parent_id"],))
+            parent = cur.fetchone()
             if not parent:
                 break
             current = dict(parent)
         root_id = current["id"]
 
         def _descendants(pid, depth):
-            kids = conn.execute(
-                "SELECT id, title, parent_id FROM documents WHERE parent_id=? ORDER BY position, title", (pid,)
-            ).fetchall()
+            cur.execute(
+                "SELECT id, title, parent_id FROM documents WHERE parent_id=%s ORDER BY position, title",
+                (pid,),
+            )
             result = []
-            for k in kids:
-                d = dict(k); d["depth"] = depth
+            for k in cur.fetchall():
+                d = dict(k)
+                d["depth"] = depth
                 result.append(d)
                 result.extend(_descendants(d["id"], depth + 1))
             return result
 
-        root = dict(conn.execute("SELECT id, title, parent_id FROM documents WHERE id=?", (root_id,)).fetchone())
+        cur.execute("SELECT id, title, parent_id FROM documents WHERE id=%s", (root_id,))
+        root = dict(cur.fetchone())
         root["depth"] = 0
         family = [root] + _descendants(root_id, 1)
+    finally:
+        cur.close()
+        conn.close()
     return {"family": family, "root_id": root_id}
 
 
 @router.get("/api/gestao/archived")
 async def api_archived(request: Request):
     _require(request)
-    with get_db() as conn:
-        spaces  = [dict(r) for r in conn.execute("SELECT id,name,color,icon FROM spaces  WHERE archived=1")]
-        folders = [dict(r) for r in conn.execute("SELECT id,name,color,space_id FROM folders WHERE archived=1")]
-        lists   = [dict(r) for r in conn.execute("SELECT id,name,color,icon,space_id,folder_id FROM lists WHERE archived=1")]
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT id,name,color,icon FROM spaces  WHERE archived=1")
+        spaces = [dict(r) for r in cur.fetchall()]
+        cur.execute("SELECT id,name,color,space_id FROM folders WHERE archived=1")
+        folders = [dict(r) for r in cur.fetchall()]
+        cur.execute("SELECT id,name,color,icon,space_id,folder_id FROM lists WHERE archived=1")
+        lists = [dict(r) for r in cur.fetchall()]
+    finally:
+        cur.close()
+        conn.close()
     return {"spaces": spaces, "folders": folders, "lists": lists}
 
 
 @router.get("/api/gestao/lists/{list_id}/tasks")
 async def api_list_tasks(list_id: str, request: Request):
     _require(request)
-    with get_db() as conn:
-        tasks = [dict(r) for r in conn.execute(
-            "SELECT * FROM tasks WHERE list_id=? ORDER BY position, created_at", (list_id,)
-        )]
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute(
+            "SELECT * FROM tasks WHERE list_id=%s ORDER BY position, created_at", (list_id,)
+        )
+        tasks = [dict(r) for r in cur.fetchall()]
+    finally:
+        cur.close()
+        conn.close()
     for t in tasks:
-        t["assignees"] = json.loads(t.get("assignees") or "[]")
+        t["assignees"]  = json.loads(t.get("assignees") or "[]")
         t["extra_data"] = json.loads(t.get("extra_data") or "{}")
     return {"tasks": tasks}
 
@@ -560,10 +697,14 @@ async def api_create_task(request: Request):
         raise HTTPException(400, "title e list_id obrigatórios")
     tid = str(uuid.uuid4())
     now = datetime.now().isoformat()
-    with get_db() as conn:
-        pos = (conn.execute("SELECT COALESCE(MAX(position),0) FROM tasks WHERE list_id=?", (list_id,)).fetchone()[0] or 0) + 1
-        conn.execute(
-            "INSERT INTO tasks (id,list_id,title,description,assignees,due_date,status,priority,parent_task_id,position,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT COALESCE(MAX(position),0) FROM tasks WHERE list_id=%s", (list_id,))
+        pos = (cur.fetchone()["coalesce"] or 0) + 1
+        cur.execute(
+            "INSERT INTO tasks (id,list_id,title,description,assignees,due_date,status,priority,parent_task_id,position,created_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
             (tid, list_id, title,
              data.get("description", ""),
              json.dumps(data.get("assignees", [])),
@@ -574,7 +715,11 @@ async def api_create_task(request: Request):
              pos, now),
         )
         conn.commit()
-        task = dict(conn.execute("SELECT * FROM tasks WHERE id=?", (tid,)).fetchone())
+        cur.execute("SELECT * FROM tasks WHERE id=%s", (tid,))
+        task = dict(cur.fetchone())
+    finally:
+        cur.close()
+        conn.close()
     task["assignees"] = json.loads(task["assignees"])
     return {"task": task}
 
@@ -591,15 +736,22 @@ async def api_update_task(task_id: str, request: Request):
         fields["assignees"] = json.dumps(fields["assignees"])
     if "extra_data" in fields and not isinstance(fields["extra_data"], str):
         fields["extra_data"] = json.dumps(fields["extra_data"])
-    set_clause = ", ".join(f"{k}=?" for k in fields)
-    with get_db() as conn:
-        conn.execute(f"UPDATE tasks SET {set_clause} WHERE id=?", [*fields.values(), task_id])
+
+    set_clause = ", ".join(f"{k}=%s" for k in fields)
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute(f"UPDATE tasks SET {set_clause} WHERE id=%s", [*fields.values(), task_id])
         conn.commit()
-        row = conn.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
+        cur.execute("SELECT * FROM tasks WHERE id=%s", (task_id,))
+        row = cur.fetchone()
+    finally:
+        cur.close()
+        conn.close()
     if not row:
         raise HTTPException(404, "Tarefa não encontrada")
     task = dict(row)
-    task["assignees"] = json.loads(task["assignees"] or "[]")
+    task["assignees"]  = json.loads(task["assignees"] or "[]")
     task["extra_data"] = json.loads(task["extra_data"] or "{}")
     return {"task": task}
 
@@ -607,9 +759,14 @@ async def api_update_task(task_id: str, request: Request):
 @router.delete("/api/gestao/tasks/{task_id}")
 async def api_delete_task(task_id: str, request: Request):
     _require(request)
-    with get_db() as conn:
-        conn.execute("DELETE FROM tasks WHERE id=?", (task_id,))
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM tasks WHERE id=%s", (task_id,))
         conn.commit()
+    finally:
+        cur.close()
+        conn.close()
     return {"ok": True}
 
 
@@ -622,12 +779,22 @@ async def api_create_space(request: Request):
         raise HTTPException(400, "name obrigatório")
     sid = str(uuid.uuid4())
     now = datetime.now().isoformat()
-    with get_db() as conn:
-        pos = (conn.execute("SELECT COALESCE(MAX(position),0) FROM spaces").fetchone()[0] or 0) + 1
-        conn.execute("INSERT INTO spaces (id,name,color,icon,position,created_at) VALUES (?,?,?,?,?,?)",
-                     (sid, name, data.get("color", "#ff4d00"), data.get("icon", "⚡"), pos, now))
+
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT COALESCE(MAX(position),0) FROM spaces")
+        pos = (cur.fetchone()["coalesce"] or 0) + 1
+        cur.execute(
+            "INSERT INTO spaces (id,name,color,icon,position,created_at) VALUES (%s,%s,%s,%s,%s,%s)",
+            (sid, name, data.get("color", "#ff4d00"), data.get("icon", "⚡"), pos, now),
+        )
         conn.commit()
-        space = dict(conn.execute("SELECT * FROM spaces WHERE id=?", (sid,)).fetchone())
+        cur.execute("SELECT * FROM spaces WHERE id=%s", (sid,))
+        space = dict(cur.fetchone())
+    finally:
+        cur.close()
+        conn.close()
     return {"space": {**space, "folders": [], "direct_lists": []}}
 
 
@@ -641,11 +808,22 @@ async def api_create_folder(request: Request):
         raise HTTPException(400, "name e space_id obrigatórios")
     fid = str(uuid.uuid4())
     now = datetime.now().isoformat()
-    with get_db() as conn:
-        pos = (conn.execute("SELECT COALESCE(MAX(position),0) FROM folders WHERE space_id=?", (space_id,)).fetchone()[0] or 0) + 1
-        conn.execute("INSERT INTO folders (id,space_id,name,position,created_at) VALUES (?,?,?,?,?)", (fid, space_id, name, pos, now))
+
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT COALESCE(MAX(position),0) FROM folders WHERE space_id=%s", (space_id,))
+        pos = (cur.fetchone()["coalesce"] or 0) + 1
+        cur.execute(
+            "INSERT INTO folders (id,space_id,name,position,created_at) VALUES (%s,%s,%s,%s,%s)",
+            (fid, space_id, name, pos, now),
+        )
         conn.commit()
-        folder = dict(conn.execute("SELECT * FROM folders WHERE id=?", (fid,)).fetchone())
+        cur.execute("SELECT * FROM folders WHERE id=%s", (fid,))
+        folder = dict(cur.fetchone())
+    finally:
+        cur.close()
+        conn.close()
     return {"folder": {**folder, "lists": []}}
 
 
@@ -653,31 +831,48 @@ async def api_create_folder(request: Request):
 async def api_create_list(request: Request):
     _require(request)
     data = await request.json()
-    name     = (data.get("name") or "").strip()
-    space_id = data.get("space_id", "")
+    name      = (data.get("name") or "").strip()
+    space_id  = data.get("space_id", "")
     if not name or not space_id:
         raise HTTPException(400, "name e space_id obrigatórios")
     lid = str(uuid.uuid4())
     now = datetime.now().isoformat()
     folder_id = data.get("folder_id") or None
-    with get_db() as conn:
-        pos = (conn.execute("SELECT COALESCE(MAX(position),0) FROM lists WHERE space_id=?", (space_id,)).fetchone()[0] or 0) + 1
-        conn.execute("INSERT INTO lists (id,name,space_id,folder_id,position,created_at) VALUES (?,?,?,?,?,?)", (lid, name, space_id, folder_id, pos, now))
+
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT COALESCE(MAX(position),0) FROM lists WHERE space_id=%s", (space_id,))
+        pos = (cur.fetchone()["coalesce"] or 0) + 1
+        cur.execute(
+            "INSERT INTO lists (id,name,space_id,folder_id,position,created_at) VALUES (%s,%s,%s,%s,%s,%s)",
+            (lid, name, space_id, folder_id, pos, now),
+        )
         conn.commit()
-        lst = dict(conn.execute("SELECT * FROM lists WHERE id=?", (lid,)).fetchone())
+        cur.execute("SELECT * FROM lists WHERE id=%s", (lid,))
+        lst = dict(cur.fetchone())
+    finally:
+        cur.close()
+        conn.close()
     return {"list": lst}
 
 
 @router.delete("/api/gestao/spaces/{space_id}")
 async def api_delete_space(space_id: str, request: Request):
     _require(request)
-    with get_db() as conn:
-        tools = conn.execute("SELECT label FROM features WHERE space_id=?", (space_id,)).fetchall()
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT label FROM features WHERE space_id=%s", (space_id,))
+        tools = cur.fetchall()
         if tools:
-            names = ", ".join(r[0] for r in tools)
+            names = ", ".join(r["label"] for r in tools)
             raise HTTPException(409, f"Mova as ferramentas antes de excluir este espaço: {names}")
-        conn.execute("DELETE FROM spaces WHERE id=?", (space_id,))
+        cur.execute("DELETE FROM spaces WHERE id=%s", (space_id,))
         conn.commit()
+    finally:
+        cur.close()
+        conn.close()
     return {"ok": True}
 
 
@@ -689,25 +884,38 @@ async def api_update_space(space_id: str, request: Request):
     fields = {k: v for k, v in data.items() if k in allowed and v is not None}
     if "name" in fields:
         fields["name"] = fields["name"].strip()
-        if not fields["name"]: raise HTTPException(400, "name não pode ser vazio")
-    if not fields: raise HTTPException(400, "Nenhum campo válido")
-    set_clause = ", ".join(f"{k}=?" for k in fields)
-    with get_db() as conn:
-        conn.execute(f"UPDATE spaces SET {set_clause} WHERE id=?", [*fields.values(), space_id])
+        if not fields["name"]:
+            raise HTTPException(400, "name não pode ser vazio")
+    if not fields:
+        raise HTTPException(400, "Nenhum campo válido")
+    set_clause = ", ".join(f"{k}=%s" for k in fields)
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute(f"UPDATE spaces SET {set_clause} WHERE id=%s", [*fields.values(), space_id])
         conn.commit()
+    finally:
+        cur.close()
+        conn.close()
     return {"ok": True}
 
 
 @router.delete("/api/gestao/folders/{folder_id}")
 async def api_delete_folder(folder_id: str, request: Request):
     _require(request)
-    with get_db() as conn:
-        tools = conn.execute("SELECT label FROM features WHERE folder_id=?", (folder_id,)).fetchall()
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT label FROM features WHERE folder_id=%s", (folder_id,))
+        tools = cur.fetchall()
         if tools:
-            names = ", ".join(r[0] for r in tools)
+            names = ", ".join(r["label"] for r in tools)
             raise HTTPException(409, f"Mova as ferramentas antes de excluir esta pasta: {names}")
-        conn.execute("DELETE FROM folders WHERE id=?", (folder_id,))
+        cur.execute("DELETE FROM folders WHERE id=%s", (folder_id,))
         conn.commit()
+    finally:
+        cur.close()
+        conn.close()
     return {"ok": True}
 
 
@@ -719,21 +927,33 @@ async def api_update_folder(folder_id: str, request: Request):
     fields = {k: v for k, v in data.items() if k in allowed and v is not None}
     if "name" in fields:
         fields["name"] = fields["name"].strip()
-        if not fields["name"]: raise HTTPException(400, "name não pode ser vazio")
-    if not fields: raise HTTPException(400, "Nenhum campo válido")
-    set_clause = ", ".join(f"{k}=?" for k in fields)
-    with get_db() as conn:
-        conn.execute(f"UPDATE folders SET {set_clause} WHERE id=?", [*fields.values(), folder_id])
+        if not fields["name"]:
+            raise HTTPException(400, "name não pode ser vazio")
+    if not fields:
+        raise HTTPException(400, "Nenhum campo válido")
+    set_clause = ", ".join(f"{k}=%s" for k in fields)
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute(f"UPDATE folders SET {set_clause} WHERE id=%s", [*fields.values(), folder_id])
         conn.commit()
+    finally:
+        cur.close()
+        conn.close()
     return {"ok": True}
 
 
 @router.delete("/api/gestao/lists/{list_id}")
 async def api_delete_list(list_id: str, request: Request):
     _require(request)
-    with get_db() as conn:
-        conn.execute("DELETE FROM lists WHERE id=?", (list_id,))
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM lists WHERE id=%s", (list_id,))
         conn.commit()
+    finally:
+        cur.close()
+        conn.close()
     return {"ok": True}
 
 
@@ -747,12 +967,19 @@ async def api_update_list(list_id: str, request: Request):
         fields["custom_fields"] = json.dumps(fields["custom_fields"])
     if "name" in fields:
         fields["name"] = fields["name"].strip()
-        if not fields["name"]: raise HTTPException(400, "name não pode ser vazio")
-    if not fields: raise HTTPException(400, "Nenhum campo válido")
-    set_clause = ", ".join(f"{k}=?" for k in fields)
-    with get_db() as conn:
-        conn.execute(f"UPDATE lists SET {set_clause} WHERE id=?", [*fields.values(), list_id])
+        if not fields["name"]:
+            raise HTTPException(400, "name não pode ser vazio")
+    if not fields:
+        raise HTTPException(400, "Nenhum campo válido")
+    set_clause = ", ".join(f"{k}=%s" for k in fields)
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute(f"UPDATE lists SET {set_clause} WHERE id=%s", [*fields.values(), list_id])
         conn.commit()
+    finally:
+        cur.close()
+        conn.close()
     return {"ok": True}
 
 
@@ -768,7 +995,10 @@ async def api_reorder(request: Request):
     table = table_map.get(item_type)
     if not table:
         raise HTTPException(400, "type inválido")
-    with get_db() as conn:
+
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
         for item in items:
             fields: dict = {"position": item["position"]}
             if item_type == "folder" and "space_id" in item:
@@ -777,10 +1007,13 @@ async def api_reorder(request: Request):
                 if "space_id" in item:
                     fields["space_id"] = item["space_id"]
                 if "folder_id" in item:
-                    fields["folder_id"] = item.get("folder_id")  # may be None
-            set_clause = ", ".join(f"{k}=?" for k in fields)
-            conn.execute(f"UPDATE {table} SET {set_clause} WHERE id=?", [*fields.values(), item["id"]])
+                    fields["folder_id"] = item.get("folder_id")
+            set_clause = ", ".join(f"{k}=%s" for k in fields)
+            cur.execute(f"UPDATE {table} SET {set_clause} WHERE id=%s", [*fields.values(), item["id"]])
         conn.commit()
+    finally:
+        cur.close()
+        conn.close()
     return {"ok": True}
 
 
@@ -794,13 +1027,17 @@ async def api_update_feature(feature_id: str, request: Request):
     fields = {k: v for k, v in data.items() if k in allowed}
     if not fields:
         raise HTTPException(400, "Nenhum campo válido")
-    # folder_id can be explicitly null
     if "folder_id" in data:
         fields["folder_id"] = data["folder_id"]
-    set_clause = ", ".join(f"{k}=?" for k in fields)
-    with get_db() as conn:
-        conn.execute(f"UPDATE features SET {set_clause} WHERE id=?", [*fields.values(), feature_id])
+    set_clause = ", ".join(f"{k}=%s" for k in fields)
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute(f"UPDATE features SET {set_clause} WHERE id=%s", [*fields.values(), feature_id])
         conn.commit()
+    finally:
+        cur.close()
+        conn.close()
     return {"ok": True}
 
 
@@ -810,40 +1047,64 @@ async def api_update_feature(feature_id: str, request: Request):
 async def api_duplicate_space(space_id: str, request: Request):
     _require(request)
     body = {}
-    try: body = await request.json()
-    except Exception: pass
+    try:
+        body = await request.json()
+    except Exception:
+        pass
     now = datetime.now().isoformat()
-    with get_db() as conn:
-        orig = conn.execute("SELECT * FROM spaces WHERE id=?", (space_id,)).fetchone()
-        if not orig: raise HTTPException(404, "Espaço não encontrado")
+
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT * FROM spaces WHERE id=%s", (space_id,))
+        orig = cur.fetchone()
+        if not orig:
+            raise HTTPException(404, "Espaço não encontrado")
         orig = dict(orig)
         new_name = body.get("name") or (orig["name"] + " (cópia)")
         include_tasks = body.get("include_tasks", True)
         new_sid = str(uuid.uuid4())
-        pos = (conn.execute("SELECT COALESCE(MAX(position),0) FROM spaces").fetchone()[0] or 0) + 1
-        conn.execute(
-            "INSERT INTO spaces (id,name,color,icon,position,created_at) VALUES (?,?,?,?,?,?)",
+
+        cur.execute("SELECT COALESCE(MAX(position),0) FROM spaces")
+        pos = (cur.fetchone()["coalesce"] or 0) + 1
+        cur.execute(
+            "INSERT INTO spaces (id,name,color,icon,position,created_at) VALUES (%s,%s,%s,%s,%s,%s)",
             (new_sid, new_name, orig["color"], orig["icon"], pos, now),
         )
+
         folder_map = {}
-        for f in conn.execute("SELECT * FROM folders WHERE space_id=? AND archived=0", (space_id,)).fetchall():
-            f = dict(f); new_fid = str(uuid.uuid4()); folder_map[f["id"]] = new_fid
-            conn.execute("INSERT INTO folders (id,space_id,name,position,created_at) VALUES (?,?,?,?,?)",
-                         (new_fid, new_sid, f["name"], f["position"], now))
-        for l in conn.execute("SELECT * FROM lists WHERE space_id=? AND archived=0", (space_id,)).fetchall():
-            l = dict(l); new_lid = str(uuid.uuid4())
+        cur.execute("SELECT * FROM folders WHERE space_id=%s AND archived=0", (space_id,))
+        for f in cur.fetchall():
+            f = dict(f)
+            new_fid = str(uuid.uuid4())
+            folder_map[f["id"]] = new_fid
+            cur.execute(
+                "INSERT INTO folders (id,space_id,name,position,created_at) VALUES (%s,%s,%s,%s,%s)",
+                (new_fid, new_sid, f["name"], f["position"], now),
+            )
+
+        cur.execute("SELECT * FROM lists WHERE space_id=%s AND archived=0", (space_id,))
+        for l in cur.fetchall():
+            l = dict(l)
+            new_lid = str(uuid.uuid4())
             new_fid = folder_map.get(l["folder_id"]) if l["folder_id"] else None
-            conn.execute("INSERT INTO lists (id,name,space_id,folder_id,position,created_at) VALUES (?,?,?,?,?,?)",
-                         (new_lid, l["name"], new_sid, new_fid, l["position"], now))
+            cur.execute(
+                "INSERT INTO lists (id,name,space_id,folder_id,position,created_at) VALUES (%s,%s,%s,%s,%s,%s)",
+                (new_lid, l["name"], new_sid, new_fid, l["position"], now),
+            )
             if include_tasks:
-                for t in conn.execute("SELECT * FROM tasks WHERE list_id=?", (l["id"],)).fetchall():
+                cur.execute("SELECT * FROM tasks WHERE list_id=%s", (l["id"],))
+                for t in cur.fetchall():
                     t = dict(t)
-                    conn.execute(
-                        "INSERT INTO tasks (id,list_id,title,description,assignees,due_date,status,priority,parent_task_id,position,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                    cur.execute(
+                        "INSERT INTO tasks (id,list_id,title,description,assignees,due_date,status,priority,parent_task_id,position,created_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                         (str(uuid.uuid4()), new_lid, t["title"], t["description"], t["assignees"],
                          t["due_date"], t["status"], t["priority"], None, t["position"], now),
                     )
         conn.commit()
+    finally:
+        cur.close()
+        conn.close()
     return {"ok": True}
 
 
@@ -851,31 +1112,50 @@ async def api_duplicate_space(space_id: str, request: Request):
 async def api_duplicate_folder(folder_id: str, request: Request):
     _require(request)
     body = {}
-    try: body = await request.json()
-    except Exception: pass
+    try:
+        body = await request.json()
+    except Exception:
+        pass
     now = datetime.now().isoformat()
-    with get_db() as conn:
-        orig = dict(conn.execute("SELECT * FROM folders WHERE id=?", (folder_id,)).fetchone())
+
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT * FROM folders WHERE id=%s", (folder_id,))
+        orig = dict(cur.fetchone())
         new_name = body.get("name") or (orig["name"] + " (cópia)")
         target_space_id = body.get("target_space_id") or orig["space_id"]
         include_tasks = body.get("include_tasks", True)
         new_fid = str(uuid.uuid4())
-        pos = (conn.execute("SELECT COALESCE(MAX(position),0) FROM folders WHERE space_id=?", (target_space_id,)).fetchone()[0] or 0) + 1
-        conn.execute("INSERT INTO folders (id,space_id,name,position,created_at) VALUES (?,?,?,?,?)",
-                     (new_fid, target_space_id, new_name, pos, now))
-        for l in conn.execute("SELECT * FROM lists WHERE folder_id=?", (folder_id,)).fetchall():
-            l = dict(l); new_lid = str(uuid.uuid4())
-            conn.execute("INSERT INTO lists (id,name,space_id,folder_id,position,created_at) VALUES (?,?,?,?,?,?)",
-                         (new_lid, l["name"], target_space_id, new_fid, l["position"], now))
+
+        cur.execute("SELECT COALESCE(MAX(position),0) FROM folders WHERE space_id=%s", (target_space_id,))
+        pos = (cur.fetchone()["coalesce"] or 0) + 1
+        cur.execute(
+            "INSERT INTO folders (id,space_id,name,position,created_at) VALUES (%s,%s,%s,%s,%s)",
+            (new_fid, target_space_id, new_name, pos, now),
+        )
+
+        cur.execute("SELECT * FROM lists WHERE folder_id=%s", (folder_id,))
+        for l in cur.fetchall():
+            l = dict(l)
+            new_lid = str(uuid.uuid4())
+            cur.execute(
+                "INSERT INTO lists (id,name,space_id,folder_id,position,created_at) VALUES (%s,%s,%s,%s,%s,%s)",
+                (new_lid, l["name"], target_space_id, new_fid, l["position"], now),
+            )
             if include_tasks:
-                for t in conn.execute("SELECT * FROM tasks WHERE list_id=?", (l["id"],)).fetchall():
+                cur.execute("SELECT * FROM tasks WHERE list_id=%s", (l["id"],))
+                for t in cur.fetchall():
                     t = dict(t)
-                    conn.execute(
-                        "INSERT INTO tasks (id,list_id,title,description,assignees,due_date,status,priority,parent_task_id,position,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                    cur.execute(
+                        "INSERT INTO tasks (id,list_id,title,description,assignees,due_date,status,priority,parent_task_id,position,created_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                         (str(uuid.uuid4()), new_lid, t["title"], t["description"], t["assignees"],
                          t["due_date"], t["status"], t["priority"], None, t["position"], now),
                     )
         conn.commit()
+    finally:
+        cur.close()
+        conn.close()
     return {"ok": True}
 
 
@@ -883,26 +1163,41 @@ async def api_duplicate_folder(folder_id: str, request: Request):
 async def api_duplicate_list(list_id: str, request: Request):
     _require(request)
     body = {}
-    try: body = await request.json()
-    except Exception: pass
+    try:
+        body = await request.json()
+    except Exception:
+        pass
     now = datetime.now().isoformat()
-    with get_db() as conn:
-        orig = dict(conn.execute("SELECT * FROM lists WHERE id=?", (list_id,)).fetchone())
+
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT * FROM lists WHERE id=%s", (list_id,))
+        orig = dict(cur.fetchone())
         new_name = body.get("name") or (orig["name"] + " (cópia)")
-        target_space_id = body.get("target_space_id") or orig["space_id"]
+        target_space_id  = body.get("target_space_id") or orig["space_id"]
         target_folder_id = body.get("target_folder_id") if "target_folder_id" in body else orig["folder_id"]
         include_tasks = body.get("include_tasks", True)
         new_lid = str(uuid.uuid4())
-        pos = (conn.execute("SELECT COALESCE(MAX(position),0) FROM lists WHERE space_id=?", (target_space_id,)).fetchone()[0] or 0) + 1
-        conn.execute("INSERT INTO lists (id,name,space_id,folder_id,position,created_at) VALUES (?,?,?,?,?,?)",
-                     (new_lid, new_name, target_space_id, target_folder_id, pos, now))
+
+        cur.execute("SELECT COALESCE(MAX(position),0) FROM lists WHERE space_id=%s", (target_space_id,))
+        pos = (cur.fetchone()["coalesce"] or 0) + 1
+        cur.execute(
+            "INSERT INTO lists (id,name,space_id,folder_id,position,created_at) VALUES (%s,%s,%s,%s,%s,%s)",
+            (new_lid, new_name, target_space_id, target_folder_id, pos, now),
+        )
+
         if include_tasks:
-            for t in conn.execute("SELECT * FROM tasks WHERE list_id=?", (list_id,)).fetchall():
+            cur.execute("SELECT * FROM tasks WHERE list_id=%s", (list_id,))
+            for t in cur.fetchall():
                 t = dict(t)
-                conn.execute(
-                    "INSERT INTO tasks (id,list_id,title,description,assignees,due_date,status,priority,parent_task_id,position,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                cur.execute(
+                    "INSERT INTO tasks (id,list_id,title,description,assignees,due_date,status,priority,parent_task_id,position,created_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                     (str(uuid.uuid4()), new_lid, t["title"], t["description"], t["assignees"],
                      t["due_date"], t["status"], t["priority"], None, t["position"], now),
                 )
         conn.commit()
+    finally:
+        cur.close()
+        conn.close()
     return {"ok": True}

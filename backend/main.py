@@ -4,7 +4,6 @@ import json
 import uuid
 import hmac
 import hashlib
-import sqlite3
 import asyncio
 import httpx
 import threading
@@ -18,6 +17,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from backend.db import get_conn, dict_cursor
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 import anthropic
@@ -1223,20 +1223,15 @@ def list_conversations():
     return convs[:40]
 
 # ── User DB ───────────────────────────────────────────────────────────────────
-_USERS_DB_PATH = BASE_DIR / "data" / "users.db"
-_ADMIN_USERS       = {"victor"}        # fallback apenas
+_ADMIN_USERS        = {"victor"}           # fallback apenas
 _FIN_PESSOAIS_USERS = {"victor", "jadna"}  # fallback apenas
 
-def _users_db_conn():
-    conn = sqlite3.connect(_USERS_DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
 
 def _hash_pwd(password: str) -> str:
-    import os as _os
-    salt = _os.urandom(16)
+    salt = os.urandom(16)
     key = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 100_000)
     return salt.hex() + ":" + key.hex()
+
 
 def _check_pwd(password: str, stored: str) -> bool:
     try:
@@ -1247,77 +1242,112 @@ def _check_pwd(password: str, stored: str) -> bool:
     except Exception:
         return False
 
+
 def _db_get_user(username: str) -> Optional[dict]:
     try:
-        con = _users_db_conn()
-        row = con.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
-        con.close()
+        conn = get_conn()
+        cur = dict_cursor(conn)
+        cur.execute("SELECT * FROM users WHERE username=%s", (username,))
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
         return dict(row) if row else None
     except Exception:
         return None
 
+
 def _db_all_users() -> list:
     try:
-        con = _users_db_conn()
-        rows = con.execute("SELECT username, display_name, created_at FROM users ORDER BY created_at").fetchall()
-        con.close()
-        return [dict(r) for r in rows]
+        conn = get_conn()
+        cur = dict_cursor(conn)
+        cur.execute("SELECT username, display_name, created_at FROM users ORDER BY created_at")
+        rows = [dict(r) for r in cur.fetchall()]
+        cur.close()
+        conn.close()
+        return rows
     except Exception:
         return []
 
+
 def _user_is_admin(username: str) -> bool:
     try:
-        con = _users_db_conn()
-        row = con.execute("SELECT is_admin FROM users WHERE username=?", (username,)).fetchone()
-        con.close()
+        conn = get_conn()
+        cur = dict_cursor(conn)
+        cur.execute("SELECT is_admin FROM users WHERE username=%s", (username,))
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
         return bool(row and row["is_admin"])
     except Exception:
         return username in _ADMIN_USERS
 
+
 def _user_has_fin_pessoais(username: str) -> bool:
     try:
-        con = _users_db_conn()
-        row = con.execute("SELECT fin_pessoais FROM users WHERE username=?", (username,)).fetchone()
-        con.close()
+        conn = get_conn()
+        cur = dict_cursor(conn)
+        cur.execute("SELECT fin_pessoais FROM users WHERE username=%s", (username,))
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
         return bool(row and row["fin_pessoais"])
     except Exception:
         return username in _FIN_PESSOAIS_USERS
 
+
 def _init_users_db():
-    _USERS_DB_PATH.parent.mkdir(exist_ok=True)
-    con = _users_db_conn()
-    con.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            username     TEXT PRIMARY KEY,
-            display_name TEXT NOT NULL,
-            password_hash TEXT NOT NULL,
-            created_at   TEXT DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    # Migrations: add permission columns
-    cols = [r[1] for r in con.execute("PRAGMA table_info(users)").fetchall()]
-    if "is_admin" not in cols:
-        con.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0")
-    if "fin_pessoais" not in cols:
-        con.execute("ALTER TABLE users ADD COLUMN fin_pessoais INTEGER DEFAULT 0")
-    con.commit()
-    # Migrate hardcoded users
-    for uname, pwd in USERS.items():
-        if not con.execute("SELECT 1 FROM users WHERE username=?", (uname,)).fetchone():
-            display = USER_DISPLAY.get(uname, uname.capitalize())
-            con.execute("INSERT INTO users (username, display_name, password_hash) VALUES (?,?,?)",
-                        (uname, display, _hash_pwd(pwd)))
-    # Ensure jadna exists
-    if not con.execute("SELECT 1 FROM users WHERE username='jadna'").fetchone():
-        con.execute("INSERT INTO users (username, display_name, password_hash) VALUES (?,?,?)",
-                    ("jadna", "Jadna", _hash_pwd("Sinapse@2026")))
-    # Seed flags from hardcoded sets for existing users
-    for uname in _ADMIN_USERS:
-        con.execute("UPDATE users SET is_admin=1 WHERE username=?", (uname,))
-    for uname in _FIN_PESSOAIS_USERS:
-        con.execute("UPDATE users SET fin_pessoais=1 WHERE username=?", (uname,))
-    con.commit()
-    con.close()
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                username      TEXT PRIMARY KEY,
+                display_name  TEXT NOT NULL,
+                password_hash TEXT NOT NULL,
+                created_at    TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        # Migrations: add permission columns
+        for col_def in [
+            "ALTER TABLE users ADD COLUMN is_admin    INTEGER DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN fin_pessoais INTEGER DEFAULT 0",
+        ]:
+            cur.execute(f"""
+                DO $$
+                BEGIN
+                    {col_def};
+                EXCEPTION WHEN duplicate_column THEN NULL;
+                END $$;
+            """)
+        conn.commit()
+
+        dc = dict_cursor(conn)
+        # Migrate hardcoded users
+        for uname, pwd in USERS.items():
+            dc.execute("SELECT 1 FROM users WHERE username=%s", (uname,))
+            if not dc.fetchone():
+                display = USER_DISPLAY.get(uname, uname.capitalize())
+                dc.execute(
+                    "INSERT INTO users (username, display_name, password_hash) VALUES (%s,%s,%s)",
+                    (uname, display, _hash_pwd(pwd)),
+                )
+        # Ensure jadna exists
+        dc.execute("SELECT 1 FROM users WHERE username='jadna'")
+        if not dc.fetchone():
+            dc.execute(
+                "INSERT INTO users (username, display_name, password_hash) VALUES (%s,%s,%s)",
+                ("jadna", "Jadna", _hash_pwd("Sinapse@2026")),
+            )
+        # Seed flags
+        for uname in _ADMIN_USERS:
+            dc.execute("UPDATE users SET is_admin=1 WHERE username=%s", (uname,))
+        for uname in _FIN_PESSOAIS_USERS:
+            dc.execute("UPDATE users SET fin_pessoais=1 WHERE username=%s", (uname,))
+        dc.close()
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
 
 
 def make_session_token(username: str) -> str:
@@ -1409,11 +1439,16 @@ def _require_admin(request: Request) -> str:
     return username
 
 def _db_all_users_full():
-    con = _users_db_conn()
-    rows = [dict(r) for r in con.execute(
-        "SELECT username, display_name, created_at, is_admin, fin_pessoais FROM users ORDER BY created_at"
-    ).fetchall()]
-    con.close()
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute(
+            "SELECT username, display_name, created_at, is_admin, fin_pessoais FROM users ORDER BY created_at"
+        )
+        rows = [dict(r) for r in cur.fetchall()]
+    finally:
+        cur.close()
+        conn.close()
     return rows
 
 @app.get("/api/admin/users")
@@ -1425,10 +1460,10 @@ async def admin_list_users(request: Request):
 async def admin_create_user(request: Request):
     _require_admin(request)
     body = await request.json()
-    username    = (body.get("username") or "").strip().lower()
-    display     = (body.get("display_name") or "").strip()
-    password    = body.get("password") or ""
-    is_admin    = 1 if body.get("is_admin") else 0
+    username     = (body.get("username") or "").strip().lower()
+    display      = (body.get("display_name") or "").strip()
+    password     = body.get("password") or ""
+    is_admin     = 1 if body.get("is_admin") else 0
     fin_pessoais = 1 if body.get("fin_pessoais") else 0
     if not username or not display or not password:
         raise HTTPException(400, "username, display_name e password são obrigatórios")
@@ -1436,38 +1471,43 @@ async def admin_create_user(request: Request):
         raise HTTPException(400, "Username deve conter apenas letras, números, _ ou .")
     if len(password) < 6:
         raise HTTPException(400, "Senha deve ter ao menos 6 caracteres")
-    con = _users_db_conn()
+    conn = get_conn()
+    cur = dict_cursor(conn)
     try:
-        if con.execute("SELECT 1 FROM users WHERE username=?", (username,)).fetchone():
+        cur.execute("SELECT 1 FROM users WHERE username=%s", (username,))
+        if cur.fetchone():
             raise HTTPException(400, "Usuário já existe")
-        con.execute(
-            "INSERT INTO users (username, display_name, password_hash, is_admin, fin_pessoais) VALUES (?,?,?,?,?)",
-            (username, display, _hash_pwd(password), is_admin, fin_pessoais)
+        cur.execute(
+            "INSERT INTO users (username, display_name, password_hash, is_admin, fin_pessoais) VALUES (%s,%s,%s,%s,%s)",
+            (username, display, _hash_pwd(password), is_admin, fin_pessoais),
         )
-        con.commit()
+        conn.commit()
         return {"ok": True}
     finally:
-        con.close()
+        cur.close()
+        conn.close()
 
 @app.patch("/api/admin/users/{username}/flags")
 async def admin_update_flags(username: str, request: Request):
     caller = _require_admin(request)
     body = await request.json()
-    con = _users_db_conn()
+    conn = get_conn()
+    cur = dict_cursor(conn)
     try:
-        if not con.execute("SELECT 1 FROM users WHERE username=?", (username,)).fetchone():
+        cur.execute("SELECT 1 FROM users WHERE username=%s", (username,))
+        if not cur.fetchone():
             raise HTTPException(404, "Usuário não encontrado")
         if "is_admin" in body:
-            # prevent removing own admin
             if username == caller and not body["is_admin"]:
                 raise HTTPException(400, "Não pode remover seu próprio acesso de admin")
-            con.execute("UPDATE users SET is_admin=? WHERE username=?", (1 if body["is_admin"] else 0, username))
+            cur.execute("UPDATE users SET is_admin=%s WHERE username=%s", (1 if body["is_admin"] else 0, username))
         if "fin_pessoais" in body:
-            con.execute("UPDATE users SET fin_pessoais=? WHERE username=?", (1 if body["fin_pessoais"] else 0, username))
-        con.commit()
+            cur.execute("UPDATE users SET fin_pessoais=%s WHERE username=%s", (1 if body["fin_pessoais"] else 0, username))
+        conn.commit()
         return {"ok": True}
     finally:
-        con.close()
+        cur.close()
+        conn.close()
 
 @app.put("/api/admin/users/{username}/password")
 async def admin_reset_password(username: str, request: Request):
@@ -1476,15 +1516,18 @@ async def admin_reset_password(username: str, request: Request):
     password = body.get("password") or ""
     if len(password) < 6:
         raise HTTPException(400, "Senha deve ter ao menos 6 caracteres")
-    con = _users_db_conn()
+    conn = get_conn()
+    cur = dict_cursor(conn)
     try:
-        if not con.execute("SELECT 1 FROM users WHERE username=?", (username,)).fetchone():
+        cur.execute("SELECT 1 FROM users WHERE username=%s", (username,))
+        if not cur.fetchone():
             raise HTTPException(404, "Usuário não encontrado")
-        con.execute("UPDATE users SET password_hash=? WHERE username=?", (_hash_pwd(password), username))
-        con.commit()
+        cur.execute("UPDATE users SET password_hash=%s WHERE username=%s", (_hash_pwd(password), username))
+        conn.commit()
         return {"ok": True}
     finally:
-        con.close()
+        cur.close()
+        conn.close()
 
 @app.delete("/api/admin/users/{username}")
 async def admin_delete_user(username: str, request: Request):
@@ -1493,13 +1536,15 @@ async def admin_delete_user(username: str, request: Request):
         raise HTTPException(400, "Não é possível excluir seu próprio usuário")
     if _user_is_admin(username):
         raise HTTPException(400, "Não é possível excluir um administrador")
-    con = _users_db_conn()
+    conn = get_conn()
+    cur = conn.cursor()
     try:
-        con.execute("DELETE FROM users WHERE username=?", (username,))
-        con.commit()
+        cur.execute("DELETE FROM users WHERE username=%s", (username,))
+        conn.commit()
         return {"ok": True}
     finally:
-        con.close()
+        cur.close()
+        conn.close()
 
 @app.get("/api/conversations")
 async def get_conversations(request: Request):

@@ -1,4 +1,3 @@
-import sqlite3
 import io
 import csv
 import os
@@ -13,29 +12,27 @@ from fastapi.templating import Jinja2Templates
 import anthropic as _anthropic
 
 from backend.gestao import _require, _verify
+from backend.db import get_conn, dict_cursor
 
 router = APIRouter()
 
 BASE_DIR  = Path(__file__).parent.parent
-DB_PATH   = BASE_DIR / "data" / "financeiro.db"
 templates = Jinja2Templates(directory=str(BASE_DIR / "frontend" / "templates"))
 
 
 # ── DB helpers ────────────────────────────────────────────────────────────────
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+    return get_conn()
 
 
 def init_db():
-    DB_PATH.parent.mkdir(exist_ok=True)
-    with get_db() as conn:
-        conn.executescript("""
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS fin_clientes (
-                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                id            SERIAL PRIMARY KEY,
                 tipo          TEXT    DEFAULT 'empresa',
                 nome_fantasia TEXT    NOT NULL,
                 razao_social  TEXT,
@@ -48,10 +45,11 @@ def init_db():
                 endereco      TEXT,
                 situacao      TEXT    DEFAULT 'ativo',
                 created_at    TEXT    DEFAULT CURRENT_TIMESTAMP
-            );
-
+            )
+        """)
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS fin_fornecedores (
-                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                id            SERIAL PRIMARY KEY,
                 tipo          TEXT    DEFAULT 'empresa',
                 nome_fantasia TEXT    NOT NULL,
                 razao_social  TEXT,
@@ -64,33 +62,37 @@ def init_db():
                 endereco      TEXT,
                 situacao      TEXT    DEFAULT 'ativo',
                 created_at    TEXT    DEFAULT CURRENT_TIMESTAMP
-            );
-
+            )
+        """)
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS fin_contas (
-                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                id            SERIAL PRIMARY KEY,
                 nome          TEXT    NOT NULL,
                 situacao      TEXT    DEFAULT 'ativa',
                 saldo_inicial REAL    DEFAULT 0,
                 created_at    TEXT    DEFAULT CURRENT_TIMESTAMP
-            );
-
+            )
+        """)
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS fin_categorias (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                id         SERIAL PRIMARY KEY,
                 nome       TEXT NOT NULL,
                 tipo       TEXT DEFAULT 'despesa' CHECK(tipo IN ('receita','despesa')),
                 situacao   TEXT DEFAULT 'ativo',
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
-            );
-
+            )
+        """)
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS fin_centros_custo (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                id         SERIAL PRIMARY KEY,
                 nome       TEXT NOT NULL,
                 situacao   TEXT DEFAULT 'ativo',
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
-            );
-
+            )
+        """)
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS fin_lancamentos (
-                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                id              SERIAL PRIMARY KEY,
                 tipo            TEXT    NOT NULL CHECK(tipo IN ('receber','pagar')),
                 emissao         TEXT    NOT NULL,
                 contato_tipo    TEXT,
@@ -110,61 +112,54 @@ def init_db():
                 documento       TEXT,
                 meio_pagamento  TEXT,
                 situacao        TEXT    DEFAULT 'em_aberto' CHECK(situacao IN ('em_aberto','quitado')),
+                origem          TEXT    DEFAULT 'manual',
                 created_at      TEXT    DEFAULT CURRENT_TIMESTAMP
-            );
-
+            )
+        """)
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS fin_transferencias (
-                id           INTEGER PRIMARY KEY AUTOINCREMENT,
-                emissao      TEXT    NOT NULL,
-                valor        REAL    DEFAULT 0,
-                de_conta_id  INTEGER NOT NULL REFERENCES fin_contas(id),
+                id            SERIAL PRIMARY KEY,
+                emissao       TEXT    NOT NULL,
+                valor         REAL    DEFAULT 0,
+                de_conta_id   INTEGER NOT NULL REFERENCES fin_contas(id),
                 para_conta_id INTEGER NOT NULL REFERENCES fin_contas(id),
-                comentario   TEXT,
-                created_at   TEXT    DEFAULT CURRENT_TIMESTAMP
-            );
-
+                comentario    TEXT,
+                created_at    TEXT    DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS fin_importacoes (
-                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                id              SERIAL PRIMARY KEY,
                 nome_arquivo    TEXT    NOT NULL,
                 tipo_arquivo    TEXT    NOT NULL,
                 conta_id        INTEGER REFERENCES fin_contas(id),
                 total_itens     INTEGER DEFAULT 0,
                 itens_aprovados INTEGER DEFAULT 0,
                 created_at      TEXT    DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS fin_importacao_itens (
-                id               INTEGER PRIMARY KEY AUTOINCREMENT,
-                importacao_id    INTEGER NOT NULL REFERENCES fin_importacoes(id) ON DELETE CASCADE,
-                data_lancamento  TEXT,
-                descricao        TEXT,
-                valor            REAL,
-                tipo             TEXT CHECK(tipo IN ('receita','despesa')),
-                categoria_sugerida TEXT,
-                categoria_id     INTEGER REFERENCES fin_categorias(id),
-                conta_id         INTEGER REFERENCES fin_contas(id),
-                status           TEXT DEFAULT 'pendente' CHECK(status IN ('pendente','aprovado','rejeitado')),
-                lancamento_id    INTEGER REFERENCES fin_lancamentos(id),
-                created_at       TEXT DEFAULT CURRENT_TIMESTAMP
-            );
+            )
         """)
-        # Migration: add origem column if missing
-        cols = [r[1] for r in conn.execute("PRAGMA table_info(fin_lancamentos)").fetchall()]
-        if "origem" not in cols:
-            conn.execute("ALTER TABLE fin_lancamentos ADD COLUMN origem TEXT DEFAULT 'manual'")
-        # Mark existing CC-imported lancamentos that predate the origem column
-        conn.execute("""
-            UPDATE fin_lancamentos SET origem='cc'
-            WHERE (origem IS NULL OR origem='manual')
-            AND id IN (
-                SELECT lancamento_id FROM fin_importacao_itens
-                WHERE lancamento_id IS NOT NULL AND status='aprovado'
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS fin_importacao_itens (
+                id                 SERIAL PRIMARY KEY,
+                importacao_id      INTEGER NOT NULL REFERENCES fin_importacoes(id) ON DELETE CASCADE,
+                data_lancamento    TEXT,
+                descricao          TEXT,
+                valor              REAL,
+                tipo               TEXT CHECK(tipo IN ('receita','despesa')),
+                categoria_sugerida TEXT,
+                categoria_id       INTEGER REFERENCES fin_categorias(id),
+                conta_id           INTEGER REFERENCES fin_contas(id),
+                status             TEXT DEFAULT 'pendente' CHECK(status IN ('pendente','aprovado','rejeitado')),
+                lancamento_id      INTEGER REFERENCES fin_lancamentos(id),
+                created_at         TEXT DEFAULT CURRENT_TIMESTAMP
             )
         """)
         conn.commit()
 
         # Seed clientes/fornecedores if tables are empty (first deploy)
-        if conn.execute("SELECT COUNT(*) FROM fin_clientes").fetchone()[0] == 0:
+        dcur = dict_cursor(conn)
+        dcur.execute("SELECT COUNT(*) FROM fin_clientes")
+        if dcur.fetchone()["count"] == 0:
             clientes = [
                 ('empresa','Conexão Cirurgica','Risebook Ensino em Saúde LTDA','51.911.424/0001-49',None,'brunolsramos@hotmail.com','Comercial: (21) 98768-2006'),
                 ('empresa','DFT Logística','D Freire transportes e Logística Eireli Me','22.225.052.0001-07',None,None,'Comercial: (11) 99282-9484'),
@@ -177,12 +172,14 @@ def init_db():
                 ('empresa','Sobral Ensino','Sobral Ensino','43.668.790/0001-90',None,None,None),
                 ('empresa','Speedrack west','Speedrack west',None,None,None,None),
             ]
-            conn.executemany(
-                "INSERT INTO fin_clientes (tipo,nome_fantasia,razao_social,cnpj,cpf,email,telefone) VALUES (?,?,?,?,?,?,?)",
-                clientes
-            )
+            for row in clientes:
+                cur.execute(
+                    "INSERT INTO fin_clientes (tipo,nome_fantasia,razao_social,cnpj,cpf,email,telefone) VALUES (%s,%s,%s,%s,%s,%s,%s)",
+                    row,
+                )
 
-        if conn.execute("SELECT COUNT(*) FROM fin_fornecedores").fetchone()[0] == 0:
+        dcur.execute("SELECT COUNT(*) FROM fin_fornecedores")
+        if dcur.fetchone()["count"] == 0:
             fornecedores = [
                 ('empresa','ARCHER','ARCHER',None,None,None,None),
                 ('empresa','Arthur Manrchi','Perfil',None,None,None,None),
@@ -218,11 +215,16 @@ def init_db():
                 ('empresa','VIVO CELULAR','VIVO',None,None,None,None),
                 ('empresa','Yes brindes','Yes brindes',None,None,None,None),
             ]
-            conn.executemany(
-                "INSERT INTO fin_fornecedores (tipo,nome_fantasia,razao_social,cnpj,cpf,email,telefone) VALUES (?,?,?,?,?,?,?)",
-                fornecedores
-            )
+            for row in fornecedores:
+                cur.execute(
+                    "INSERT INTO fin_fornecedores (tipo,nome_fantasia,razao_social,cnpj,cpf,email,telefone) VALUES (%s,%s,%s,%s,%s,%s,%s)",
+                    row,
+                )
+        dcur.close()
         conn.commit()
+    finally:
+        cur.close()
+        conn.close()
 
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
@@ -241,16 +243,13 @@ _LANCAMENTO_FIELDS = (
 
 
 def _compute_valor_total(valor, acrescimo, acrescimo_tipo, desconto, desconto_tipo):
-    """Calculate final value after additions and discounts."""
     base = float(valor or 0)
     ac   = float(acrescimo or 0)
     dc   = float(desconto or 0)
-
     if acrescimo_tipo == "%":
         ac = base * ac / 100
     if desconto_tipo == "%":
         dc = base * dc / 100
-
     return round(base + ac - dc, 2)
 
 
@@ -260,7 +259,6 @@ def _extract_contato(data: dict) -> dict:
 
 def _extract_lancamento(data: dict) -> dict:
     fields = {k: data.get(k) for k in _LANCAMENTO_FIELDS if k in data}
-    # auto-compute valor_total if component fields present
     if any(k in data for k in ("valor", "acrescimo", "acrescimo_tipo", "desconto", "desconto_tipo")):
         fields["valor_total"] = _compute_valor_total(
             fields.get("valor", data.get("valor", 0)),
@@ -273,31 +271,42 @@ def _extract_lancamento(data: dict) -> dict:
 
 
 def _build_set(fields: dict):
-    """Return (set_clause, values_list) for UPDATE statements."""
-    set_clause = ", ".join(f"{k}=?" for k in fields)
+    set_clause = ", ".join(f"{k}=%s" for k in fields)
     return set_clause, list(fields.values())
 
 
 # ── Generic CRUD for contato tables (clientes / fornecedores) ─────────────────
 
 def _list_contatos(table: str, situacao=None, q=None):
-    with get_db() as conn:
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
         sql    = f"SELECT * FROM {table} WHERE 1=1"
         params = []
         if situacao:
-            sql += " AND situacao=?"
+            sql += " AND situacao=%s"
             params.append(situacao)
         if q:
-            sql += " AND nome_fantasia LIKE ?"
+            sql += " AND nome_fantasia LIKE %s"
             params.append(f"%{q}%")
         sql += " ORDER BY nome_fantasia"
-        rows = [dict(r) for r in conn.execute(sql, params).fetchall()]
+        cur.execute(sql, params)
+        rows = [dict(r) for r in cur.fetchall()]
+    finally:
+        cur.close()
+        conn.close()
     return rows
 
 
 def _get_contato(table: str, cid: int):
-    with get_db() as conn:
-        row = conn.execute(f"SELECT * FROM {table} WHERE id=?", (cid,)).fetchone()
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute(f"SELECT * FROM {table} WHERE id=%s", (cid,))
+        row = cur.fetchone()
+    finally:
+        cur.close()
+        conn.close()
     if not row:
         raise HTTPException(404, "Registro não encontrado")
     return dict(row)
@@ -309,16 +318,23 @@ def _create_contato(table: str, data: dict):
         raise HTTPException(400, "nome_fantasia é obrigatório")
     fields = _extract_contato(data)
     fields["nome_fantasia"] = nome
-    cols   = ", ".join(fields.keys())
-    placeholders = ", ".join("?" for _ in fields)
-    with get_db() as conn:
-        cur = conn.execute(
-            f"INSERT INTO {table} ({cols}) VALUES ({placeholders})",
+    cols         = ", ".join(fields.keys())
+    placeholders = ", ".join("%s" for _ in fields)
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute(
+            f"INSERT INTO {table} ({cols}) VALUES ({placeholders}) RETURNING id",
             list(fields.values()),
         )
+        new_id = cur.fetchone()["id"]
         conn.commit()
-        row = conn.execute(f"SELECT * FROM {table} WHERE id=?", (cur.lastrowid,)).fetchone()
-    return dict(row)
+        cur.execute(f"SELECT * FROM {table} WHERE id=%s", (new_id,))
+        row = dict(cur.fetchone())
+    finally:
+        cur.close()
+        conn.close()
+    return row
 
 
 def _update_contato(table: str, cid: int, data: dict):
@@ -330,19 +346,30 @@ def _update_contato(table: str, cid: int, data: dict):
         if not fields["nome_fantasia"]:
             raise HTTPException(400, "nome_fantasia não pode ser vazio")
     set_clause, vals = _build_set(fields)
-    with get_db() as conn:
-        conn.execute(f"UPDATE {table} SET {set_clause} WHERE id=?", vals + [cid])
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute(f"UPDATE {table} SET {set_clause} WHERE id=%s", vals + [cid])
         conn.commit()
-        row = conn.execute(f"SELECT * FROM {table} WHERE id=?", (cid,)).fetchone()
+        cur.execute(f"SELECT * FROM {table} WHERE id=%s", (cid,))
+        row = cur.fetchone()
+    finally:
+        cur.close()
+        conn.close()
     if not row:
         raise HTTPException(404, "Registro não encontrado")
     return dict(row)
 
 
 def _delete_contato(table: str, cid: int):
-    with get_db() as conn:
-        conn.execute(f"DELETE FROM {table} WHERE id=?", (cid,))
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute(f"DELETE FROM {table} WHERE id=%s", (cid,))
         conn.commit()
+    finally:
+        cur.close()
+        conn.close()
     return {"ok": True}
 
 
@@ -434,10 +461,14 @@ async def api_delete_fornecedor(fid: int, request: Request):
 @router.get("/api/fin/contas")
 async def api_list_contas(request: Request):
     _require(request)
-    with get_db() as conn:
-        rows = [dict(r) for r in conn.execute(
-            "SELECT * FROM fin_contas WHERE situacao='ativa' ORDER BY nome"
-        ).fetchall()]
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT * FROM fin_contas WHERE situacao='ativa' ORDER BY nome")
+        rows = [dict(r) for r in cur.fetchall()]
+    finally:
+        cur.close()
+        conn.close()
     return {"contas": rows}
 
 
@@ -448,18 +479,20 @@ async def api_create_conta(request: Request):
     nome = (data.get("nome") or "").strip()
     if not nome:
         raise HTTPException(400, "nome é obrigatório")
-    fields = {
-        "nome":          nome,
-        "situacao":      data.get("situacao", "ativa"),
-        "saldo_inicial": float(data.get("saldo_inicial") or 0),
-    }
-    with get_db() as conn:
-        cur = conn.execute(
-            "INSERT INTO fin_contas (nome, situacao, saldo_inicial) VALUES (?,?,?)",
-            [fields["nome"], fields["situacao"], fields["saldo_inicial"]],
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute(
+            "INSERT INTO fin_contas (nome, situacao, saldo_inicial) VALUES (%s,%s,%s) RETURNING id",
+            (nome, data.get("situacao", "ativa"), float(data.get("saldo_inicial") or 0)),
         )
+        new_id = cur.fetchone()["id"]
         conn.commit()
-        row = dict(conn.execute("SELECT * FROM fin_contas WHERE id=?", (cur.lastrowid,)).fetchone())
+        cur.execute("SELECT * FROM fin_contas WHERE id=%s", (new_id,))
+        row = dict(cur.fetchone())
+    finally:
+        cur.close()
+        conn.close()
     return {"conta": row}
 
 
@@ -476,10 +509,16 @@ async def api_update_conta(cid: int, request: Request):
     if not fields:
         raise HTTPException(400, "Nenhum campo válido")
     set_clause, vals = _build_set(fields)
-    with get_db() as conn:
-        conn.execute(f"UPDATE fin_contas SET {set_clause} WHERE id=?", vals + [cid])
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute(f"UPDATE fin_contas SET {set_clause} WHERE id=%s", vals + [cid])
         conn.commit()
-        row = conn.execute("SELECT * FROM fin_contas WHERE id=?", (cid,)).fetchone()
+        cur.execute("SELECT * FROM fin_contas WHERE id=%s", (cid,))
+        row = cur.fetchone()
+    finally:
+        cur.close()
+        conn.close()
     if not row:
         raise HTTPException(404, "Conta não encontrada")
     return {"conta": dict(row)}
@@ -488,15 +527,18 @@ async def api_update_conta(cid: int, request: Request):
 @router.delete("/api/fin/contas/{cid}")
 async def api_delete_conta(cid: int, request: Request):
     _require(request)
-    with get_db() as conn:
-        # Guard: do not delete if lancamentos reference this conta
-        in_use = conn.execute(
-            "SELECT COUNT(*) FROM fin_lancamentos WHERE conta_id=?", (cid,)
-        ).fetchone()[0]
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT COUNT(*) FROM fin_lancamentos WHERE conta_id=%s", (cid,))
+        in_use = cur.fetchone()["count"]
         if in_use:
             raise HTTPException(409, "Conta em uso em lançamentos — não é possível excluir")
-        conn.execute("DELETE FROM fin_contas WHERE id=?", (cid,))
+        cur.execute("DELETE FROM fin_contas WHERE id=%s", (cid,))
         conn.commit()
+    finally:
+        cur.close()
+        conn.close()
     return {"ok": True}
 
 
@@ -505,14 +547,20 @@ async def api_delete_conta(cid: int, request: Request):
 @router.get("/api/fin/categorias")
 async def api_list_categorias(request: Request, tipo: str = None):
     _require(request)
-    with get_db() as conn:
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
         sql    = "SELECT * FROM fin_categorias WHERE 1=1"
         params = []
         if tipo in ("receita", "despesa"):
-            sql += " AND tipo=?"
+            sql += " AND tipo=%s"
             params.append(tipo)
         sql += " ORDER BY nome"
-        rows = [dict(r) for r in conn.execute(sql, params).fetchall()]
+        cur.execute(sql, params)
+        rows = [dict(r) for r in cur.fetchall()]
+    finally:
+        cur.close()
+        conn.close()
     return {"categorias": rows}
 
 
@@ -527,13 +575,20 @@ async def api_create_categoria(request: Request):
     if tipo not in ("receita", "despesa"):
         raise HTTPException(400, "tipo deve ser 'receita' ou 'despesa'")
     situacao = data.get("situacao", "ativo")
-    with get_db() as conn:
-        cur = conn.execute(
-            "INSERT INTO fin_categorias (nome, tipo, situacao) VALUES (?,?,?)",
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute(
+            "INSERT INTO fin_categorias (nome, tipo, situacao) VALUES (%s,%s,%s) RETURNING id",
             (nome, tipo, situacao),
         )
+        new_id = cur.fetchone()["id"]
         conn.commit()
-        row = dict(conn.execute("SELECT * FROM fin_categorias WHERE id=?", (cur.lastrowid,)).fetchone())
+        cur.execute("SELECT * FROM fin_categorias WHERE id=%s", (new_id,))
+        row = dict(cur.fetchone())
+    finally:
+        cur.close()
+        conn.close()
     return {"categoria": row}
 
 
@@ -552,10 +607,16 @@ async def api_update_categoria(cid: int, request: Request):
     if not fields:
         raise HTTPException(400, "Nenhum campo válido")
     set_clause, vals = _build_set(fields)
-    with get_db() as conn:
-        conn.execute(f"UPDATE fin_categorias SET {set_clause} WHERE id=?", vals + [cid])
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute(f"UPDATE fin_categorias SET {set_clause} WHERE id=%s", vals + [cid])
         conn.commit()
-        row = conn.execute("SELECT * FROM fin_categorias WHERE id=?", (cid,)).fetchone()
+        cur.execute("SELECT * FROM fin_categorias WHERE id=%s", (cid,))
+        row = cur.fetchone()
+    finally:
+        cur.close()
+        conn.close()
     if not row:
         raise HTTPException(404, "Categoria não encontrada")
     return {"categoria": dict(row)}
@@ -564,9 +625,14 @@ async def api_update_categoria(cid: int, request: Request):
 @router.delete("/api/fin/categorias/{cid}")
 async def api_delete_categoria(cid: int, request: Request):
     _require(request)
-    with get_db() as conn:
-        conn.execute("DELETE FROM fin_categorias WHERE id=?", (cid,))
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM fin_categorias WHERE id=%s", (cid,))
         conn.commit()
+    finally:
+        cur.close()
+        conn.close()
     return {"ok": True}
 
 
@@ -575,10 +641,14 @@ async def api_delete_categoria(cid: int, request: Request):
 @router.get("/api/fin/centros")
 async def api_list_centros(request: Request):
     _require(request)
-    with get_db() as conn:
-        rows = [dict(r) for r in conn.execute(
-            "SELECT * FROM fin_centros_custo ORDER BY nome"
-        ).fetchall()]
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT * FROM fin_centros_custo ORDER BY nome")
+        rows = [dict(r) for r in cur.fetchall()]
+    finally:
+        cur.close()
+        conn.close()
     return {"centros": rows}
 
 
@@ -590,13 +660,20 @@ async def api_create_centro(request: Request):
     if not nome:
         raise HTTPException(400, "nome é obrigatório")
     situacao = data.get("situacao", "ativo")
-    with get_db() as conn:
-        cur = conn.execute(
-            "INSERT INTO fin_centros_custo (nome, situacao) VALUES (?,?)",
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute(
+            "INSERT INTO fin_centros_custo (nome, situacao) VALUES (%s,%s) RETURNING id",
             (nome, situacao),
         )
+        new_id = cur.fetchone()["id"]
         conn.commit()
-        row = dict(conn.execute("SELECT * FROM fin_centros_custo WHERE id=?", (cur.lastrowid,)).fetchone())
+        cur.execute("SELECT * FROM fin_centros_custo WHERE id=%s", (new_id,))
+        row = dict(cur.fetchone())
+    finally:
+        cur.close()
+        conn.close()
     return {"centro": row}
 
 
@@ -613,10 +690,16 @@ async def api_update_centro(cid: int, request: Request):
     if not fields:
         raise HTTPException(400, "Nenhum campo válido")
     set_clause, vals = _build_set(fields)
-    with get_db() as conn:
-        conn.execute(f"UPDATE fin_centros_custo SET {set_clause} WHERE id=?", vals + [cid])
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute(f"UPDATE fin_centros_custo SET {set_clause} WHERE id=%s", vals + [cid])
         conn.commit()
-        row = conn.execute("SELECT * FROM fin_centros_custo WHERE id=?", (cid,)).fetchone()
+        cur.execute("SELECT * FROM fin_centros_custo WHERE id=%s", (cid,))
+        row = cur.fetchone()
+    finally:
+        cur.close()
+        conn.close()
     if not row:
         raise HTTPException(404, "Centro de custo não encontrado")
     return {"centro": dict(row)}
@@ -625,16 +708,43 @@ async def api_update_centro(cid: int, request: Request):
 @router.delete("/api/fin/centros/{cid}")
 async def api_delete_centro(cid: int, request: Request):
     _require(request)
-    with get_db() as conn:
-        conn.execute("DELETE FROM fin_centros_custo WHERE id=?", (cid,))
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM fin_centros_custo WHERE id=%s", (cid,))
         conn.commit()
+    finally:
+        cur.close()
+        conn.close()
     return {"ok": True}
 
 
 # ── Lançamentos ───────────────────────────────────────────────────────────────
 
+_LANCAMENTO_JOIN = """
+    SELECT
+        l.*,
+        c.nome   AS conta_nome,
+        cat.nome AS categoria_nome,
+        cc.nome  AS centro_nome
+    FROM fin_lancamentos l
+    LEFT JOIN fin_contas        c   ON c.id   = l.conta_id
+    LEFT JOIN fin_categorias    cat ON cat.id  = l.categoria_id
+    LEFT JOIN fin_centros_custo cc  ON cc.id   = l.centro_custo_id
+"""
+
+_DASH_CACHE: dict = {}
+_DASH_CACHE_TS: dict = {}
+_DASH_CACHE_TTL = 300
+_MESES_ABBR_LIST = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+
+_SIGA_DIR = BASE_DIR / 'Financeiro'
+_MES_PT_MAP = {'Jan':'Jan','Feb':'Fev','Mar':'Mar','Apr':'Abr','May':'Mai',
+               'Jun':'Jun','Jul':'Jul','Aug':'Ago','Sep':'Set','Oct':'Out',
+               'Nov':'Nov','Dec':'Dez'}
+
+
 def _siga_summary_for_mes(mes_yyyymm: str) -> dict:
-    """Return {receber, pagar} from SiGA data for a YYYY-MM month string."""
     try:
         year, month = mes_yyyymm.split('-')
         mes_label = f"{_MESES_ABBR_LIST[int(month)-1]}/{year[2:]}"
@@ -651,107 +761,94 @@ def _siga_summary_for_mes(mes_yyyymm: str) -> dict:
             return {'receber': e['receber'], 'pagar': e['pagar']}
     return {'receber': 0.0, 'pagar': 0.0}
 
-def _lancamento_row(row: dict) -> dict:
-    """Attach joined names to a lancamento dict."""
-    return row
-
 
 @router.get("/api/fin/lancamentos")
 async def api_list_lancamentos(request: Request, mes: str = None):
     _require(request)
     today = date.today().isoformat()
 
-    with get_db() as conn:
-        sql = """
-            SELECT
-                l.*,
-                c.nome  AS conta_nome,
-                cat.nome AS categoria_nome,
-                cc.nome  AS centro_nome
-            FROM fin_lancamentos l
-            LEFT JOIN fin_contas        c   ON c.id   = l.conta_id
-            LEFT JOIN fin_categorias    cat ON cat.id  = l.categoria_id
-            LEFT JOIN fin_centros_custo cc  ON cc.id   = l.centro_custo_id
-            WHERE COALESCE(l.origem,'manual') != 'cc'
-        """
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        sql = _LANCAMENTO_JOIN + " WHERE COALESCE(l.origem,'manual') != 'cc'"
         params = []
         if mes:
-            # mes format: YYYY-MM
-            sql += " AND l.vencimento LIKE ?"
+            sql += " AND l.vencimento LIKE %s"
             params.append(f"{mes}%")
         sql += " ORDER BY l.vencimento, l.id"
+        cur.execute(sql, params)
+        rows = [dict(r) for r in cur.fetchall()]
 
-        rows = [dict(r) for r in conn.execute(sql, params).fetchall()]
-
-        # ── Summary ───────────────────────────────────────────────────────────
-        # em_aberto (overdue): vencimento <= today AND situacao = 'em_aberto'
-        row_emabert = conn.execute(
-            "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos "
-            "WHERE situacao='em_aberto' AND vencimento <= ?",
+        cur.execute(
+            "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE situacao='em_aberto' AND vencimento <= %s",
             (today,),
-        ).fetchone()[0]
+        )
+        row_emabert = cur.fetchone()["coalesce"]
 
         if mes:
             like_mes = f"{mes}%"
-            a_receber = conn.execute(
-                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos "
-                "WHERE tipo='receber' AND situacao='em_aberto' AND vencimento LIKE ?",
+
+            cur.execute(
+                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='receber' AND situacao='em_aberto' AND vencimento LIKE %s",
                 (like_mes,),
-            ).fetchone()[0]
+            )
+            a_receber = cur.fetchone()["coalesce"]
 
-            a_pagar = conn.execute(
-                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos "
-                "WHERE tipo='pagar' AND situacao='em_aberto' AND vencimento LIKE ?",
+            cur.execute(
+                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='pagar' AND situacao='em_aberto' AND vencimento LIKE %s",
                 (like_mes,),
-            ).fetchone()[0]
+            )
+            a_pagar = cur.fetchone()["coalesce"]
 
-            recebidos = conn.execute(
-                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos "
-                "WHERE tipo='receber' AND situacao='quitado' AND vencimento LIKE ? AND COALESCE(origem,'manual')!='cc'",
+            cur.execute(
+                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='receber' AND situacao='quitado' AND vencimento LIKE %s AND COALESCE(origem,'manual')!='cc'",
                 (like_mes,),
-            ).fetchone()[0]
-            pagos = conn.execute(
-                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos "
-                "WHERE tipo='pagar' AND situacao='quitado' AND vencimento LIKE ? AND COALESCE(origem,'manual')!='cc'",
+            )
+            recebidos = cur.fetchone()["coalesce"]
+
+            cur.execute(
+                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='pagar' AND situacao='quitado' AND vencimento LIKE %s AND COALESCE(origem,'manual')!='cc'",
                 (like_mes,),
-            ).fetchone()[0]
+            )
+            pagos = cur.fetchone()["coalesce"]
 
-            # bottom totals: overdue per type for selected month
-            atrasados_receber = conn.execute(
-                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos "
-                "WHERE tipo='receber' AND situacao='em_aberto' AND vencimento < ? AND vencimento LIKE ?",
+            cur.execute(
+                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='receber' AND situacao='em_aberto' AND vencimento < %s AND vencimento LIKE %s",
                 (today, like_mes),
-            ).fetchone()[0]
+            )
+            atrasados_receber = cur.fetchone()["coalesce"]
 
-            atrasados_pagar = conn.execute(
-                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos "
-                "WHERE tipo='pagar' AND situacao='em_aberto' AND vencimento < ? AND vencimento LIKE ?",
+            cur.execute(
+                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='pagar' AND situacao='em_aberto' AND vencimento < %s AND vencimento LIKE %s",
                 (today, like_mes),
-            ).fetchone()[0]
+            )
+            atrasados_pagar = cur.fetchone()["coalesce"]
 
-            mes_receber = conn.execute(
-                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos "
-                "WHERE tipo='receber' AND situacao='em_aberto' AND vencimento >= ? AND vencimento LIKE ?",
+            cur.execute(
+                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='receber' AND situacao='em_aberto' AND vencimento >= %s AND vencimento LIKE %s",
                 (today, like_mes),
-            ).fetchone()[0]
+            )
+            mes_receber = cur.fetchone()["coalesce"]
 
-            mes_pagar = conn.execute(
-                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos "
-                "WHERE tipo='pagar' AND situacao='em_aberto' AND vencimento >= ? AND vencimento LIKE ?",
+            cur.execute(
+                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='pagar' AND situacao='em_aberto' AND vencimento >= %s AND vencimento LIKE %s",
                 (today, like_mes),
-            ).fetchone()[0]
+            )
+            mes_pagar = cur.fetchone()["coalesce"]
         else:
             a_receber = a_pagar = recebidos = pagos = 0.0
             atrasados_receber = atrasados_pagar = mes_receber = mes_pagar = 0.0
+    finally:
+        cur.close()
+        conn.close()
 
     summary = {
-        "em_aberto":  round(float(row_emabert), 2),
-        "a_receber":  round(float(a_receber), 2),
-        "a_pagar":    round(float(a_pagar), 2),
-        "recebidos":  round(float(recebidos), 2),
-        "pagos":      round(float(pagos), 2),
+        "em_aberto": round(float(row_emabert), 2),
+        "a_receber": round(float(a_receber), 2),
+        "a_pagar":   round(float(a_pagar), 2),
+        "recebidos": round(float(recebidos), 2),
+        "pagos":     round(float(pagos), 2),
     }
-
     bottom_totals = {
         "atrasados_receber": round(float(atrasados_receber), 2),
         "mes_receber":       round(float(mes_receber), 2),
@@ -759,7 +856,6 @@ async def api_list_lancamentos(request: Request, mes: str = None):
         "mes_pagar":         round(float(mes_pagar), 2),
         "total":             round(float(recebidos) - float(pagos), 2),
     }
-
     return {
         "lancamentos":   rows,
         "summary":       summary,
@@ -789,36 +885,35 @@ async def api_create_lancamento(request: Request):
     fields.setdefault("situacao", "em_aberto")
 
     cols         = ", ".join(fields.keys())
-    placeholders = ", ".join("?" for _ in fields)
-    with get_db() as conn:
-        cur = conn.execute(
-            f"INSERT INTO fin_lancamentos ({cols}) VALUES ({placeholders})",
+    placeholders = ", ".join("%s" for _ in fields)
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute(
+            f"INSERT INTO fin_lancamentos ({cols}) VALUES ({placeholders}) RETURNING id",
             list(fields.values()),
         )
+        new_id = cur.fetchone()["id"]
         conn.commit()
-        row = dict(conn.execute("""
-            SELECT l.*, c.nome AS conta_nome, cat.nome AS categoria_nome, cc.nome AS centro_nome
-            FROM fin_lancamentos l
-            LEFT JOIN fin_contas        c   ON c.id  = l.conta_id
-            LEFT JOIN fin_categorias    cat ON cat.id = l.categoria_id
-            LEFT JOIN fin_centros_custo cc  ON cc.id  = l.centro_custo_id
-            WHERE l.id=?
-        """, (cur.lastrowid,)).fetchone())
+        cur.execute(_LANCAMENTO_JOIN + " WHERE l.id=%s", (new_id,))
+        row = dict(cur.fetchone())
+    finally:
+        cur.close()
+        conn.close()
     return {"lancamento": row}
 
 
 @router.get("/api/fin/lancamentos/{lid}")
 async def api_get_lancamento(lid: int, request: Request):
     _require(request)
-    with get_db() as conn:
-        row = conn.execute("""
-            SELECT l.*, c.nome AS conta_nome, cat.nome AS categoria_nome, cc.nome AS centro_nome
-            FROM fin_lancamentos l
-            LEFT JOIN fin_contas        c   ON c.id  = l.conta_id
-            LEFT JOIN fin_categorias    cat ON cat.id = l.categoria_id
-            LEFT JOIN fin_centros_custo cc  ON cc.id  = l.centro_custo_id
-            WHERE l.id=?
-        """, (lid,)).fetchone()
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute(_LANCAMENTO_JOIN + " WHERE l.id=%s", (lid,))
+        row = cur.fetchone()
+    finally:
+        cur.close()
+        conn.close()
     if not row:
         raise HTTPException(404, "Lançamento não encontrado")
     return {"lancamento": dict(row)}
@@ -839,17 +934,16 @@ async def api_update_lancamento(lid: int, request: Request):
         raise HTTPException(400, "Nenhum campo válido")
 
     set_clause, vals = _build_set(fields)
-    with get_db() as conn:
-        conn.execute(f"UPDATE fin_lancamentos SET {set_clause} WHERE id=?", vals + [lid])
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute(f"UPDATE fin_lancamentos SET {set_clause} WHERE id=%s", vals + [lid])
         conn.commit()
-        row = conn.execute("""
-            SELECT l.*, c.nome AS conta_nome, cat.nome AS categoria_nome, cc.nome AS centro_nome
-            FROM fin_lancamentos l
-            LEFT JOIN fin_contas        c   ON c.id  = l.conta_id
-            LEFT JOIN fin_categorias    cat ON cat.id = l.categoria_id
-            LEFT JOIN fin_centros_custo cc  ON cc.id  = l.centro_custo_id
-            WHERE l.id=?
-        """, (lid,)).fetchone()
+        cur.execute(_LANCAMENTO_JOIN + " WHERE l.id=%s", (lid,))
+        row = cur.fetchone()
+    finally:
+        cur.close()
+        conn.close()
     if not row:
         raise HTTPException(404, "Lançamento não encontrado")
     return {"lancamento": dict(row)}
@@ -858,34 +952,35 @@ async def api_update_lancamento(lid: int, request: Request):
 @router.delete("/api/fin/lancamentos/{lid}")
 async def api_delete_lancamento(lid: int, request: Request):
     _require(request)
-    with get_db() as conn:
-        conn.execute("DELETE FROM fin_lancamentos WHERE id=?", (lid,))
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM fin_lancamentos WHERE id=%s", (lid,))
         conn.commit()
+    finally:
+        cur.close()
+        conn.close()
     return {"ok": True}
 
 
 @router.patch("/api/fin/lancamentos/{lid}/quitar")
 async def api_quitar_lancamento(lid: int, request: Request):
     _require(request)
-    with get_db() as conn:
-        row = conn.execute(
-            "SELECT situacao FROM fin_lancamentos WHERE id=?", (lid,)
-        ).fetchone()
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT situacao FROM fin_lancamentos WHERE id=%s", (lid,))
+        row = cur.fetchone()
         if not row:
             raise HTTPException(404, "Lançamento não encontrado")
         nova_situacao = "quitado" if row["situacao"] == "em_aberto" else "em_aberto"
-        conn.execute(
-            "UPDATE fin_lancamentos SET situacao=? WHERE id=?", (nova_situacao, lid)
-        )
+        cur.execute("UPDATE fin_lancamentos SET situacao=%s WHERE id=%s", (nova_situacao, lid))
         conn.commit()
-        updated = dict(conn.execute("""
-            SELECT l.*, c.nome AS conta_nome, cat.nome AS categoria_nome, cc.nome AS centro_nome
-            FROM fin_lancamentos l
-            LEFT JOIN fin_contas        c   ON c.id  = l.conta_id
-            LEFT JOIN fin_categorias    cat ON cat.id = l.categoria_id
-            LEFT JOIN fin_centros_custo cc  ON cc.id  = l.centro_custo_id
-            WHERE l.id=?
-        """, (lid,)).fetchone())
+        cur.execute(_LANCAMENTO_JOIN + " WHERE l.id=%s", (lid,))
+        updated = dict(cur.fetchone())
+    finally:
+        cur.close()
+        conn.close()
     return {"lancamento": updated}
 
 
@@ -894,12 +989,15 @@ async def api_quitar_lote(request: Request):
     _require(request)
     data = await request.json()
     ids = [int(i) for i in (data.get("ids") or [])]
-    acao = data.get("acao")  # "quitar" | "reabrir" | None (toggle)
+    acao = data.get("acao")
     if not ids:
         raise HTTPException(400, "Nenhum id informado")
-    with get_db() as conn:
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
         for lid in ids:
-            row = conn.execute("SELECT situacao FROM fin_lancamentos WHERE id=?", (lid,)).fetchone()
+            cur.execute("SELECT situacao FROM fin_lancamentos WHERE id=%s", (lid,))
+            row = cur.fetchone()
             if not row:
                 continue
             if acao == "quitar":
@@ -908,8 +1006,11 @@ async def api_quitar_lote(request: Request):
                 nova = "em_aberto"
             else:
                 nova = "quitado" if row["situacao"] == "em_aberto" else "em_aberto"
-            conn.execute("UPDATE fin_lancamentos SET situacao=? WHERE id=?", (nova, lid))
+            cur.execute("UPDATE fin_lancamentos SET situacao=%s WHERE id=%s", (nova, lid))
         conn.commit()
+    finally:
+        cur.close()
+        conn.close()
     return {"ok": True, "count": len(ids)}
 
 
@@ -920,11 +1021,11 @@ async def api_create_transferencia(request: Request):
     _require(request)
     data = await request.json()
 
-    emissao     = (data.get("emissao") or "").strip()
-    valor       = float(data.get("valor") or 0)
-    de_conta_id = data.get("de_conta_id")
+    emissao       = (data.get("emissao") or "").strip()
+    valor         = float(data.get("valor") or 0)
+    de_conta_id   = data.get("de_conta_id")
     para_conta_id = data.get("para_conta_id")
-    comentario  = data.get("comentario") or None
+    comentario    = data.get("comentario") or None
 
     if not emissao:
         raise HTTPException(400, "emissao é obrigatório")
@@ -936,57 +1037,49 @@ async def api_create_transferencia(request: Request):
         raise HTTPException(400, "valor deve ser maior que zero")
 
     now = datetime.now().isoformat()
-
-    with get_db() as conn:
-        # Verify both accounts exist
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
         for conta_id in (de_conta_id, para_conta_id):
-            exists = conn.execute(
-                "SELECT id FROM fin_contas WHERE id=?", (conta_id,)
-            ).fetchone()
-            if not exists:
+            cur.execute("SELECT id FROM fin_contas WHERE id=%s", (conta_id,))
+            if not cur.fetchone():
                 raise HTTPException(404, f"Conta {conta_id} não encontrada")
 
-        # Create the transfer record
-        cur = conn.execute(
-            "INSERT INTO fin_transferencias (emissao, valor, de_conta_id, para_conta_id, comentario, created_at) "
-            "VALUES (?,?,?,?,?,?)",
+        cur.execute(
+            "INSERT INTO fin_transferencias (emissao, valor, de_conta_id, para_conta_id, comentario, created_at) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
             (emissao, valor, de_conta_id, para_conta_id, comentario, now),
         )
-        transferencia_id = cur.lastrowid
+        transferencia_id = cur.fetchone()["id"]
         descricao = "Transferência entre contas"
 
-        # Create lancamento PAGAR (debit from de_conta)
-        conn.execute(
-            """INSERT INTO fin_lancamentos
-               (tipo, emissao, descricao, vencimento, valor, valor_total, conta_id, situacao, created_at)
-               VALUES (?,?,?,?,?,?,?,'quitado',?)""",
+        cur.execute(
+            "INSERT INTO fin_lancamentos (tipo, emissao, descricao, vencimento, valor, valor_total, conta_id, situacao, created_at) VALUES (%s,%s,%s,%s,%s,%s,%s,'quitado',%s)",
             ("pagar", emissao, descricao, emissao, valor, valor, de_conta_id, now),
         )
-
-        # Create lancamento RECEBER (credit to para_conta)
-        conn.execute(
-            """INSERT INTO fin_lancamentos
-               (tipo, emissao, descricao, vencimento, valor, valor_total, conta_id, situacao, created_at)
-               VALUES (?,?,?,?,?,?,?,'quitado',?)""",
+        cur.execute(
+            "INSERT INTO fin_lancamentos (tipo, emissao, descricao, vencimento, valor, valor_total, conta_id, situacao, created_at) VALUES (%s,%s,%s,%s,%s,%s,%s,'quitado',%s)",
             ("receber", emissao, descricao, emissao, valor, valor, para_conta_id, now),
         )
 
         conn.commit()
-        transferencia = dict(conn.execute(
-            "SELECT * FROM fin_transferencias WHERE id=?", (transferencia_id,)
-        ).fetchone())
-
+        cur.execute("SELECT * FROM fin_transferencias WHERE id=%s", (transferencia_id,))
+        transferencia = dict(cur.fetchone())
+    finally:
+        cur.close()
+        conn.close()
     return {"transferencia": transferencia}
 
 
 @router.get("/api/fin/transferencias")
 async def api_list_transferencias(request: Request, mes: str = None):
     _require(request)
-    with get_db() as conn:
-        sql    = """
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        sql = """
             SELECT t.*,
-                   dc.nome  AS de_conta_nome,
-                   pc.nome  AS para_conta_nome
+                   dc.nome AS de_conta_nome,
+                   pc.nome AS para_conta_nome
             FROM fin_transferencias t
             LEFT JOIN fin_contas dc ON dc.id = t.de_conta_id
             LEFT JOIN fin_contas pc ON pc.id = t.para_conta_id
@@ -994,10 +1087,14 @@ async def api_list_transferencias(request: Request, mes: str = None):
         """
         params = []
         if mes:
-            sql += " AND t.emissao LIKE ?"
+            sql += " AND t.emissao LIKE %s"
             params.append(f"{mes}%")
         sql += " ORDER BY t.emissao DESC, t.id DESC"
-        rows = [dict(r) for r in conn.execute(sql, params).fetchall()]
+        cur.execute(sql, params)
+        rows = [dict(r) for r in cur.fetchall()]
+    finally:
+        cur.close()
+        conn.close()
     return {"transferencias": rows}
 
 
@@ -1006,37 +1103,29 @@ async def api_list_transferencias(request: Request, mes: str = None):
 @router.get("/api/fin/saldos")
 async def api_saldos(request: Request):
     _require(request)
-    with get_db() as conn:
-        contas = [dict(r) for r in conn.execute(
-            "SELECT id, nome, saldo_inicial FROM fin_contas WHERE situacao='ativa' ORDER BY nome"
-        ).fetchall()]
-
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT id, nome, saldo_inicial FROM fin_contas WHERE situacao='ativa' ORDER BY nome")
+        contas = [dict(r) for r in cur.fetchall()]
         saldos = []
         for conta in contas:
             cid = conta["id"]
-
-            total_receber = conn.execute(
-                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos "
-                "WHERE conta_id=? AND tipo='receber' AND situacao='quitado'",
+            cur.execute(
+                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE conta_id=%s AND tipo='receber' AND situacao='quitado'",
                 (cid,),
-            ).fetchone()[0]
-
-            total_pagar = conn.execute(
-                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos "
-                "WHERE conta_id=? AND tipo='pagar' AND situacao='quitado'",
-                (cid,),
-            ).fetchone()[0]
-
-            saldo = round(
-                float(conta["saldo_inicial"]) + float(total_receber) - float(total_pagar),
-                2,
             )
-            saldos.append({
-                "conta_id":   cid,
-                "conta_nome": conta["nome"],
-                "saldo":      saldo,
-            })
-
+            total_receber = cur.fetchone()["coalesce"]
+            cur.execute(
+                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE conta_id=%s AND tipo='pagar' AND situacao='quitado'",
+                (cid,),
+            )
+            total_pagar = cur.fetchone()["coalesce"]
+            saldo = round(float(conta["saldo_inicial"]) + float(total_receber) - float(total_pagar), 2)
+            saldos.append({"conta_id": cid, "conta_nome": conta["nome"], "saldo": saldo})
+    finally:
+        cur.close()
+        conn.close()
     return {"saldos": saldos}
 
 
@@ -1049,28 +1138,39 @@ async def api_fluxo_caixa(request: Request, ano: int = None):
     labels = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
     resultado = []
 
-    with get_db() as conn:
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
         for m in range(1, 13):
             like = f"{ano}-{m:02d}%"
-            receber = float(conn.execute(
-                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos "
-                "WHERE tipo='receber' AND vencimento LIKE ? AND COALESCE(origem,'manual')!='cc'",
-                (like,)).fetchone()[0])
-            pagar = float(conn.execute(
-                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos "
-                "WHERE tipo='pagar' AND vencimento LIKE ? AND COALESCE(origem,'manual')!='cc'",
-                (like,)).fetchone()[0])
-            recebidos = float(conn.execute(
-                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos "
-                "WHERE tipo='receber' AND situacao='quitado' AND vencimento LIKE ? AND COALESCE(origem,'manual')!='cc'",
-                (like,)).fetchone()[0])
-            pagos = float(conn.execute(
-                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos "
-                "WHERE tipo='pagar' AND situacao='quitado' AND vencimento LIKE ? AND COALESCE(origem,'manual')!='cc'",
-                (like,)).fetchone()[0])
-            mes_str = f"{ano}-{m:02d}"
+
+            cur.execute(
+                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='receber' AND vencimento LIKE %s AND COALESCE(origem,'manual')!='cc'",
+                (like,),
+            )
+            receber = float(cur.fetchone()["coalesce"])
+
+            cur.execute(
+                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='pagar' AND vencimento LIKE %s AND COALESCE(origem,'manual')!='cc'",
+                (like,),
+            )
+            pagar = float(cur.fetchone()["coalesce"])
+
+            cur.execute(
+                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='receber' AND situacao='quitado' AND vencimento LIKE %s AND COALESCE(origem,'manual')!='cc'",
+                (like,),
+            )
+            recebidos = float(cur.fetchone()["coalesce"])
+
+            cur.execute(
+                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='pagar' AND situacao='quitado' AND vencimento LIKE %s AND COALESCE(origem,'manual')!='cc'",
+                (like,),
+            )
+            pagos = float(cur.fetchone()["coalesce"])
+
+            mes_str  = f"{ano}-{m:02d}"
             realizado = mes_str < today_str[:7]
-            saldo_op = (recebidos - pagos) if realizado else (receber - pagar)
+            saldo_op  = (recebidos - pagos) if realizado else (receber - pagar)
             resultado.append({
                 'mes': m, 'label': labels[m-1],
                 'receber': receber, 'pagar': pagar,
@@ -1078,6 +1178,9 @@ async def api_fluxo_caixa(request: Request, ano: int = None):
                 'saldo_op': round(saldo_op, 2),
                 'realizado': realizado,
             })
+    finally:
+        cur.close()
+        conn.close()
 
     saldo_acum = 0.0
     for r in resultado:
@@ -1167,16 +1270,14 @@ async def importar_extrato(
     conta_id: str = Form(None),
 ):
     _require(request)
-    content = await arquivo.read()
+    content  = await arquivo.read()
     filename = arquivo.filename or "arquivo"
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
 
     if ext == "pdf":
-        text = _extract_text_pdf(content)
-        tipo_arquivo = "pdf"
+        text = _extract_text_pdf(content); tipo_arquivo = "pdf"
     elif ext in ("csv", "txt", "ofx", "ret"):
-        text = _extract_text_csv(content)
-        tipo_arquivo = ext
+        text = _extract_text_csv(content); tipo_arquivo = ext
     else:
         raise HTTPException(400, "Formato não suportado. Use PDF ou CSV.")
 
@@ -1188,199 +1289,194 @@ async def importar_extrato(
         raise HTTPException(422, "Nenhum lançamento encontrado no arquivo.")
 
     cid = int(conta_id) if conta_id and conta_id.isdigit() else None
-
-    db = get_db()
+    conn = get_conn()
+    cur = dict_cursor(conn)
     try:
-        cur = db.execute(
-            "INSERT INTO fin_importacoes (nome_arquivo, tipo_arquivo, conta_id, total_itens) VALUES (?,?,?,?)",
+        cur.execute(
+            "INSERT INTO fin_importacoes (nome_arquivo, tipo_arquivo, conta_id, total_itens) VALUES (%s,%s,%s,%s) RETURNING id",
             (filename, tipo_arquivo, cid, len(lancamentos)),
         )
-        imp_id = cur.lastrowid
+        imp_id = cur.fetchone()["id"]
         for l in lancamentos:
-            db.execute(
-                """INSERT INTO fin_importacao_itens
-                   (importacao_id, data_lancamento, descricao, valor, tipo, categoria_sugerida, conta_id)
-                   VALUES (?,?,?,?,?,?,?)""",
+            cur.execute(
+                "INSERT INTO fin_importacao_itens (importacao_id, data_lancamento, descricao, valor, tipo, categoria_sugerida, conta_id) VALUES (%s,%s,%s,%s,%s,%s,%s)",
                 (imp_id, l.get("data"), l.get("descricao"), l.get("valor"), l.get("tipo"), l.get("categoria_sugerida"), cid),
             )
-        db.commit()
+        conn.commit()
         return {"id": imp_id, "total": len(lancamentos)}
     except Exception as e:
-        db.rollback()
+        conn.rollback()
         raise HTTPException(500, str(e))
     finally:
-        db.close()
+        cur.close()
+        conn.close()
 
 
 @router.get("/api/fin/importacoes")
 async def listar_importacoes(request: Request):
     _require(request)
-    db = get_db()
+    conn = get_conn()
+    cur = dict_cursor(conn)
     try:
-        rows = db.execute(
-            "SELECT * FROM fin_importacoes ORDER BY created_at DESC LIMIT 20"
-        ).fetchall()
-        return {"importacoes": [dict(r) for r in rows]}
+        cur.execute("SELECT * FROM fin_importacoes ORDER BY created_at DESC LIMIT 20")
+        rows = [dict(r) for r in cur.fetchall()]
     finally:
-        db.close()
+        cur.close()
+        conn.close()
+    return {"importacoes": rows}
 
 
 @router.get("/api/fin/importacoes/{imp_id}/itens")
 async def listar_itens(imp_id: int, request: Request):
     _require(request)
-    db = get_db()
+    conn = get_conn()
+    cur = dict_cursor(conn)
     try:
-        rows = db.execute(
-            "SELECT * FROM fin_importacao_itens WHERE importacao_id=? ORDER BY data_lancamento, id",
+        cur.execute(
+            "SELECT * FROM fin_importacao_itens WHERE importacao_id=%s ORDER BY data_lancamento, id",
             (imp_id,),
-        ).fetchall()
-        return {"itens": [dict(r) for r in rows]}
+        )
+        rows = [dict(r) for r in cur.fetchall()]
     finally:
-        db.close()
+        cur.close()
+        conn.close()
+    return {"itens": rows}
 
 
 @router.put("/api/fin/importacao-item/{item_id}")
 async def atualizar_item(item_id: int, request: Request):
     _require(request)
-    body = await request.json()
+    body   = await request.json()
     campos = ["data_lancamento", "descricao", "valor", "tipo", "categoria_id", "conta_id"]
-    sets = ", ".join(f"{c}=?" for c in campos if c in body)
-    vals = [body[c] for c in campos if c in body] + [item_id]
+    sets   = ", ".join(f"{c}=%s" for c in campos if c in body)
+    vals   = [body[c] for c in campos if c in body] + [item_id]
     if not sets:
         return {}
-    db = get_db()
+    conn = get_conn()
+    cur = dict_cursor(conn)
     try:
-        db.execute(f"UPDATE fin_importacao_itens SET {sets} WHERE id=?", vals)
-        # For approved items, mirror changes to the associated lancamento
-        item = db.execute(
-            "SELECT status, lancamento_id FROM fin_importacao_itens WHERE id=?", (item_id,)
-        ).fetchone()
+        cur.execute(f"UPDATE fin_importacao_itens SET {sets} WHERE id=%s", vals)
+        cur.execute("SELECT status, lancamento_id FROM fin_importacao_itens WHERE id=%s", (item_id,))
+        item = cur.fetchone()
         if item and item["status"] == "aprovado" and item["lancamento_id"]:
             lanc_map = {
                 "data_lancamento": ["emissao", "vencimento"],
-                "descricao": ["descricao"],
-                "valor": ["valor", "valor_total"],
-                "categoria_id": ["categoria_id"],
+                "descricao":       ["descricao"],
+                "valor":           ["valor", "valor_total"],
+                "categoria_id":    ["categoria_id"],
             }
             lsets, lvals = [], []
             for src, dsts in lanc_map.items():
                 if src in body:
                     for dst in dsts:
-                        lsets.append(f"{dst}=?")
+                        lsets.append(f"{dst}=%s")
                         lvals.append(body[src])
             if "tipo" in body:
-                lsets.append("tipo=?")
+                lsets.append("tipo=%s")
                 lvals.append("pagar" if body["tipo"] == "despesa" else "receber")
             if lsets:
                 lvals.append(item["lancamento_id"])
-                db.execute(f"UPDATE fin_lancamentos SET {', '.join(lsets)} WHERE id=?", lvals)
-        db.commit()
+                cur.execute(f"UPDATE fin_lancamentos SET {', '.join(lsets)} WHERE id=%s", lvals)
+        conn.commit()
         return {"ok": True}
     finally:
-        db.close()
+        cur.close()
+        conn.close()
 
 
 @router.post("/api/fin/importacoes/{imp_id}/aprovar")
 async def aprovar_itens(imp_id: int, request: Request):
     _require(request)
-    body = await request.json()
+    body     = await request.json()
     item_ids = body.get("item_ids", [])
-    db = get_db()
+    conn = get_conn()
+    cur = dict_cursor(conn)
     try:
         aprovados = 0
         today = date.today().isoformat()
         for iid in item_ids:
-            item = db.execute(
-                "SELECT * FROM fin_importacao_itens WHERE id=? AND importacao_id=? AND status='pendente'",
+            cur.execute(
+                "SELECT * FROM fin_importacao_itens WHERE id=%s AND importacao_id=%s AND status='pendente'",
                 (iid, imp_id),
-            ).fetchone()
+            )
+            item = cur.fetchone()
             if not item:
                 continue
-            dt = item["data_lancamento"] or today
+            item = dict(item)
+            dt        = item["data_lancamento"] or today
             tipo_lanc = "pagar" if item["tipo"] == "despesa" else "receber"
-            cur = db.execute(
-                """INSERT INTO fin_lancamentos
-                   (tipo, emissao, descricao, vencimento, valor, valor_total, conta_id, categoria_id, situacao, origem)
-                   VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            cur.execute(
+                "INSERT INTO fin_lancamentos (tipo, emissao, descricao, vencimento, valor, valor_total, conta_id, categoria_id, situacao, origem) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,'quitado','cc') RETURNING id",
                 (tipo_lanc, dt, item["descricao"] or "—", dt,
                  item["valor"] or 0, item["valor"] or 0,
-                 item["conta_id"], item["categoria_id"], "quitado", "cc"),
+                 item["conta_id"], item["categoria_id"]),
             )
-            db.execute(
-                "UPDATE fin_importacao_itens SET status='aprovado', lancamento_id=? WHERE id=?",
-                (cur.lastrowid, iid),
+            lanc_id = cur.fetchone()["id"]
+            cur.execute(
+                "UPDATE fin_importacao_itens SET status='aprovado', lancamento_id=%s WHERE id=%s",
+                (lanc_id, iid),
             )
             aprovados += 1
-        db.execute(
-            """UPDATE fin_importacoes
-               SET itens_aprovados=(SELECT COUNT(*) FROM fin_importacao_itens WHERE importacao_id=? AND status='aprovado')
-               WHERE id=?""",
+
+        cur.execute(
+            "UPDATE fin_importacoes SET itens_aprovados=(SELECT COUNT(*) FROM fin_importacao_itens WHERE importacao_id=%s AND status='aprovado') WHERE id=%s",
             (imp_id, imp_id),
         )
-        db.commit()
+        conn.commit()
         return {"aprovados": aprovados}
     except Exception as e:
-        db.rollback()
+        conn.rollback()
         raise HTTPException(500, str(e))
     finally:
-        db.close()
+        cur.close()
+        conn.close()
 
 
 @router.delete("/api/fin/importacao-item/{item_id}")
 async def rejeitar_item(item_id: int, request: Request):
     _require(request)
-    db = get_db()
+    conn = get_conn()
+    cur = dict_cursor(conn)
     try:
-        item = db.execute(
-            "SELECT status, lancamento_id, importacao_id FROM fin_importacao_itens WHERE id=?",
+        cur.execute(
+            "SELECT status, lancamento_id, importacao_id FROM fin_importacao_itens WHERE id=%s",
             (item_id,),
-        ).fetchone()
+        )
+        item = cur.fetchone()
         if not item:
             raise HTTPException(404, "Item não encontrado")
+        item = dict(item)
         lancamento_id = item["lancamento_id"]
-        # NULL out the FK first so the DELETE doesn't trip the FK constraint
-        db.execute(
-            "UPDATE fin_importacao_itens SET status='rejeitado', lancamento_id=NULL WHERE id=?",
+        cur.execute(
+            "UPDATE fin_importacao_itens SET status='rejeitado', lancamento_id=NULL WHERE id=%s",
             (item_id,),
         )
         if lancamento_id:
-            db.execute("DELETE FROM fin_lancamentos WHERE id=?", (lancamento_id,))
+            cur.execute("DELETE FROM fin_lancamentos WHERE id=%s", (lancamento_id,))
         if item["importacao_id"]:
-            db.execute(
-                """UPDATE fin_importacoes
-                   SET itens_aprovados=(SELECT COUNT(*) FROM fin_importacao_itens WHERE importacao_id=? AND status='aprovado')
-                   WHERE id=?""",
+            cur.execute(
+                "UPDATE fin_importacoes SET itens_aprovados=(SELECT COUNT(*) FROM fin_importacao_itens WHERE importacao_id=%s AND status='aprovado') WHERE id=%s",
                 (item["importacao_id"], item["importacao_id"]),
             )
-        db.commit()
+        conn.commit()
         return {"ok": True}
     except HTTPException:
         raise
     except Exception as e:
-        db.rollback()
+        conn.rollback()
         raise HTTPException(500, str(e))
     finally:
-        db.close()
+        cur.close()
+        conn.close()
 
 
 # ── Dashboard Analytics ────────────────────────────────────────────────────────
 
-_DASH_CACHE: dict = {}   # keyed by (de, ate)
-_DASH_CACHE_TS: dict = {}
-_DASH_CACHE_TTL = 300
-_MESES_ABBR_LIST = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
-
-
-_SIGA_DIR = BASE_DIR / 'Financeiro'
-_MES_PT_MAP = {'Jan':'Jan','Feb':'Fev','Mar':'Mar','Apr':'Abr','May':'Mai',
-               'Jun':'Jun','Jul':'Jul','Aug':'Ago','Sep':'Set','Oct':'Out',
-               'Nov':'Nov','Dec':'Dez'}
-
 def _mes_to_ym(mes: str):
-    if '-' in mes:  # "2024-09" → (2024, 9)
+    if '-' in mes:
         y, m = mes.split('-')
         return (int(y), int(m))
-    abbr, yy = mes.split('/')  # "Set/24" → (2024, 9)
+    abbr, yy = mes.split('/')
     return (2000 + int(yy), _MESES_ABBR_LIST.index(abbr) + 1)
 
 
@@ -1408,7 +1504,6 @@ def _parse_siga(de: str = None, ate: str = None):
         meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
         return (int(yy), meses.index(abbr) if abbr in meses else 0)
 
-    # Collect rows from all files; deduplicate by (emissao, quitado, contato, descricao, receber, pagar)
     seen = set()
     rows = []
     for path in siga_files:
@@ -1425,15 +1520,13 @@ def _parse_siga(de: str = None, ate: str = None):
             receber   = _pv(row[13])
             pagar     = _pv(row[14])
             key = (emissao, quitado, contato, descricao, receber, pagar)
-            if key in seen:
-                continue
+            if key in seen: continue
             seen.add(key)
             rows.append({'emissao': emissao, 'quitado': quitado, 'contato': contato,
                          'descricao': descricao, 'centro': centro, 'conta': conta,
                          'receber': receber, 'pagar': pagar})
         wb.close()
 
-    # Date range filter (by quitado month)
     ym_de  = _mes_to_ym(de)  if de  else None
     ym_ate = _mes_to_ym(ate) if ate else None
 
@@ -1443,7 +1536,7 @@ def _parse_siga(de: str = None, ate: str = None):
         if ym_ate and ym > ym_ate: return False
         return True
 
-    # Monthly by quitado date (caixa) — matches SiGA UI criterion
+    from collections import defaultdict
     quitadas = [r for r in rows if r['quitado'] and _in_range(r['quitado'])]
     by_month: dict = defaultdict(lambda: {'receber': 0.0, 'pagar': 0.0, 'n': 0})
     for r in quitadas:
@@ -1456,21 +1549,18 @@ def _parse_siga(de: str = None, ate: str = None):
                     'lucro': round(v['receber'] - v['pagar'], 2), 'n': v['n']}
                    for k, v in sorted(by_month.items(), key=lambda x: _sort_key(x[0]))]
 
-    # Top clientes (by receber)
     cli: dict = defaultdict(float)
     for r in quitadas:
         if r['receber'] > 0: cli[r['contato']] += r['receber']
     top_clientes = [{'nome': k, 'total': round(v,2)}
                     for k, v in sorted(cli.items(), key=lambda x: -x[1])[:12]]
 
-    # Top fornecedores (by pagar)
     forn: dict = defaultdict(float)
     for r in quitadas:
         if r['pagar'] > 0: forn[r['contato']] += r['pagar']
     top_fornecedores = [{'nome': k, 'total': round(v,2)}
                         for k, v in sorted(forn.items(), key=lambda x: -x[1])[:12]]
 
-    # Centro de custos breakdown
     cc: dict = defaultdict(float)
     for r in quitadas:
         if r['pagar'] > 0 and r['centro'] and r['centro'] not in ('Sem Centro de Custos',''):
@@ -1489,17 +1579,19 @@ def _fetch_dashboard(de: str = None, ate: str = None):
 @router.get("/api/fin/cartao-analise")
 async def cartao_analise(request: Request, de: str = None, ate: str = None):
     _require(request)
-    with get_db() as conn:
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
         filters = ["i.status = 'aprovado'", "i.tipo = 'despesa'"]
         params: list = []
         if de:
-            filters.append("i.data_lancamento >= ?")
+            filters.append("i.data_lancamento >= %s")
             params.append(de)
         if ate:
-            filters.append("i.data_lancamento <= ?")
+            filters.append("i.data_lancamento <= %s")
             params.append(ate + "-31")
         where = " AND ".join(filters)
-        itens = conn.execute(f"""
+        cur.execute(f"""
             SELECT i.data_lancamento, i.descricao, i.valor, i.tipo,
                    i.categoria_id, c.nome AS categoria_nome,
                    i.importacao_id,
@@ -1509,11 +1601,10 @@ async def cartao_analise(request: Request, de: str = None, ate: str = None):
             LEFT JOIN fin_categorias c ON c.id = i.categoria_id
             WHERE {where}
             ORDER BY i.data_lancamento
-        """, params).fetchall()
-        itens = [dict(r) for r in itens]
+        """, params)
+        itens = [dict(r) for r in cur.fetchall()]
 
-        # Faturas summary (per importacao)
-        faturas_raw = conn.execute("""
+        cur.execute("""
             SELECT imp.id, imp.nome_arquivo, imp.created_at,
                    imp.total_itens, imp.itens_aprovados,
                    COALESCE(SUM(CASE WHEN i.tipo='despesa' AND i.status='aprovado' THEN i.valor ELSE 0 END),0) AS total
@@ -1521,12 +1612,14 @@ async def cartao_analise(request: Request, de: str = None, ate: str = None):
             LEFT JOIN fin_importacao_itens i ON i.importacao_id = imp.id
             GROUP BY imp.id
             ORDER BY imp.created_at DESC
-        """).fetchall()
-        faturas = [dict(r) for r in faturas_raw]
+        """)
+        faturas = [dict(r) for r in cur.fetchall()]
+    finally:
+        cur.close()
+        conn.close()
 
     from collections import defaultdict
 
-    # Monthly totals — convert YYYY-MM to "Abr/26" label, sort by raw key
     def _ym_label(yyyymm):
         try:
             y, m = yyyymm.split('-')
@@ -1541,34 +1634,28 @@ async def cartao_analise(request: Request, de: str = None, ate: str = None):
             by_month[raw] += it['valor'] or 0
     mensal = [{'mes': _ym_label(k), 'total': round(v, 2)} for k, v in sorted(by_month.items())]
 
-    # By category
-    by_cat = defaultdict(float)
+    by_cat: dict = defaultdict(float)
     for it in itens:
         cat = it['categoria_nome'] or 'Sem categoria'
         by_cat[cat] += it['valor'] or 0
     por_categoria = [{'categoria': k, 'total': round(v, 2)}
                      for k, v in sorted(by_cat.items(), key=lambda x: -x[1])]
 
-    # Top merchants
-    by_merchant = defaultdict(float)
+    by_merchant: dict = defaultdict(float)
     for it in itens:
         desc = (it['descricao'] or 'Outros').strip()
         by_merchant[desc] += it['valor'] or 0
     top_merchants = [{'nome': k, 'total': round(v, 2)}
                      for k, v in sorted(by_merchant.items(), key=lambda x: -x[1])[:15]]
 
-    total_gasto = round(sum(v for v in by_month.values()), 2)
+    total_gasto  = round(sum(v for v in by_month.values()), 2)
     media_mensal = round(total_gasto / len(by_month), 2) if by_month else 0
-    melhor_mes = max(mensal, key=lambda x: x['total']) if mensal else None
+    melhor_mes   = max(mensal, key=lambda x: x['total']) if mensal else None
 
     return {
-        'faturas': faturas,
-        'mensal': mensal,
-        'por_categoria': por_categoria,
-        'top_merchants': top_merchants,
-        'total_gasto': total_gasto,
-        'media_mensal': media_mensal,
-        'melhor_mes': melhor_mes,
+        'faturas': faturas, 'mensal': mensal,
+        'por_categoria': por_categoria, 'top_merchants': top_merchants,
+        'total_gasto': total_gasto, 'media_mensal': media_mensal, 'melhor_mes': melhor_mes,
     }
 
 
