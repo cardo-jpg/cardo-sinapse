@@ -163,6 +163,67 @@ def init_db():
         """)
         conn.commit()
 
+        # Seed clientes/fornecedores if tables are empty (first deploy)
+        if conn.execute("SELECT COUNT(*) FROM fin_clientes").fetchone()[0] == 0:
+            clientes = [
+                ('empresa','Conexão Cirurgica','Risebook Ensino em Saúde LTDA','51.911.424/0001-49',None,'brunolsramos@hotmail.com','Comercial: (21) 98768-2006'),
+                ('empresa','DFT Logística','D Freire transportes e Logística Eireli Me','22.225.052.0001-07',None,None,'Comercial: (11) 99282-9484'),
+                ('empresa','Gráfica NF','F. Floriani Gráfica Edt. LTDA','2087884000199',None,'marketing@graficanf.com.br','Comercial: (47) 3350-0382'),
+                ('empresa','HISTORY MAKERS LTDA','HISTORY MAKERS LTDA','40.012.266/0001-79',None,'contato@historymakersgroup.com','Comercial: +351 915 710 135'),
+                ('empresa','Ledo Mazzei Massoni Neto','Ledo Mazzei Massoni Neto',None,'223.971.228-71','ledo.massoni@gmail.com',None),
+                ('empresa','Outros','Outros',None,None,None,None),
+                ('empresa','Patrícia Vogtt','ABROADER COMPANY LTDA','62.192.333/0001-17',None,None,None),
+                ('empresa','Scale Army','Scale Army',None,None,None,None),
+                ('empresa','Sobral Ensino','Sobral Ensino','43.668.790/0001-90',None,None,None),
+                ('empresa','Speedrack west','Speedrack west',None,None,None,None),
+            ]
+            conn.executemany(
+                "INSERT INTO fin_clientes (tipo,nome_fantasia,razao_social,cnpj,cpf,email,telefone) VALUES (?,?,?,?,?,?,?)",
+                clientes
+            )
+
+        if conn.execute("SELECT COUNT(*) FROM fin_fornecedores").fetchone()[0] == 0:
+            fornecedores = [
+                ('empresa','ARCHER','ARCHER',None,None,None,None),
+                ('empresa','Arthur Manrchi','Perfil',None,None,None,None),
+                ('empresa','Auto Giro','AutoGiro','317690000180',None,None,None),
+                ('empresa','C6 Bank','C6 Bank',None,None,None,None),
+                ('empresa','Cadu Nunes','Cadu Nunes',None,None,None,None),
+                ('empresa','Celesc','Celesc',None,None,None,None),
+                ('empresa','Conta Agil contabilidade','Conta Agil contabilidade',None,None,None,None),
+                ('empresa','Debora Martins (Head Hunter)','Debora Martins (Head Hunter)','52.723.349/0001-55',None,None,None),
+                ('empresa','Delapel Comercio de Material para Escritório LTDA','Delapel Comercio de Material para Escritório LTDA','27.141.743/0001-38',None,None,None),
+                ('empresa','Imobiliária Teresinha Baron','Imobiliária Teresinha Baron',None,None,None,None),
+                ('pessoa','Jadna da Rosa','Jadna da Rosa',None,'096.349.039-75',None,None),
+                ('empresa','JN Administradora de Bens e Imoveis Próprios LTDA','JN Administradora de Bens e Imoveis Próprios LTDA','30.784.710/0001-10',None,'ivandro.jnadm@gmail.com','Comercial: (47) 99935-7246'),
+                ('pessoa','José Luiz Dutra se Souza','Postmark','7797836973',None,None,'Comercial: (47) 99191-2539'),
+                ('empresa','Larissa Schneider Keiber','Larissa Schneider Keiber','62.485.855/0001-07',None,None,None),
+                ('empresa','Loja 10','Loja 10',None,None,None,None),
+                ('empresa','LUAN MATHEUS','LUAN MATHEUS',None,None,None,None),
+                ('empresa','Lujoe Uniformes','Lujoe Modas LTDA','08.051.645/0001-65',None,None,None),
+                ('empresa','Mix Conect Telecon','Mix Conect Telecon',None,None,None,None),
+                ('empresa','Nubank','Nubank',None,None,None,None),
+                ('empresa','Obras','Obras',None,None,None,None),
+                ('empresa','Outros','Outros',None,None,None,None),
+                ('empresa','Ramper Desenvolvimento de Software ltda','Ramper Desenvolvimento de Software ltda','29138927000174',None,None,None),
+                ('empresa','Receita Federal','Receita Federal',None,None,None,None),
+                ('empresa','Renke Studio','Renke Studio','37079656000151',None,None,None),
+                ('empresa','Sicoob Trento Credi','Sicoob Trento Credi',None,None,None,None),
+                ('empresa','SIGA SISTEMA','SIGA SISTEMA',None,None,None,None),
+                ('empresa','Site','Site',None,None,None,None),
+                ('empresa','Unifique','Unifique',None,None,None,None),
+                ('empresa','ValeSat Segurança Eletronica','ValeSat Segurança Eletronica',None,None,None,None),
+                ('pessoa','Victor Leopoldo Dognini Cardoso','Victor Leopoldo Dognini Cardoso',None,'097.734.979-92',None,None),
+                ('empresa','Vidraçaria Azaleia','Vidraçaria Azaleia',None,None,None,None),
+                ('empresa','VIVO CELULAR','VIVO',None,None,None,None),
+                ('empresa','Yes brindes','Yes brindes',None,None,None,None),
+            ]
+            conn.executemany(
+                "INSERT INTO fin_fornecedores (tipo,nome_fantasia,razao_social,cnpj,cpf,email,telefone) VALUES (?,?,?,?,?,?,?)",
+                fornecedores
+            )
+        conn.commit()
+
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
