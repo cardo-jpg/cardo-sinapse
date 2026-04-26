@@ -46,20 +46,21 @@
 
     /* ── unified sidebar ─────────────────────────────────────────────────────── */
     .g-nav {
-      width: 320px; flex-shrink: 0;
+      width: 260px; flex-shrink: 0;
       background: #111; border-right: 1px solid var(--border);
       display: flex; flex-direction: column;
       height: 100vh; overflow: hidden;
       transition: width .2s ease;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
     .g-nav.collapsed { width: 52px; }
 
     .g-nav-brand {
-      padding: 18px 18px; display: flex; align-items: center; gap: 9px;
-      border-bottom: 1px solid var(--border); flex-shrink: 0; min-height: 60px;
+      padding: 13px 14px; display: flex; align-items: center; gap: 8px;
+      border-bottom: 1px solid var(--border); flex-shrink: 0; min-height: 48px;
     }
     .g-nav-brand-name {
-      font-weight: 700; font-size: 1.05rem; color: var(--text);
+      font-weight: 600; font-size: .88rem; color: var(--text);
       flex: 1; white-space: nowrap; overflow: hidden;
       transition: opacity .15s, max-width .2s; max-width: 200px;
     }
@@ -75,16 +76,16 @@
     .g-nav.collapsed .g-nav-toggle { transform: rotate(180deg); }
 
     /* fixed links (Cérebro) */
-    .g-nav-links { padding: 8px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .g-nav-links { padding: 6px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
     .g-nav-link {
-      display: flex; align-items: center; gap: 10px;
-      padding: 10px 14px; border-radius: 8px;
-      color: var(--muted); text-decoration: none; font-size: .97rem;
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 12px; border-radius: 7px;
+      color: var(--muted); text-decoration: none; font-size: .82rem; font-weight: 400;
       transition: background .12s, color .12s; white-space: nowrap; overflow: hidden;
       position: relative;
     }
     .g-nav-link:hover { background: #ffffff09; color: var(--text); }
-    .g-nav-link.active-link { background: rgba(255,77,0,.12); color: var(--accent); font-weight: 600; }
+    .g-nav-link.active-link { background: rgba(255,77,0,.12); color: var(--accent); font-weight: 500; }
     .g-nav-icon { font-size: .9rem; flex-shrink: 0; width: 18px; text-align: center; }
     .g-nav.collapsed .g-nav-link::after {
       content: attr(data-label);
@@ -104,8 +105,8 @@
     .g-nav.collapsed .g-nav-tree { overflow: hidden; }
 
     .g-tree-header {
-      padding: 16px 18px 7px;
-      font-size: .72rem; font-weight: 700; letter-spacing: .1em;
+      padding: 10px 14px 4px;
+      font-size: .67rem; font-weight: 500; letter-spacing: .08em;
       text-transform: uppercase; color: var(--muted);
       display: flex; align-items: center; justify-content: space-between;
       transition: opacity .15s;
@@ -121,8 +122,8 @@
     /* space rows */
     .g-space-row {
       display: flex; align-items: center; gap: 8px;
-      padding: 10px 14px; cursor: pointer; border-radius: 7px; margin: 0 6px;
-      font-size: 1rem; font-weight: 600; color: var(--text);
+      padding: 6px 10px; cursor: pointer; border-radius: 7px; margin: 0 4px;
+      font-size: .86rem; font-weight: 500; color: var(--text);
       transition: background .12s;
     }
     .g-space-row:hover { background: #ffffff0a; }
@@ -132,8 +133,8 @@
     /* folder rows */
     .g-folder-row {
       display: flex; align-items: center; gap: 6px;
-      padding: 8px 14px 8px 28px; cursor: pointer; border-radius: 7px; margin: 0 6px;
-      font-size: .93rem; color: var(--muted);
+      padding: 5px 10px 5px 22px; cursor: pointer; border-radius: 7px; margin: 0 4px;
+      font-size: .81rem; color: var(--muted);
       transition: background .12s, color .12s;
     }
     .g-folder-row:hover { background: #ffffff08; color: var(--text); }
@@ -141,24 +142,24 @@
     /* list rows */
     .g-list-row {
       display: flex; align-items: center; gap: 6px;
-      padding: 8px 14px 8px 44px; cursor: pointer; border-radius: 7px; margin: 0 6px;
-      font-size: .93rem; color: var(--muted);
+      padding: 5px 10px 5px 36px; cursor: pointer; border-radius: 7px; margin: 0 4px;
+      font-size: .81rem; color: var(--muted);
       transition: background .12s, color .12s;
     }
-    .g-list-row.active { background: rgba(255,77,0,.12); color: var(--accent); font-weight: 600; }
+    .g-list-row.active { background: rgba(255,77,0,.12); color: var(--accent); font-weight: 500; }
     .g-list-row:not(.active):hover { background: #ffffff07; color: var(--text); }
-    .g-list-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .5; flex-shrink: 0; }
-    .g-list-row.direct { padding-left: 28px; }
+    .g-list-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .5; flex-shrink: 0; }
+    .g-list-row.direct { padding-left: 22px; }
 
     /* feature link inside a space (Dashboard, Ata) */
     .g-feature-row {
       display: flex; align-items: center; gap: 7px;
-      padding: 8px 14px 8px 28px; border-radius: 7px; margin: 0 6px;
-      font-size: .93rem; color: var(--muted); text-decoration: none;
+      padding: 5px 10px 5px 22px; border-radius: 7px; margin: 0 4px;
+      font-size: .81rem; color: var(--muted); text-decoration: none;
       transition: background .12s, color .12s;
     }
     .g-feature-row:hover { background: #ffffff08; color: var(--text); }
-    .g-feature-row.active-link { color: var(--accent); font-weight: 600; }
+    .g-feature-row.active-link { color: var(--accent); font-weight: 500; }
 
 
     /* ── action buttons ──────────────────────────────────────────────────────── */
@@ -195,11 +196,11 @@
 
     /* space icon: emoji inside colored box → chevron on hover ─────────────── */
     .g-space-icon-wrap {
-      position: relative; width: 30px; height: 30px; flex-shrink: 0;
-      border-radius: 8px; display: flex; align-items: center; justify-content: center;
+      position: relative; width: 24px; height: 24px; flex-shrink: 0;
+      border-radius: 6px; display: flex; align-items: center; justify-content: center;
     }
     .g-space-icon-emoji {
-      font-size: 1rem; line-height: 1; transition: opacity .12s; position: relative; z-index: 1;
+      font-size: .85rem; line-height: 1; transition: opacity .12s; position: relative; z-index: 1;
     }
     .g-space-chevron-hover {
       position: absolute; inset: 0; border-radius: 8px;
@@ -260,13 +261,13 @@
 
     /* footer */
     .g-nav-footer {
-      padding: 13px 16px; border-top: 1px solid var(--border);
+      padding: 10px 14px; border-top: 1px solid var(--border);
       display: flex; align-items: center; justify-content: space-between;
-      font-size: .8rem; flex-shrink: 0; overflow: hidden;
+      font-size: .76rem; flex-shrink: 0; overflow: hidden;
     }
     .g-nav-user { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity .15s, max-width .2s; max-width: 160px; }
     .g-nav.collapsed .g-nav-user { opacity: 0; max-width: 0; }
-    .g-nav-logout { color: var(--muted); text-decoration: none; font-size: .75rem; flex-shrink: 0; white-space: nowrap; }
+    .g-nav-logout { color: var(--muted); text-decoration: none; font-size: .72rem; flex-shrink: 0; white-space: nowrap; }
     .g-nav-logout:hover { color: #ef4444; }
     .g-nav.collapsed .g-nav-footer { justify-content: center; }
 
@@ -958,7 +959,7 @@
     /* ver arquivados link */
     .g-archived-link {
       display: flex; align-items: center; gap: 8px;
-      padding: 9px 18px; color: #404040; font-size: .82rem;
+      padding: 6px 14px; color: #404040; font-size: .78rem;
       cursor: pointer; border: none; background: none; width: 100%;
       text-align: left; border-top: 1px solid var(--border);
       transition: color .12s;
