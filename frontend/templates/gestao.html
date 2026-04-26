@@ -142,7 +142,7 @@
     /* list rows */
     .g-list-row {
       display: flex; align-items: center; gap: 6px;
-      padding: 5px 10px 5px 36px; cursor: pointer; border-radius: 7px; margin: 0 4px;
+      padding: 5px 10px 5px 46px; cursor: pointer; border-radius: 7px; margin: 0 4px;
       font-size: .81rem; color: var(--muted);
       transition: background .12s, color .12s;
     }
@@ -918,12 +918,6 @@
     .g-doc-row .g-row-actions { opacity: 0; transition: opacity .12s; }
     .g-doc-row:hover .g-row-actions { opacity: 1; }
     .g-folder-content { position: relative; }
-    .g-folder-content::before {
-      content: ''; position: absolute;
-      left: 37px; top: 2px; bottom: 4px;
-      width: 1px; background: rgba(255,255,255,0.07);
-      border-radius: 1px; pointer-events: none;
-    }
 
     /* ── duplicar modal ─────────────────────────────────────────────────────── */
     .dup-toggle {
