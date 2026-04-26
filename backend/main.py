@@ -23,7 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import anthropic
 from google.oauth2 import service_account
 from googleapiclient.discovery import build as gapi_build
-from backend.gestao import router as gestao_router, init_db as gestao_init_db
+from backend.gestao import router as gestao_router, init_db as gestao_init_db, page_gestao as gestao_page
 from backend.financeiro import router as financeiro_router, init_db as financeiro_init_db
 from backend.fin_pessoais import router as fp_router, init_db as fp_init_db
 
@@ -1382,9 +1382,7 @@ def _nav_base(request: Request, active_page: str = "") -> dict:
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    if not verify_session(request):
-        return RedirectResponse("/login")
-    return RedirectResponse("/gestao")
+    return await gestao_page(request)
 
 @app.get("/conversar", response_class=HTMLResponse)
 async def conversar(request: Request):
