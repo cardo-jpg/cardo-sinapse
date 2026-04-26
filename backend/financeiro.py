@@ -1662,8 +1662,7 @@ async def cartao_analise(request: Request, de: str = None, ate: str = None):
 @router.post("/api/fin/siga-import")
 async def siga_import(request: Request):
     token = request.headers.get("X-Import-Token", "")
-    expected = os.getenv("SECRET_KEY", "sinapse-secret-2026")
-    if token != expected:
+    if token != "siga-import-cardo-2026":
         raise HTTPException(403, "token inválido")
     rows = await request.json()
     conn = get_conn(); cur = dict_cursor(conn)
