@@ -467,6 +467,9 @@
       <button class="fin-nav-item" :class="currentSection==='fornecedores' && 'active'" @click="currentSection='fornecedores'; loadFornecedores()">
         <span>🏭</span> Fornecedores
       </button>
+      <button class="fin-nav-item" :class="currentSection==='colaboradores' && 'active'" @click="currentSection='colaboradores'; loadColaboradores()">
+        <span>👤</span> Colaboradores
+      </button>
       <div class="fin-nav-sep"></div>
       <button class="fin-nav-item" :class="currentSection==='fluxo' && 'active'" @click="currentSection='fluxo'; loadFluxo()">
         <span>📈</span> Fluxo de Caixa
@@ -920,6 +923,41 @@
               <div class="contact-card-name" x-text="c.nome_fantasia||c.razao_social||c.nome||'—'"></div>
               <div class="contact-card-sub" x-text="c.razao_social||''"></div>
               <div class="contact-card-sub" x-text="c.cnpj||c.cpf||''"></div>
+              <div class="contact-card-sub" x-text="c.email||''"></div>
+              <div class="contact-card-sub" x-text="c.telefone||''"></div>
+              <div style="margin-top:4px;">
+                <span class="badge" :class="c.situacao==='ativo'?'badge-green':'badge-gray'" x-text="c.situacao==='ativo'?'Ativo':'Inativo'"></span>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </template>
+
+    <!-- ══════════════════════════════ COLABORADORES ═════════════════════════════ -->
+    <template x-if="currentSection==='colaboradores'">
+      <div style="padding:24px 28px; flex:1; overflow-y:auto;">
+        <div class="sec-header">
+          <span class="sec-title">Colaboradores</span>
+          <input class="fin-search" type="text" placeholder="Buscar..." x-model="colaboradorQ" @input.debounce.400ms="loadColaboradores()">
+          <button class="btn btn-accent" @click="openContactModal('colaborador')">+ Adicionar Colaborador</button>
+        </div>
+        <template x-if="loading">
+          <div class="fin-loading"><span class="spin">&#9696;</span> Carregando...</div>
+        </template>
+        <div class="contact-grid" x-show="!loading">
+          <template x-if="colaboradores.length===0">
+            <div style="grid-column:1/-1;" class="fin-empty">Nenhum colaborador encontrado</div>
+          </template>
+          <template x-for="c in colaboradores" :key="c.id">
+            <div class="contact-card">
+              <div class="contact-card-actions">
+                <button class="btn-icon" @click="openContactEdit('colaborador', c)">&#9998;</button>
+                <button class="btn-icon danger" @click="deleteContact('colaboradores', c.id)">&#128465;</button>
+              </div>
+              <div class="contact-card-name" x-text="c.nome_fantasia||'—'"></div>
+              <div class="contact-card-sub" x-text="c.cargo||''"></div>
+              <div class="contact-card-sub" x-text="c.cpf||''"></div>
               <div class="contact-card-sub" x-text="c.email||''"></div>
               <div class="contact-card-sub" x-text="c.telefone||''"></div>
               <div style="margin-top:4px;">
@@ -1767,27 +1805,35 @@
     <div class="modal-backdrop" @click.self="contactModal=false">
       <div class="modal modal-lg">
         <div class="modal-header">
-          <span class="modal-title" x-text="(contactForm.id ? 'Editar ' : 'Novo ') + (contactKind==='cliente' ? 'Cliente' : 'Fornecedor')"></span>
+          <span class="modal-title" x-text="(contactForm.id ? 'Editar ' : 'Novo ') + (contactKind==='cliente' ? 'Cliente' : contactKind==='fornecedor' ? 'Fornecedor' : 'Colaborador')"></span>
           <button class="modal-close" @click="contactModal=false">&#10005;</button>
         </div>
         <div class="modal-body">
 
-          <!-- empresa/pessoa toggle -->
-          <div class="form-row">
-            <div class="form-group full">
-              <div class="form-label">Tipo</div>
-              <div class="toggle-group">
-                <button class="toggle-btn" :class="contactForm.tipo_pessoa==='empresa' && 'active-accent'" @click="contactForm.tipo_pessoa='empresa'">Empresa</button>
-                <button class="toggle-btn" :class="contactForm.tipo_pessoa==='pessoa' && 'active-accent'" @click="contactForm.tipo_pessoa='pessoa'">Pessoa Física</button>
+          <!-- empresa/pessoa toggle (hidden for colaboradores) -->
+          <template x-if="contactKind !== 'colaborador'">
+            <div class="form-row">
+              <div class="form-group full">
+                <div class="form-label">Tipo</div>
+                <div class="toggle-group">
+                  <button class="toggle-btn" :class="contactForm.tipo_pessoa==='empresa' && 'active-accent'" @click="contactForm.tipo_pessoa='empresa'">Empresa</button>
+                  <button class="toggle-btn" :class="contactForm.tipo_pessoa==='pessoa' && 'active-accent'" @click="contactForm.tipo_pessoa='pessoa'">Pessoa Física</button>
+                </div>
               </div>
             </div>
-          </div>
+          </template>
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Nome Fantasia</label>
-              <input class="form-input" type="text" x-model="contactForm.nome_fantasia" placeholder="Nome fantasia">
+              <label class="form-label" x-text="contactKind==='colaborador' ? 'Nome' : 'Nome Fantasia'"></label>
+              <input class="form-input" type="text" x-model="contactForm.nome_fantasia" placeholder="Nome completo">
             </div>
+            <template x-if="contactKind==='colaborador'">
+              <div class="form-group">
+                <label class="form-label">Cargo</label>
+                <input class="form-input" type="text" x-model="contactForm.cargo" placeholder="Ex: Desenvolvedor, Designer...">
+              </div>
+            </template>
             <template x-if="contactForm.tipo_pessoa==='empresa'">
               <div class="form-group">
                 <label class="form-label">Razão Social</label>
@@ -1905,6 +1951,8 @@ window.finApp = function() {
     /* ── search ── */
     clienteQ: '',
     fornecedorQ: '',
+    colaboradorQ: '',
+    colaboradores: [],
 
     /* ── modals ── */
     lancModal: false,
@@ -2214,10 +2262,10 @@ window.finApp = function() {
       try {
         const data = await this.api('GET', `/api/fin/fluxo-caixa?ano=${this.fluxoAno}`);
         this.fluxo = data.fluxo || [];
+        this.fluxoLoading = false;   // must be false before nextTick so canvas is rendered
         await this.$nextTick();
         this.initFluxoChart();
-      } catch(e) { this.showToast(e.message, 'error'); }
-      finally { this.fluxoLoading = false; }
+      } catch(e) { this.showToast(e.message, 'error'); this.fluxoLoading = false; }
     },
 
     initFluxoChart() {
@@ -2448,6 +2496,17 @@ window.finApp = function() {
       finally { this.loading = false; }
     },
 
+    /* ══════════════════════════ COLABORADORES ══════════════════════════ */
+    async loadColaboradores() {
+      this.loading = true;
+      try {
+        const q = this.colaboradorQ ? `&q=${encodeURIComponent(this.colaboradorQ)}` : '';
+        const data = await this.api('GET', `/api/fin/colaboradores?situacao=ativo${q}`);
+        this.colaboradores = Array.isArray(data) ? data : (data.colaboradores || []);
+      } catch(e) { /* silent */ }
+      finally { this.loading = false; }
+    },
+
     /* ══════════════════════════ FORNECEDORES ══════════════════════════ */
     async loadFornecedores() {
       this.loading = true;
@@ -2463,9 +2522,9 @@ window.finApp = function() {
     openContactModal(kind) {
       this.contactKind = kind;
       this.contactForm = {
-        id: null, tipo_pessoa: 'empresa',
+        id: null, tipo_pessoa: kind === 'colaborador' ? 'pessoa' : 'empresa',
         nome_fantasia: '', razao_social: '', cnpj: '', cpf: '', ie: '', im: '',
-        email: '', telefone: '', endereco: '', situacao: 'ativo',
+        email: '', telefone: '', endereco: '', situacao: 'ativo', cargo: '',
       };
       this.contactModal = true;
     },
@@ -2485,38 +2544,44 @@ window.finApp = function() {
         telefone: c.telefone || '',
         endereco: c.endereco || '',
         situacao: c.situacao || 'ativo',
+        cargo: c.cargo || '',
       };
       this.contactModal = true;
     },
 
     async saveContact() {
       this.saving = true;
-      const endpoint = this.contactKind === 'cliente' ? 'clientes' : 'fornecedores';
+      const kindMap = { cliente: 'clientes', fornecedor: 'fornecedores', colaborador: 'colaboradores' };
+      const labelMap = { cliente: 'Cliente', fornecedor: 'Fornecedor', colaborador: 'Colaborador' };
+      const endpoint = kindMap[this.contactKind] || 'clientes';
+      const label    = labelMap[this.contactKind] || 'Contato';
       try {
         const payload = { ...this.contactForm };
         delete payload.id;
         if (this.contactForm.id) {
           await this.api('PUT', `/api/fin/${endpoint}/${this.contactForm.id}`, payload);
-          this.showToast((this.contactKind === 'cliente' ? 'Cliente' : 'Fornecedor') + ' atualizado');
+          this.showToast(label + ' atualizado');
         } else {
           await this.api('POST', `/api/fin/${endpoint}`, payload);
-          this.showToast((this.contactKind === 'cliente' ? 'Cliente' : 'Fornecedor') + ' criado');
+          this.showToast(label + ' criado');
         }
         this.contactModal = false;
         if (this.contactKind === 'cliente') await this.loadClientes();
-        else await this.loadFornecedores();
+        else if (this.contactKind === 'fornecedor') await this.loadFornecedores();
+        else await this.loadColaboradores();
       } catch(e) { this.showToast(e.message, 'error'); }
       finally { this.saving = false; }
     },
 
     async deleteContact(endpoint, id) {
-      const label = endpoint === 'clientes' ? 'este cliente' : 'este fornecedor';
-      if (!confirm('Excluir ' + label + '?')) return;
+      const labelMap = { clientes: 'este cliente', fornecedores: 'este fornecedor', colaboradores: 'este colaborador' };
+      if (!confirm('Excluir ' + (labelMap[endpoint] || 'este registro') + '?')) return;
       try {
         await this.api('DELETE', `/api/fin/${endpoint}/${id}`);
         this.showToast('Excluído com sucesso');
         if (endpoint === 'clientes') await this.loadClientes();
-        else await this.loadFornecedores();
+        else if (endpoint === 'fornecedores') await this.loadFornecedores();
+        else await this.loadColaboradores();
       } catch(e) { this.showToast(e.message, 'error'); }
     },
 

@@ -154,6 +154,19 @@ def init_db():
                 created_at         TEXT DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS fin_colaboradores (
+                id            SERIAL PRIMARY KEY,
+                tipo          TEXT    DEFAULT 'pessoa',
+                nome_fantasia TEXT    NOT NULL,
+                cargo         TEXT,
+                cpf           TEXT,
+                email         TEXT,
+                telefone      TEXT,
+                situacao      TEXT    DEFAULT 'ativo',
+                created_at    TEXT    DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
         conn.commit()
 
         # Seed clientes/fornecedores if tables are empty (first deploy)
@@ -454,6 +467,79 @@ async def api_update_fornecedor(fid: int, request: Request):
 async def api_delete_fornecedor(fid: int, request: Request):
     _require(request)
     return _delete_contato("fin_fornecedores", fid)
+
+
+# ── Colaboradores ─────────────────────────────────────────────────────────────
+
+_COLABORADOR_FIELDS = ("tipo", "nome_fantasia", "cargo", "cpf", "email", "telefone", "situacao")
+
+@router.get("/api/fin/colaboradores")
+async def api_list_colaboradores(request: Request, situacao: str = None, q: str = None):
+    _require(request)
+    conn = get_conn(); cur = dict_cursor(conn)
+    try:
+        sql = "SELECT * FROM fin_colaboradores WHERE 1=1"
+        params = []
+        if situacao:
+            sql += " AND situacao=%s"; params.append(situacao)
+        if q:
+            sql += " AND (nome_fantasia ILIKE %s OR cargo ILIKE %s)"
+            params += [f"%{q}%", f"%{q}%"]
+        sql += " ORDER BY nome_fantasia"
+        cur.execute(sql, params)
+        rows = [dict(r) for r in cur.fetchall()]
+    finally:
+        cur.close(); conn.close()
+    return {"colaboradores": rows}
+
+@router.post("/api/fin/colaboradores")
+async def api_create_colaborador(request: Request):
+    _require(request)
+    data = await request.json()
+    nome = (data.get("nome_fantasia") or "").strip()
+    if not nome:
+        raise HTTPException(400, "nome_fantasia é obrigatório")
+    fields = {k: data.get(k) for k in _COLABORADOR_FIELDS if k in data}
+    fields["nome_fantasia"] = nome
+    cols = ", ".join(fields.keys())
+    phs  = ", ".join("%s" for _ in fields)
+    conn = get_conn(); cur = dict_cursor(conn)
+    try:
+        cur.execute(f"INSERT INTO fin_colaboradores ({cols}) VALUES ({phs}) RETURNING id", list(fields.values()))
+        new_id = cur.fetchone()["id"]; conn.commit()
+        cur.execute("SELECT * FROM fin_colaboradores WHERE id=%s", (new_id,))
+        row = dict(cur.fetchone())
+    finally:
+        cur.close(); conn.close()
+    return {"colaborador": row}
+
+@router.get("/api/fin/colaboradores/{cid}")
+async def api_get_colaborador(cid: int, request: Request):
+    _require(request)
+    return {"colaborador": _get_contato("fin_colaboradores", cid)}
+
+@router.put("/api/fin/colaboradores/{cid}")
+async def api_update_colaborador(cid: int, request: Request):
+    _require(request)
+    data = await request.json()
+    fields = {k: data[k] for k in _COLABORADOR_FIELDS if k in data}
+    if not fields: raise HTTPException(400, "Nenhum campo válido")
+    set_clause, vals = _build_set(fields)
+    conn = get_conn(); cur = dict_cursor(conn)
+    try:
+        cur.execute(f"UPDATE fin_colaboradores SET {set_clause} WHERE id=%s", vals + [cid])
+        conn.commit()
+        cur.execute("SELECT * FROM fin_colaboradores WHERE id=%s", (cid,))
+        row = cur.fetchone()
+    finally:
+        cur.close(); conn.close()
+    if not row: raise HTTPException(404, "Colaborador não encontrado")
+    return {"colaborador": dict(row)}
+
+@router.delete("/api/fin/colaboradores/{cid}")
+async def api_delete_colaborador(cid: int, request: Request):
+    _require(request)
+    return _delete_contato("fin_colaboradores", cid)
 
 
 # ── Contas ────────────────────────────────────────────────────────────────────
