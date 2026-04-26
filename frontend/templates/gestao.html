@@ -431,6 +431,42 @@
     .task-title-text:hover { color: var(--accent); }
     .priority-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
 
+    .task-status-dot {
+      width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0;
+      cursor: pointer; transition: transform .12s, box-shadow .12s;
+    }
+    .task-status-dot:hover { transform: scale(1.25); box-shadow: 0 0 0 3px rgba(255,255,255,.1); }
+
+    .status-picker {
+      position: fixed; z-index: 9999; background: #1e1e1e;
+      border: 1px solid var(--border); border-radius: 10px;
+      min-width: 190px; padding: 6px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.6);
+    }
+    .status-picker-search {
+      width: calc(100% - 16px); margin: 0 8px 6px; padding: 6px 10px;
+      background: #111; border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); font-size: .8rem; outline: none;
+    }
+    .status-picker-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 10px; border-radius: 6px; cursor: pointer; transition: background .1s;
+      font-size: .83rem;
+    }
+    .status-picker-item:hover { background: #ffffff0f; }
+    .status-picker-check { margin-left: auto; color: #22c55e; font-size: .75rem; }
+
+    .col-header-resizable { position: relative; user-select: none; }
+    .col-resizer {
+      position: absolute; right: -4px; top: 0; bottom: 0; width: 8px;
+      cursor: col-resize; z-index: 2; display: flex; align-items: center; justify-content: center;
+    }
+    .col-resizer::after {
+      content: ''; width: 2px; height: 14px; border-radius: 1px;
+      background: transparent; transition: background .15s;
+    }
+    .col-resizer:hover::after, .col-resizer.dragging::after { background: var(--accent); }
+
     .status-badge {
       display: inline-flex; align-items: center; gap: 5px;
       padding: 3px 10px; border-radius: 20px; font-size: .78rem; font-weight: 600;
@@ -1276,7 +1312,7 @@
       <button class="view-btn" x-show="activeList && view==='list'"
               :class="colsPanel ? 'active' : ''"
               @click="colsPanel=!colsPanel" title="Personalizar colunas"
-              style="margin-left:4px">⊞ Campos</button>
+              style="margin-left:4px">⊞ Colunas</button>
       <button class="g-new-btn" x-show="activeList" @click="openNew()">+ Nova tarefa</button>
     </div>
 
@@ -1300,22 +1336,33 @@
       <div class="task-list">
         <div class="task-list-header" :style="'grid-template-columns:'+gridCols">
           <span>Tarefa</span>
-          <span x-show="cols.status">Status</span>
-          <span x-show="cols.responsavel">Responsável</span>
-          <span x-show="cols.prioridade">Prioridade</span>
-          <span x-show="cols.prazo">Prazo</span>
+          <span x-show="cols.status" class="col-header-resizable">Status
+            <div class="col-resizer" @mousedown.prevent="startColResize('status',$event)"></div>
+          </span>
+          <span x-show="cols.responsavel" class="col-header-resizable">Responsável
+            <div class="col-resizer" @mousedown.prevent="startColResize('responsavel',$event)"></div>
+          </span>
+          <span x-show="cols.prioridade" class="col-header-resizable">Prioridade
+            <div class="col-resizer" @mousedown.prevent="startColResize('prioridade',$event)"></div>
+          </span>
+          <span x-show="cols.prazo" class="col-header-resizable">Prazo
+            <div class="col-resizer" @mousedown.prevent="startColResize('prazo',$event)"></div>
+          </span>
           <span></span>
         </div>
         <template x-for="task in tasks" :key="task.id">
           <div class="task-row" :style="'grid-template-columns:'+gridCols">
             <div class="task-title-cell">
-              <div class="priority-dot" :style="`background:${priorityColor(task.priority)}`"></div>
+              <div class="task-status-dot"
+                   :style="`background:${statusObj(task.status).color}`"
+                   :title="statusObj(task.status).name"
+                   @click.stop="openStatusPicker(task,$event)"></div>
               <span class="task-title-text" @click="openEdit(task)" x-text="task.title"></span>
             </div>
             <div x-show="cols.status">
               <span class="status-badge"
                     :style="`background:${statusObj(task.status).color}22; color:${statusObj(task.status).color}; border-color:${statusObj(task.status).color}44`"
-                    @click="cycleStatus(task)">
+                    @click.stop="openStatusPicker(task,$event)">
                 <span class="status-dot" :style="`background:${statusObj(task.status).color}`"></span>
                 <span x-text="statusObj(task.status).name"></span>
               </span>
@@ -1510,12 +1557,29 @@
     </div>
   </div><!-- /g-main -->
 
+  <!-- ── Status picker ────────────────────────────────────────────────────── -->
+  <template x-if="statusPickerTask">
+    <div class="status-picker"
+         :style="`top:${statusPickerPos.y}px; left:${statusPickerPos.x}px`"
+         @click.outside="statusPickerTask=null" x-cloak>
+      <input class="status-picker-search" type="text" placeholder="Buscar..."
+             x-model="statusPickerQ" @keydown.escape="statusPickerTask=null" x-init="$nextTick(()=>$el.focus())">
+      <template x-for="s in statuses.filter(s=>!statusPickerQ||s.name.toLowerCase().includes(statusPickerQ.toLowerCase()))" :key="s.id">
+        <div class="status-picker-item" @click="pickStatus(s.id)">
+          <span style="width:10px;height:10px;border-radius:50%;flex-shrink:0" :style="`background:${s.color}`"></span>
+          <span x-text="s.name"></span>
+          <span class="status-picker-check" x-show="statusPickerTask && statusPickerTask.status===s.id">✓</span>
+        </div>
+      </template>
+    </div>
+  </template>
+
   <!-- ── Campos panel ─────────────────────────────────────────────────────── -->
   <div class="campos-panel" x-show="colsPanel" x-transition:enter="transition ease-out duration-150"
        x-transition:enter-start="opacity-0 translate-x-4" x-transition:enter-end="opacity-100 translate-x-0"
        @click.outside="colsPanel=false" x-cloak>
     <div class="campos-header">
-      <span class="campos-title">Campos</span>
+      <span class="campos-title">Colunas</span>
       <button class="campos-close" @click="colsPanel=false">✕</button>
     </div>
     <div class="campos-body">
@@ -2727,12 +2791,16 @@ document.addEventListener('alpine:init', () => {
 
     colsPanel: false,
     cols: { status: true, responsavel: true, prioridade: true, prazo: true },
+    colWidths: { status: 140, responsavel: 120, prioridade: 110, prazo: 100 },
+    statusPickerTask: null,
+    statusPickerPos: { x: 0, y: 0 },
+    statusPickerQ: '',
     get gridCols() {
       let c = '1fr';
-      if (this.cols.status)      c += ' 140px';
-      if (this.cols.responsavel) c += ' 120px';
-      if (this.cols.prioridade)  c += ' 110px';
-      if (this.cols.prazo)       c += ' 100px';
+      if (this.cols.status)      c += ` ${this.colWidths.status}px`;
+      if (this.cols.responsavel) c += ` ${this.colWidths.responsavel}px`;
+      if (this.cols.prioridade)  c += ` ${this.colWidths.prioridade}px`;
+      if (this.cols.prazo)       c += ` ${this.colWidths.prazo}px`;
       c += ' 36px';
       return c;
     },
@@ -3038,6 +3106,34 @@ document.addEventListener('alpine:init', () => {
     async cycleStatus(task) {
       const ids=this.statuses.map(s=>s.id);
       await this.patchTask(task,{status:ids[(ids.indexOf(task.status)+1)%ids.length]});
+    },
+    openStatusPicker(task, event) {
+      this.statusPickerQ = '';
+      const r = event.target.getBoundingClientRect();
+      let x = r.left, y = r.bottom + 4;
+      if (x + 200 > window.innerWidth) x = window.innerWidth - 210;
+      if (y + 260 > window.innerHeight) y = r.top - 264;
+      this.statusPickerPos = { x, y };
+      this.statusPickerTask = task;
+    },
+    async pickStatus(statusId) {
+      if (this.statusPickerTask) {
+        await this.patchTask(this.statusPickerTask, { status: statusId });
+      }
+      this.statusPickerTask = null;
+    },
+    startColResize(col, e) {
+      const startX = e.clientX;
+      const startW = this.colWidths[col];
+      const onMove = ev => {
+        this.colWidths[col] = Math.max(70, startW + ev.clientX - startX);
+      };
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
     },
     async patchTask(taskOrField, fieldsOrValue) {
       // supports two call styles:
