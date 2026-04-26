@@ -711,6 +711,15 @@
     .mini-box { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 360px; padding: 22px; display: flex; flex-direction: column; gap: 14px; }
     .mini-title { font-size: .95rem; font-weight: 600; }
     .mini-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    .cf-options-list { display: flex; flex-direction: column; gap: 3px; margin-bottom: 4px; max-height: 200px; overflow-y: auto; }
+    .cf-option-row { display: flex; align-items: center; gap: 8px; }
+    .cf-option-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .cf-option-input { flex: 1; background: #111; border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; color: var(--text); font-size: .83rem; outline: none; }
+    .cf-option-input:focus { border-color: var(--accent); }
+    .cf-option-del { background: none; border: none; color: #333; cursor: pointer; font-size: .75rem; padding: 3px 5px; border-radius: 4px; transition: color .12s; }
+    .cf-option-del:hover { color: #ef4444; }
+    .cf-add-option { background: none; border: none; color: var(--muted); cursor: pointer; font-size: .82rem; padding: 5px 0; text-align: left; transition: color .12s; }
+    .cf-add-option:hover { color: var(--text); }
 
     /* ── document editor ────────────────────────────────────────────────────── */
     .doc-shell { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
@@ -1657,8 +1666,21 @@
       </div>
       <template x-if="cfType === 'dropdown'">
         <div class="form-group">
-          <label class="form-label">Opções (separadas por vírgula)</label>
-          <input class="form-input" x-model="cfOptions" placeholder="Ex: Pendente, Em andamento, Feito">
+          <label class="form-label">Opções</label>
+          <div class="cf-options-list">
+            <template x-for="(opt, idx) in cfOptionsList" :key="idx">
+              <div class="cf-option-row">
+                <span class="cf-option-dot" :style="`background:${cfOptionColors[idx % cfOptionColors.length]}`"></span>
+                <input class="cf-option-input" type="text"
+                       :value="cfOptionsList[idx]"
+                       @input="cfOptionsList[idx]=$event.target.value"
+                       placeholder="Nome da opção"
+                       @keydown.enter.prevent="addCfOption()">
+                <button class="cf-option-del" @click.prevent="removeCfOption(idx)" title="Remover">✕</button>
+              </div>
+            </template>
+          </div>
+          <button class="cf-add-option" @click.prevent="addCfOption()">+ Adicionar opção</button>
         </div>
       </template>
       <div class="mini-actions">
@@ -2851,7 +2873,9 @@ document.addEventListener('alpine:init', () => {
     form: {title:'',description:'',assignees:[],due_date:'',status:'aberto',priority:'normal',extra_data:{}},
     propEditing: { status: false, responsavel: false, prazo: false, prioridade: false },
 
-    cfModal: false, cfName: '', cfType: 'text', cfOptions: '',
+    cfModal: false, cfName: '', cfType: 'text',
+    cfOptionsList: ['', ''],
+    cfOptionColors: ['#9333ea','#3b82f6','#f59e0b','#22c55e','#ef4444','#06b6d4','#f97316','#ec4899'],
 
     newSpaceModal:false, newFolderModal:false, newListModal:false,
     newSpaceName:'', newFolderName:'', newFolderSpaceId:'',
@@ -3169,14 +3193,16 @@ document.addEventListener('alpine:init', () => {
       return {text:'T', number:'#', date:'📅', dropdown:'▾'}[type] || 'T';
     },
 
-    openCfModal() { this.cfModal=true; this.cfName=''; this.cfType='text'; this.cfOptions=''; },
+    openCfModal() { this.cfModal=true; this.cfName=''; this.cfType='text'; this.cfOptionsList=['','']; },
+    addCfOption() { this.cfOptionsList.push(''); },
+    removeCfOption(idx) { if (this.cfOptionsList.length > 1) this.cfOptionsList.splice(idx, 1); },
     async createCustomField() {
       if (!this.cfName.trim() || !this.activeList) return;
       const newField = {
         id: 'cf_' + Date.now(),
         name: this.cfName.trim(),
         type: this.cfType,
-        options: this.cfType === 'dropdown' ? this.cfOptions.split(',').map(o=>o.trim()).filter(Boolean) : [],
+        options: this.cfType === 'dropdown' ? this.cfOptionsList.map(o=>o.trim()).filter(Boolean) : [],
       };
       const updated = [...(this.activeList.custom_fields || []), newField];
       await fetch(`/api/gestao/lists/${this.activeList.id}`, {
