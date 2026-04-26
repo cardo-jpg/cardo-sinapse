@@ -19,8 +19,8 @@ import sqlite3
 import json
 from pathlib import Path
 
-import psycopg2
-import psycopg2.extras
+import psycopg
+from psycopg.rows import dict_row
 
 BASE_DIR = Path(__file__).parent.parent
 
@@ -108,9 +108,9 @@ def main():
         print("ERROR: DATABASE_URL not set")
         sys.exit(1)
 
-    conn = psycopg2.connect(db_url)
+    conn = psycopg.connect(db_url, row_factory=dict_row)
     conn.autocommit = False
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur = conn.cursor()
 
     print("=== Migrating users (users.db → users) ===")
     rows = sqlite_rows(SQLITE_PATHS["users"], "users")
