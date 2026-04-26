@@ -1659,6 +1659,33 @@ async def cartao_analise(request: Request, de: str = None, ate: str = None):
     }
 
 
+@router.post("/api/fin/siga-import")
+async def siga_import(request: Request):
+    token = request.headers.get("X-Import-Token", "")
+    expected = os.getenv("SECRET_KEY", "sinapse-secret-2026")
+    if token != expected:
+        raise HTTPException(403, "token inválido")
+    rows = await request.json()
+    conn = get_conn(); cur = dict_cursor(conn)
+    inserted = 0
+    try:
+        cur.execute("SELECT COUNT(*) AS c FROM fin_lancamentos WHERE origem='siga'")
+        if cur.fetchone()['c'] > 0:
+            return {"status": "already_imported"}
+        for r in rows:
+            cur.execute("""
+                INSERT INTO fin_lancamentos
+                  (tipo, emissao, vencimento, contato_nome, descricao, valor, valor_total, situacao, origem)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,'siga')
+            """, [r['tipo'], r['emissao'], r.get('vencimento'), r.get('contato_nome'),
+                  r['descricao'], r['valor'], r['valor'], r['situacao']])
+            inserted += 1
+        conn.commit()
+    finally:
+        cur.close(); conn.close()
+    return {"status": "ok", "inserted": inserted}
+
+
 @router.get("/api/fin/dashboard-sheets")
 async def dashboard_sheets(request: Request, de: str = None, ate: str = None):
     _require(request)
