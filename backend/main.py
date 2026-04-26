@@ -1224,8 +1224,8 @@ def list_conversations():
 
 # ── User DB ───────────────────────────────────────────────────────────────────
 _USERS_DB_PATH = BASE_DIR / "data" / "users.db"
-_ADMIN_USERS       = {"victor"}
-_FIN_PESSOAIS_USERS = {"victor", "jadna"}
+_ADMIN_USERS       = {"victor"}        # fallback apenas
+_FIN_PESSOAIS_USERS = {"victor", "jadna"}  # fallback apenas
 
 def _users_db_conn():
     conn = sqlite3.connect(_USERS_DB_PATH)
@@ -1265,6 +1265,24 @@ def _db_all_users() -> list:
     except Exception:
         return []
 
+def _user_is_admin(username: str) -> bool:
+    try:
+        con = _users_db_conn()
+        row = con.execute("SELECT is_admin FROM users WHERE username=?", (username,)).fetchone()
+        con.close()
+        return bool(row and row["is_admin"])
+    except Exception:
+        return username in _ADMIN_USERS
+
+def _user_has_fin_pessoais(username: str) -> bool:
+    try:
+        con = _users_db_conn()
+        row = con.execute("SELECT fin_pessoais FROM users WHERE username=?", (username,)).fetchone()
+        con.close()
+        return bool(row and row["fin_pessoais"])
+    except Exception:
+        return username in _FIN_PESSOAIS_USERS
+
 def _init_users_db():
     _USERS_DB_PATH.parent.mkdir(exist_ok=True)
     con = _users_db_conn()
@@ -1276,6 +1294,12 @@ def _init_users_db():
             created_at   TEXT DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    # Migrations: add permission columns
+    cols = [r[1] for r in con.execute("PRAGMA table_info(users)").fetchall()]
+    if "is_admin" not in cols:
+        con.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0")
+    if "fin_pessoais" not in cols:
+        con.execute("ALTER TABLE users ADD COLUMN fin_pessoais INTEGER DEFAULT 0")
     con.commit()
     # Migrate hardcoded users
     for uname, pwd in USERS.items():
@@ -1287,6 +1311,11 @@ def _init_users_db():
     if not con.execute("SELECT 1 FROM users WHERE username='jadna'").fetchone():
         con.execute("INSERT INTO users (username, display_name, password_hash) VALUES (?,?,?)",
                     ("jadna", "Jadna", _hash_pwd("Sinapse@2026")))
+    # Seed flags from hardcoded sets for existing users
+    for uname in _ADMIN_USERS:
+        con.execute("UPDATE users SET is_admin=1 WHERE username=?", (uname,))
+    for uname in _FIN_PESSOAIS_USERS:
+        con.execute("UPDATE users SET fin_pessoais=1 WHERE username=?", (uname,))
     con.commit()
     con.close()
 
@@ -1314,8 +1343,8 @@ def _nav_base(request: Request, active_page: str = "") -> dict:
     return {
         "nav_username": display,
         "nav_user": username,
-        "nav_is_admin": username in _ADMIN_USERS,
-        "nav_fin_pessoais": username in _FIN_PESSOAIS_USERS,
+        "nav_is_admin": _user_is_admin(username) if username else False,
+        "nav_fin_pessoais": _user_has_fin_pessoais(username) if username else False,
         "active_page": active_page,
         "nav_clients": None,
         "nav_current_client": None,
@@ -1375,22 +1404,32 @@ def _require_admin(request: Request) -> str:
     username = verify_session(request)
     if not username:
         raise HTTPException(status_code=401, detail="Não autenticado")
-    if username not in _ADMIN_USERS:
+    if not _user_is_admin(username):
         raise HTTPException(status_code=403, detail="Acesso restrito")
     return username
+
+def _db_all_users_full():
+    con = _users_db_conn()
+    rows = [dict(r) for r in con.execute(
+        "SELECT username, display_name, created_at, is_admin, fin_pessoais FROM users ORDER BY created_at"
+    ).fetchall()]
+    con.close()
+    return rows
 
 @app.get("/api/admin/users")
 async def admin_list_users(request: Request):
     _require_admin(request)
-    return _db_all_users()
+    return _db_all_users_full()
 
 @app.post("/api/admin/users")
 async def admin_create_user(request: Request):
     _require_admin(request)
     body = await request.json()
-    username = (body.get("username") or "").strip().lower()
-    display  = (body.get("display_name") or "").strip()
-    password = body.get("password") or ""
+    username    = (body.get("username") or "").strip().lower()
+    display     = (body.get("display_name") or "").strip()
+    password    = body.get("password") or ""
+    is_admin    = 1 if body.get("is_admin") else 0
+    fin_pessoais = 1 if body.get("fin_pessoais") else 0
     if not username or not display or not password:
         raise HTTPException(400, "username, display_name e password são obrigatórios")
     if not username.replace("_", "").replace(".", "").isalnum():
@@ -1401,8 +1440,30 @@ async def admin_create_user(request: Request):
     try:
         if con.execute("SELECT 1 FROM users WHERE username=?", (username,)).fetchone():
             raise HTTPException(400, "Usuário já existe")
-        con.execute("INSERT INTO users (username, display_name, password_hash) VALUES (?,?,?)",
-                    (username, display, _hash_pwd(password)))
+        con.execute(
+            "INSERT INTO users (username, display_name, password_hash, is_admin, fin_pessoais) VALUES (?,?,?,?,?)",
+            (username, display, _hash_pwd(password), is_admin, fin_pessoais)
+        )
+        con.commit()
+        return {"ok": True}
+    finally:
+        con.close()
+
+@app.patch("/api/admin/users/{username}/flags")
+async def admin_update_flags(username: str, request: Request):
+    caller = _require_admin(request)
+    body = await request.json()
+    con = _users_db_conn()
+    try:
+        if not con.execute("SELECT 1 FROM users WHERE username=?", (username,)).fetchone():
+            raise HTTPException(404, "Usuário não encontrado")
+        if "is_admin" in body:
+            # prevent removing own admin
+            if username == caller and not body["is_admin"]:
+                raise HTTPException(400, "Não pode remover seu próprio acesso de admin")
+            con.execute("UPDATE users SET is_admin=? WHERE username=?", (1 if body["is_admin"] else 0, username))
+        if "fin_pessoais" in body:
+            con.execute("UPDATE users SET fin_pessoais=? WHERE username=?", (1 if body["fin_pessoais"] else 0, username))
         con.commit()
         return {"ok": True}
     finally:
@@ -1430,7 +1491,7 @@ async def admin_delete_user(username: str, request: Request):
     caller = _require_admin(request)
     if username == caller:
         raise HTTPException(400, "Não é possível excluir seu próprio usuário")
-    if username in _ADMIN_USERS:
+    if _user_is_admin(username):
         raise HTTPException(400, "Não é possível excluir um administrador")
     con = _users_db_conn()
     try:

@@ -17,17 +17,27 @@ from backend.gestao import _verify
 router   = APIRouter()
 BASE_DIR = Path(__file__).parent.parent
 DB_PATH  = BASE_DIR / "data" / "fin_pessoais.db"
+USERS_DB = BASE_DIR / "data" / "users.db"
 templates = Jinja2Templates(directory=str(BASE_DIR / "frontend" / "templates"))
 
-_FP_USERS = {"victor", "jadna"}
-_MESES    = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+_MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
+def _has_fp_access(username: str) -> bool:
+    try:
+        con = sqlite3.connect(USERS_DB)
+        con.row_factory = sqlite3.Row
+        row = con.execute("SELECT fin_pessoais FROM users WHERE username=?", (username,)).fetchone()
+        con.close()
+        return bool(row and row["fin_pessoais"])
+    except Exception:
+        return username in {"victor", "jadna"}
+
 def _fp_verify(request: Request):
     user = _verify(request)
-    return user if user and user in _FP_USERS else None
+    return user if user and _has_fp_access(user) else None
 
 def _fp_require(request: Request) -> str:
     user = _fp_verify(request)
