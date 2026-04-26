@@ -68,11 +68,13 @@
     .g-nav.collapsed .g-nav-brand-name { opacity: 0; max-width: 0; }
 
     .g-nav-toggle {
-      background: none; border: none; color: var(--muted); cursor: pointer;
-      font-size: .8rem; padding: 8px; border-radius: 6px; flex-shrink: 0;
-      transition: color .15s, transform .2s;
+      background: #1c1c1c; border: 1px solid #2e2e2e; color: #606060; cursor: pointer;
+      font-size: .9rem; width: 26px; height: 26px; border-radius: 50%; padding: 0;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: color .15s, transform .25s, background .15s, border-color .15s;
+      line-height: 1;
     }
-    .g-nav-toggle:hover { color: var(--text); background: #ffffff09; }
+    .g-nav-toggle:hover { color: var(--text); background: #242424; border-color: #3a3a3a; }
     .g-nav.collapsed .g-nav-toggle { transform: rotate(180deg); }
 
     /* fixed links (Cérebro) */
@@ -990,7 +992,7 @@
 
     <div class="g-nav-brand">
       <span class="g-nav-brand-name">Sinapse</span>
-      <button class="g-nav-toggle" onclick="toggleGNav()" title="Recolher">◀</button>
+      <button class="g-nav-toggle" onclick="toggleGNav()" title="Recolher">«</button>
     </div>
 
     <!-- Ferramentas -->
@@ -2899,7 +2901,10 @@ document.addEventListener('alpine:init', () => {
     openCtxMenu(event, type, target, spaceCtx, folderCtx) {
       const r = event.currentTarget.getBoundingClientRect();
       const x = Math.min(r.left, window.innerWidth - 230);
-      const y = r.bottom + 4;
+      const menuH = 320;
+      const y = r.bottom + 4 + menuH > window.innerHeight
+        ? Math.max(8, r.top - menuH - 4)
+        : r.bottom + 4;
       this.ctxMenu = {open:true, type, target, spaceCtx, folderCtx, x, y};
       this.plusMenu.open = false;
     },
