@@ -713,9 +713,28 @@
     .mini-actions { display: flex; gap: 8px; justify-content: flex-end; }
     .cf-options-list { display: flex; flex-direction: column; gap: 3px; margin-bottom: 4px; max-height: 200px; overflow-y: auto; }
     .cf-option-row { display: flex; align-items: center; gap: 8px; }
-    .cf-option-color-wrap { position: relative; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; }
-    .cf-option-color-input { position: absolute; opacity: 0; width: 100%; height: 100%; cursor: pointer; border: none; padding: 0; }
-    .cf-option-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; display: block; }
+    .cf-option-dot-btn { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; cursor: pointer; border: 2px solid rgba(255,255,255,.15); transition: transform .1s; }
+    .cf-option-dot-btn:hover { transform: scale(1.2); }
+    .cf-color-popover {
+      position: fixed; z-index: 9999; background: #1e1e1e;
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 10px; box-shadow: 0 8px 32px rgba(0,0,0,.6);
+      width: 196px;
+    }
+    .cf-color-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+    .cf-color-swatch {
+      width: 22px; height: 22px; border-radius: 50%; cursor: pointer;
+      border: 2px solid transparent; transition: transform .1s, border-color .1s;
+    }
+    .cf-color-swatch:hover { transform: scale(1.15); }
+    .cf-color-swatch.selected { border-color: #fff; }
+    .cf-color-plus {
+      display: flex; align-items: center; justify-content: center;
+      font-size: .9rem; color: var(--muted); background: #2a2a2a;
+      cursor: pointer; position: relative; overflow: hidden;
+    }
+    .cf-color-plus:hover { color: var(--text); background: #333; }
+    .cf-color-plus input { position: absolute; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
     .cf-option-input { flex: 1; background: #111; border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; color: var(--text); font-size: .83rem; outline: none; }
     .cf-option-input:focus { border-color: var(--accent); }
     .cf-option-del { background: none; border: none; color: #333; cursor: pointer; font-size: .75rem; padding: 3px 5px; border-radius: 4px; transition: color .12s; }
@@ -1570,6 +1589,29 @@
     </div>
   </div><!-- /g-main -->
 
+  <!-- ── CF Color Picker ───────────────────────────────────────────────────── -->
+  <template x-if="cfColorPickerIdx !== null">
+    <div class="cf-color-popover"
+         :style="`top:${cfColorPickerPos.y}px;left:${cfColorPickerPos.x}px`"
+         @click.outside="cfColorPickerIdx=null" x-cloak>
+      <div class="cf-color-grid">
+        <template x-for="c in cfPalette" :key="c">
+          <div class="cf-color-swatch"
+               :style="`background:${c}`"
+               :class="cfOptionsList[cfColorPickerIdx]?.color===c ? 'selected' : ''"
+               @click.stop="setCfOptColor(cfColorPickerIdx,c); cfColorPickerIdx=null"></div>
+        </template>
+        <label class="cf-color-swatch cf-color-plus" title="Cor personalizada">
+          +
+          <input type="color"
+                 :value="cfOptionsList[cfColorPickerIdx]?.color||'#9333ea'"
+                 @input.stop="setCfOptColor(cfColorPickerIdx,$event.target.value)"
+                 @change.stop="cfColorPickerIdx=null">
+        </label>
+      </div>
+    </div>
+  </template>
+
   <!-- ── Status picker ────────────────────────────────────────────────────── -->
   <template x-if="statusPickerTask">
     <div class="status-picker"
@@ -1672,12 +1714,9 @@
           <div class="cf-options-list">
             <template x-for="(opt, idx) in cfOptionsList" :key="idx">
               <div class="cf-option-row">
-                <label class="cf-option-color-wrap" :title="'Cor da opção'">
-                  <span class="cf-option-dot" :style="`background:${opt.color}`"></span>
-                  <input type="color" class="cf-option-color-input"
-                         :value="opt.color"
-                         @input="cfOptionsList[idx] = {...cfOptionsList[idx], color: $event.target.value}">
-                </label>
+                <div class="cf-option-dot-btn"
+                     :style="`background:${opt.color}`"
+                     @click.stop="openCfColorPicker(idx,$event)"></div>
                 <input class="cf-option-input" type="text"
                        :value="opt.name"
                        @input="cfOptionsList[idx] = {...cfOptionsList[idx], name: $event.target.value}"
@@ -2883,7 +2922,15 @@ document.addEventListener('alpine:init', () => {
 
     cfModal: false, cfName: '', cfType: 'text',
     cfOptionsList: [],
+    cfColorPickerIdx: null,
+    cfColorPickerPos: {x:0,y:0},
     cfOptionColors: ['#9333ea','#3b82f6','#f59e0b','#22c55e','#ef4444','#06b6d4','#f97316','#ec4899'],
+    cfPalette: [
+      '#7c3aed','#4f46e5','#2563eb','#0284c7','#0d9488','#16a34a','#ca8a04',
+      '#a855f7','#6366f1','#3b82f6','#0891b2','#10b981','#84cc16','#f59e0b',
+      '#9f1239','#86198f','#7e22ce','#92400e','#475569',
+      '#ec4899','#c084fc','#d97706','#94a3b8','#6b7280',
+    ],
 
     newSpaceModal:false, newFolderModal:false, newListModal:false,
     newSpaceName:'', newFolderName:'', newFolderSpaceId:'',
@@ -3202,6 +3249,17 @@ document.addEventListener('alpine:init', () => {
     },
 
     _newCfOpt(i) { return { name: '', color: this.cfOptionColors[i % this.cfOptionColors.length] }; },
+    openCfColorPicker(idx, e) {
+      const r = e.currentTarget.getBoundingClientRect();
+      let x = r.left, y = r.bottom + 4;
+      if (x + 200 > window.innerWidth) x = window.innerWidth - 210;
+      if (y + 220 > window.innerHeight) y = r.top - 224;
+      this.cfColorPickerIdx = (this.cfColorPickerIdx === idx) ? null : idx;
+      this.cfColorPickerPos = {x, y};
+    },
+    setCfOptColor(idx, color) {
+      this.cfOptionsList[idx] = {...this.cfOptionsList[idx], color};
+    },
     openCfModal() { this.cfModal=true; this.cfName=''; this.cfType='text'; this.cfOptionsList=[this._newCfOpt(0), this._newCfOpt(1)]; },
     addCfOption() { this.cfOptionsList.push(this._newCfOpt(this.cfOptionsList.length)); },
     removeCfOption(idx) { if (this.cfOptionsList.length > 1) this.cfOptionsList.splice(idx, 1); },
