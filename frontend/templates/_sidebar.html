@@ -1,71 +1,48 @@
-<nav class="sinapse-nav" id="sinapseNav">
-  <div class="sinapse-nav-brand">
-    <span class="sinapse-nav-brand-name">Sinapse</span>
-    <button class="sinapse-nav-toggle" onclick="toggleNav()" title="Recolher menu">◀</button>
+<nav class="fin-nav">
+  <div class="fin-nav-brand">
+    <span class="fin-nav-brand-name">Sinapse</span>
+    <a href="/gestao" class="fin-nav-back">← Voltar</a>
   </div>
 
-  <div class="sinapse-nav-section">
-    <div class="sinapse-nav-label">Ferramentas</div>
+  <div class="fin-nav-section">
 
     {% if nav_fin_pessoais %}
-    <a href="/financas-pessoais" data-label="Finanças Pessoais"
-       class="sinapse-nav-item {% if active_page=='financas_pessoais' %}active{% endif %}">
-      <span class="sinapse-nav-icon">💸</span> Finanças Pessoais
+    <div class="fin-nav-label">Pessoal</div>
+    <a href="/financas-pessoais" class="fin-nav-item {% if active_page=='financas_pessoais' %}active{% endif %}">
+      <span>💸</span> Finanças Pessoais
+    </a>
+    <div class="fin-nav-sep"></div>
+    {% endif %}
+
+    <div class="fin-nav-label">Ferramentas</div>
+    <a href="/conversar" class="fin-nav-item {% if active_page=='conversar' %}active{% endif %}">
+      <span>🧠</span> Cérebro
+    </a>
+    <a href="/financeiro" class="fin-nav-item {% if active_page=='financeiro' %}active{% endif %}">
+      <span>💰</span> Financeiro
+    </a>
+    <a href="/gestao" class="fin-nav-item {% if active_page=='gestao' %}active{% endif %}">
+      <span>📋</span> Gestão
+    </a>
+    <a href="/ata" class="fin-nav-item {% if active_page=='ata' %}active{% endif %}">
+      <span>📝</span> Gerador de Atas
+    </a>
+    <a href="/trafego" class="fin-nav-item {% if active_page=='trafego' %}active{% endif %}">
+      <span>📊</span> Dashboard
+    </a>
+
+    {% if nav_is_admin %}
+    <div class="fin-nav-sep"></div>
+    <div class="fin-nav-label">Sistema</div>
+    <a href="/config" class="fin-nav-item {% if active_page=='config' %}active{% endif %}">
+      <span>⚙️</span> Configurações
     </a>
     {% endif %}
 
-    <a href="/conversar" data-label="Cérebro"
-       class="sinapse-nav-item {% if active_page=='conversar' %}active{% endif %}">
-      <span class="sinapse-nav-icon">🧠</span> Cérebro
-    </a>
-    <a href="/financeiro" data-label="Financeiro"
-       class="sinapse-nav-item {% if active_page=='financeiro' %}active{% endif %}">
-      <span class="sinapse-nav-icon">💰</span> Financeiro
-    </a>
-    <a href="/gestao" data-label="Gestão"
-       class="sinapse-nav-item {% if active_page=='gestao' %}active{% endif %}">
-      <span class="sinapse-nav-icon">📋</span> Gestão
-    </a>
-    <a href="/ata" data-label="Gerador de Atas"
-       class="sinapse-nav-item {% if active_page=='ata' %}active{% endif %}">
-      <span class="sinapse-nav-icon">📝</span> Gerador de Atas
-    </a>
-    <a href="/trafego" data-label="Dashboard"
-       class="sinapse-nav-item {% if active_page=='trafego' %}active{% endif %}">
-      <span class="sinapse-nav-icon">📊</span> Dashboard
-    </a>
   </div>
 
-  {% if nav_is_admin %}
-  <div class="sinapse-nav-section" style="margin-top:auto;">
-    <div class="sinapse-nav-label">Sistema</div>
-    <a href="/config" data-label="Configurações"
-       class="sinapse-nav-item {% if active_page=='config' %}active{% endif %}">
-      <span class="sinapse-nav-icon">⚙️</span> Configurações
-    </a>
-  </div>
-  {% endif %}
-
-  <div class="sinapse-nav-footer">
-    <span class="sinapse-nav-user">{{ nav_username or '' }}</span>
-    <a href="/logout" class="sinapse-nav-logout">Sair</a>
+  <div class="fin-nav-footer">
+    <span class="fin-nav-user">{{ nav_username or nav_user or '' }}</span>
+    <a href="/logout" class="fin-nav-logout">Sair</a>
   </div>
 </nav>
-
-<script>
-(function() {
-  if (window.self !== window.top) {
-    document.addEventListener('DOMContentLoaded', function() {
-      const nav = document.getElementById('sinapseNav');
-      if (nav) nav.remove();
-    });
-    return;
-  }
-  const nav = document.getElementById('sinapseNav');
-  if (localStorage.getItem('sinapseNavCollapsed') === '1') nav.classList.add('collapsed');
-  window.toggleNav = function() {
-    nav.classList.toggle('collapsed');
-    localStorage.setItem('sinapseNavCollapsed', nav.classList.contains('collapsed') ? '1' : '0');
-  };
-})();
-</script>
