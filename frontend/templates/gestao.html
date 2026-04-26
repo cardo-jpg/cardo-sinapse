@@ -482,6 +482,9 @@
     }
 
     .due-cell { font-size: .83rem; }
+    .cf-cell { font-size: .8rem; cursor: pointer; padding: 2px 4px; border-radius: 4px; }
+    .cf-cell:hover { background: #ffffff0a; }
+    .cf-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: .75rem; font-weight: 500; border: 1px solid transparent; cursor: pointer; }
     .due-normal { color: var(--muted); }
     .due-overdue { color: #ef4444; font-weight: 600; }
     .due-soon { color: #f59e0b; }
@@ -1380,6 +1383,11 @@
           <span x-show="cols.prazo" class="col-header-resizable">Prazo
             <div class="col-resizer" @mousedown.prevent="startColResize('prazo',$event)"></div>
           </span>
+          <template x-for="cf in (activeList?.custom_fields||[])" :key="cf.id">
+            <span x-show="cfCols[cf.id]" class="col-header-resizable" x-text="cf.name">
+              <div class="col-resizer" @mousedown.prevent="startCfColResize(cf.id,$event)"></div>
+            </span>
+          </template>
           <span></span>
         </div>
         <template x-for="task in tasks" :key="task.id">
@@ -1418,6 +1426,25 @@
               </span>
             </div>
             <div class="due-cell" x-show="cols.prazo" :class="dueCss(task.due_date)" x-text="formatDate(task.due_date) || '—'"></div>
+            <template x-for="cf in (activeList?.custom_fields||[])" :key="cf.id">
+              <div x-show="cfCols[cf.id]" class="cf-cell" @click.stop="openCfPicker(task,cf,$event)">
+                <template x-if="cf.type==='dropdown'">
+                  <span>
+                    <template x-if="getCfValue(task,cf.id)">
+                      <span class="cf-badge"
+                            :style="`background:${getCfOpt(cf,getCfValue(task,cf.id))?.color||'#6b7280'}22;color:${getCfOpt(cf,getCfValue(task,cf.id))?.color||'#6b7280'};border-color:${getCfOpt(cf,getCfValue(task,cf.id))?.color||'#6b7280'}44`"
+                            x-text="getCfValue(task,cf.id)"></span>
+                    </template>
+                    <template x-if="!getCfValue(task,cf.id)">
+                      <span style="color:#444;font-size:.75rem">—</span>
+                    </template>
+                  </span>
+                </template>
+                <template x-if="cf.type!=='dropdown'">
+                  <span x-text="getCfValue(task,cf.id)||'—'" style="font-size:.8rem;color:#ccc"></span>
+                </template>
+              </div>
+            </template>
             <button class="task-del-btn" @click="deleteTask(task)">✕</button>
           </div>
         </template>
@@ -1629,6 +1656,25 @@
     </div>
   </template>
 
+  <!-- ── CF value picker ───────────────────────────────────────────────────── -->
+  <template x-if="cfPickerTask && cfPickerCf">
+    <div class="status-picker"
+         :style="`top:${cfPickerPos.y}px; left:${cfPickerPos.x}px`"
+         @click.outside="cfPickerTask=null" x-cloak>
+      <template x-for="opt in (cfPickerCf.options||[])" :key="opt.name">
+        <div class="status-picker-item" @click="pickCfValue(opt.name)">
+          <span style="width:10px;height:10px;border-radius:50%;flex-shrink:0" :style="`background:${opt.color||'#6b7280'}`"></span>
+          <span x-text="opt.name"></span>
+          <span class="status-picker-check" x-show="getCfValue(cfPickerTask,cfPickerCf.id)===opt.name">✓</span>
+        </div>
+      </template>
+      <div class="status-picker-item" style="color:#666;font-size:.75rem" @click="pickCfValue(null)">
+        <span style="width:10px;height:10px;border-radius:50%;flex-shrink:0;background:#333;border:1px solid #555"></span>
+        <span>Nenhum</span>
+      </div>
+    </div>
+  </template>
+
   <!-- ── Campos panel ─────────────────────────────────────────────────────── -->
   <div class="campos-panel" x-show="colsPanel" x-transition:enter="transition ease-out duration-150"
        x-transition:enter-start="opacity-0 translate-x-4" x-transition:enter-end="opacity-100 translate-x-0"
@@ -1679,7 +1725,10 @@
             <div class="campos-row" style="justify-content:space-between">
               <span class="campos-row-icon" x-text="cfIcon(cf.type)"></span>
               <span class="campos-row-label" x-text="cf.name"></span>
-              <button style="background:none;border:none;color:#555;cursor:pointer;font-size:.75rem;padding:2px 6px" @click.stop="deleteCustomField(cf.id)" title="Remover campo">✕</button>
+              <div style="display:flex;align-items:center;gap:6px">
+                <button class="col-toggle" :class="cfCols[cf.id] ? 'on' : 'off'" @click.stop="cfCols[cf.id]=!cfCols[cf.id]"></button>
+                <button style="background:none;border:none;color:#555;cursor:pointer;font-size:.75rem;padding:2px 6px" @click.stop="deleteCustomField(cf.id)" title="Remover campo">✕</button>
+              </div>
             </div>
           </template>
         </div>
@@ -2865,6 +2914,11 @@ document.addEventListener('alpine:init', () => {
     statusPickerTask: null,
     statusPickerPos: { x: 0, y: 0 },
     statusPickerQ: '',
+    cfCols: {},
+    cfColWidths: {},
+    cfPickerTask: null,
+    cfPickerCf: null,
+    cfPickerPos: { x: 0, y: 0 },
     get gridCols() {
       const locked = this.colWidths.tarefa > 0;
       let c = locked ? `${this.colWidths.tarefa}px` : '1fr';
@@ -2872,6 +2926,9 @@ document.addEventListener('alpine:init', () => {
       if (this.cols.responsavel) c += ` ${this.colWidths.responsavel}px`;
       if (this.cols.prioridade)  c += ` ${this.colWidths.prioridade}px`;
       if (this.cols.prazo)       c += ` ${this.colWidths.prazo}px`;
+      for (const cf of (this.activeList?.custom_fields || [])) {
+        if (this.cfCols[cf.id]) c += ` ${this.cfColWidths[cf.id] || 140}px`;
+      }
       c += ' 36px';
       if (locked) c += ' minmax(0,1fr)';
       return c;
@@ -3203,6 +3260,45 @@ document.addEventListener('alpine:init', () => {
         await this.patchTask(this.statusPickerTask, { status: statusId });
       }
       this.statusPickerTask = null;
+    },
+    getCfValue(task, cfId) {
+      return (task.cf_values || {})[cfId] || null;
+    },
+    getCfOpt(cf, name) {
+      return (cf.options || []).find(o => o.name === name) || null;
+    },
+    openCfPicker(task, cf, event) {
+      if (cf.type !== 'dropdown') return;
+      const r = event.currentTarget.getBoundingClientRect();
+      let x = r.left, y = r.bottom + 4;
+      if (x + 200 > window.innerWidth) x = window.innerWidth - 210;
+      if (y + 220 > window.innerHeight) y = r.top - 224;
+      this.cfPickerPos = { x, y };
+      this.cfPickerTask = task;
+      this.cfPickerCf = cf;
+    },
+    async pickCfValue(value) {
+      if (!this.cfPickerTask || !this.cfPickerCf) return;
+      const task = this.cfPickerTask;
+      const cfId = this.cfPickerCf.id;
+      const newVals = { ...(task.cf_values || {}), [cfId]: value };
+      if (!value) delete newVals[cfId];
+      await this.patchTask(task, { cf_values: newVals });
+      task.cf_values = newVals;
+      this.cfPickerTask = null;
+      this.cfPickerCf = null;
+    },
+    startCfColResize(cfId, e) {
+      if (this.colWidths.tarefa === 0) {
+        const cell = document.querySelector('.task-list-header > span:first-child');
+        this.colWidths.tarefa = cell ? cell.offsetWidth : 400;
+      }
+      const startX = e.clientX;
+      const startW = this.cfColWidths[cfId] || 140;
+      const onMove = ev => { this.cfColWidths[cfId] = Math.max(70, startW + (ev.clientX - startX)); };
+      const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
     },
     startColResize(col, e) {
       // Lock tarefa to px on first resize so all columns have fixed widths

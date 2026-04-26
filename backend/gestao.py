@@ -180,6 +180,7 @@ def init_db():
             ("features",  "folder_id",      "TEXT"),
             ("lists",     "custom_fields",  "TEXT DEFAULT '[]'"),
             ("tasks",     "extra_data",     "TEXT DEFAULT '{}'"),
+            ("tasks",     "cf_values",      "TEXT DEFAULT '{}'"),
         ]
         for table, col, col_def in migrations:
             cur.execute(f"""
@@ -684,6 +685,7 @@ async def api_list_tasks(list_id: str, request: Request):
     for t in tasks:
         t["assignees"]  = json.loads(t.get("assignees") or "[]")
         t["extra_data"] = json.loads(t.get("extra_data") or "{}")
+        t["cf_values"]  = json.loads(t.get("cf_values")  or "{}")
     return {"tasks": tasks}
 
 
@@ -728,7 +730,7 @@ async def api_create_task(request: Request):
 async def api_update_task(task_id: str, request: Request):
     _require(request)
     data = await request.json()
-    allowed = {"title", "description", "assignees", "due_date", "status", "priority", "position", "extra_data"}
+    allowed = {"title", "description", "assignees", "due_date", "status", "priority", "position", "extra_data", "cf_values"}
     fields = {k: v for k, v in data.items() if k in allowed}
     if not fields:
         raise HTTPException(400, "Nenhum campo válido")
@@ -736,6 +738,8 @@ async def api_update_task(task_id: str, request: Request):
         fields["assignees"] = json.dumps(fields["assignees"])
     if "extra_data" in fields and not isinstance(fields["extra_data"], str):
         fields["extra_data"] = json.dumps(fields["extra_data"])
+    if "cf_values" in fields and not isinstance(fields["cf_values"], str):
+        fields["cf_values"] = json.dumps(fields["cf_values"])
 
     set_clause = ", ".join(f"{k}=%s" for k in fields)
     conn = get_conn()
@@ -753,6 +757,7 @@ async def api_update_task(task_id: str, request: Request):
     task = dict(row)
     task["assignees"]  = json.loads(task["assignees"] or "[]")
     task["extra_data"] = json.loads(task["extra_data"] or "{}")
+    task["cf_values"]  = json.loads(task.get("cf_values") or "{}")
     return {"task": task}
 
 
