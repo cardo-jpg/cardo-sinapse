@@ -4148,6 +4148,17 @@ async def get_hire_funis_youtube(
 # Armazena flow temporariamente para o callback (keyed by state)
 _yt_flow_store: dict = {}
 
+
+@app.get("/api/hire/funis/youtube/disconnect")
+async def hire_yt_disconnect(request: Request):
+    """Limpa token do YouTube Analytics (memória + Sheets)."""
+    global _hf_yt_refresh_token, _hf_malu_channel_id
+    _hf_yt_refresh_token = ""
+    _hf_malu_channel_id  = ""
+    await asyncio.to_thread(_hf_config_write, "HIRE_YT_REFRESH_TOKEN", "")
+    return JSONResponse({"ok": True})
+
+
 @app.get("/api/hire/funis/youtube/auth")
 async def hire_yt_auth(request: Request):
     try:

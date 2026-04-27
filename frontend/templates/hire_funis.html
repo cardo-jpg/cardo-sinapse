@@ -1106,6 +1106,9 @@
         </div>
         <div class="yt-chart-canvas-wrap" id="ytSubChartWrap" style="display:none">
           <canvas id="ytSubChart"></canvas>
+          <div style="text-align:right;margin-top:4px">
+            <button id="ytDisconnectBtn" onclick="ytDisconnect()" style="background:none;border:none;color:rgba(255,255,255,.25);font-size:.68rem;cursor:pointer;padding:0">↩ Trocar conta</button>
+          </div>
         </div>
       </div>
       <div class="yt-chart-card">
@@ -1968,6 +1971,13 @@ let _ytSubChart  = null;
 let _ytCostChart = null;
 
 function PCT(v) { return v == null ? '—' : v.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}) + '%'; }
+
+async function ytDisconnect() {
+  await fetch('/api/hire/funis/youtube/disconnect');
+  document.getElementById('ytSubLocked').style.display    = 'flex';
+  document.getElementById('ytSubChartWrap').style.display = 'none';
+  if (_ytSubChart) { _ytSubChart.destroy(); _ytSubChart = null; }
+}
 
 async function ytAuth() {
   try {
