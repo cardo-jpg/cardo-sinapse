@@ -458,6 +458,21 @@
     .filter-add-btn:hover { border-color: var(--accent); color: var(--accent); }
     .filter-field-picker { position: absolute; top: calc(100% + 4px); left: 0; z-index: 10; background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 6px; min-width: 220px; box-shadow: 0 8px 20px #000a; }
     .filter-count-badge { background: var(--accent); color: #fff; border-radius: 8px; padding: 0 5px; font-size: .68rem; margin-left: 4px; font-weight: 700; }
+    .assignee-panel {
+      position: absolute; top: calc(100% + 6px); right: 0; z-index: 900;
+      background: #1a1a1a; border: 1px solid #2e2e2e; border-radius: 10px;
+      padding: 0; box-shadow: 0 8px 24px #000a; min-width: 280px; overflow: hidden;
+    }
+    .assignee-panel-search { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid #2a2a2a; }
+    .assignee-panel-search input { flex: 1; background: none; border: none; color: var(--text); font-size: .85rem; outline: none; }
+    .assignee-panel-section { padding: 8px 14px 4px; font-size: .72rem; color: var(--muted); font-weight: 600; }
+    .assignee-panel-item { display: flex; align-items: center; gap: 10px; padding: 8px 14px; cursor: pointer; transition: background .1s; }
+    .assignee-panel-item:hover { background: #ffffff08; }
+    .assignee-panel-avatar { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: .75rem; font-weight: 700; flex-shrink: 0; }
+    .assignee-panel-name { flex: 1; font-size: .83rem; color: var(--text); }
+    .assignee-panel-count { font-size: .72rem; color: var(--muted); margin-right: 6px; }
+    .assignee-panel-check { width: 16px; height: 16px; border: 1.5px solid #444; border-radius: 3px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: .65rem; color: #fff; }
+    .assignee-panel-check.checked { background: var(--accent); border-color: var(--accent); }
 
     .task-title-cell { display: flex; align-items: center; gap: 8px; min-width: 0; }
     .task-title-text { font-size: .85rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
@@ -1388,6 +1403,56 @@
       <div class="view-toggle" x-show="activeList">
         <button class="view-btn" :class="view==='list'?'active':''" @click="view='list'">☰ Lista</button>
         <button class="view-btn" :class="view==='kanban'?'active':''" @click="view='kanban'">⬜ Kanban</button>
+      </div>
+      <div x-show="activeList && view==='list'" style="position:relative;margin-left:4px">
+        <button class="view-btn" :class="assigneeFilter.length ? 'active' : ''"
+                @click.stop="assigneePanel=!assigneePanel; assigneePanelQ=''" title="Filtrar por responsável">
+          <svg width="16" height="14" viewBox="0 0 16 14" fill="none" style="flex-shrink:0">
+            <circle cx="6" cy="4" r="3" stroke="currentColor" stroke-width="1.4"/>
+            <path d="M0 13c0-3.3 2.7-6 6-6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <circle cx="12" cy="4" r="2.2" stroke="currentColor" stroke-width="1.2" opacity=".6"/>
+            <path d="M10.5 10c0-2 1.3-3.6 3.5-3.8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity=".6"/>
+          </svg>
+          <span x-show="assigneeFilter.length" class="filter-count-badge" x-text="assigneeFilter.length"></span>
+        </button>
+        <div class="assignee-panel" x-show="assigneePanel" @click.outside="assigneePanel=false" x-cloak>
+          <div class="assignee-panel-search">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="5.5" cy="5.5" r="4.5" stroke="#666" stroke-width="1.3"/><path d="M9 9 L12 12" stroke="#666" stroke-width="1.3" stroke-linecap="round"/></svg>
+            <input type="text" x-model="assigneePanelQ" placeholder="Pesquisar por usuário..." x-init="$nextTick(()=>$el.focus())">
+          </div>
+          <div style="padding:4px 0 8px">
+            <div class="assignee-panel-section">Pessoas <span x-text="members.length + 1"></span></div>
+            <!-- Não atribuído -->
+            <template x-if="!assigneePanelQ || 'não atribuído'.includes(assigneePanelQ.toLowerCase())">
+              <div class="assignee-panel-item" @click="toggleAssigneeFilter('__none__')">
+                <div class="assignee-panel-avatar" style="background:#2a2a2a;color:#666;font-size:.9rem">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="4.5" r="3" stroke="#666" stroke-width="1.3"/><path d="M1 13c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="#666" stroke-width="1.3" stroke-linecap="round"/></svg>
+                </div>
+                <span class="assignee-panel-name">Não atribuído</span>
+                <span class="assignee-panel-count" x-text="assigneeCounts['__none__'] || 0"></span>
+                <div class="assignee-panel-check" :class="assigneeFilter.includes('__none__') ? 'checked' : ''">
+                  <span x-show="assigneeFilter.includes('__none__')">✓</span>
+                </div>
+              </div>
+            </template>
+            <!-- Members -->
+            <template x-for="m in members.filter(m=>!assigneePanelQ||m.name.toLowerCase().includes(assigneePanelQ.toLowerCase()))" :key="m.id">
+              <div class="assignee-panel-item" @click="toggleAssigneeFilter(m.id)">
+                <div class="assignee-panel-avatar" :style="`background:${m.id==='victor'?'#19196c':'#166534'};color:#fff`" x-text="m.name.charAt(0)"></div>
+                <span class="assignee-panel-name" x-text="m.name"></span>
+                <span class="assignee-panel-count" x-text="assigneeCounts[m.id] || 0"></span>
+                <div class="assignee-panel-check" :class="assigneeFilter.includes(m.id) ? 'checked' : ''">
+                  <span x-show="assigneeFilter.includes(m.id)">✓</span>
+                </div>
+              </div>
+            </template>
+          </div>
+          <template x-if="assigneeFilter.length">
+            <div style="padding:8px 14px;border-top:1px solid #2a2a2a">
+              <button @click="assigneeFilter=[]" style="background:none;border:none;color:var(--muted);font-size:.78rem;cursor:pointer;padding:0">Limpar seleção</button>
+            </div>
+          </template>
+        </div>
       </div>
       <button class="view-btn" x-show="activeList && view==='list'"
               :class="showClosed ? 'active' : ''"
@@ -3153,6 +3218,9 @@ document.addEventListener('alpine:init', () => {
     cfPickerCf: null,
     cfPickerPos: { x: 0, y: 0 },
     showClosed: false,
+    assigneeFilter: [],
+    assigneePanel: false,
+    assigneePanelQ: '',
     filters: [],
     filterPanel: false,
     filterPickerOpen: false,
@@ -3168,8 +3236,25 @@ document.addEventListener('alpine:init', () => {
       if (!this.showClosed) {
         list = list.filter(task => this.statusObj(task.status).group !== 'closed');
       }
+      if (this.assigneeFilter.length) {
+        list = list.filter(task => {
+          const hasNone = this.assigneeFilter.includes('__none__');
+          const noAssignee = !task.assignees || !task.assignees.length;
+          if (hasNone && noAssignee) return true;
+          return task.assignees?.some(a => this.assigneeFilter.includes(a));
+        });
+      }
       if (!this.filters.length) return list;
       return list.filter(task => this.filters.every(f => this._taskMatchesFilter(task, f)));
+    },
+    get assigneeCounts() {
+      const map = { __none__: 0 };
+      for (const m of this.members) map[m.id] = 0;
+      for (const t of this.tasks) {
+        if (!t.assignees || !t.assignees.length) { map.__none__++; continue; }
+        for (const a of t.assignees) if (a in map) map[a]++;
+      }
+      return map;
     },
     get filterFieldsList() {
       const fields = [
@@ -3636,6 +3721,13 @@ document.addEventListener('alpine:init', () => {
       task.cf_values = newVals;
       this.cfPickerTask = null;
       this.cfPickerCf = null;
+    },
+    toggleAssigneeFilter(id) {
+      if (this.assigneeFilter.includes(id)) {
+        this.assigneeFilter = this.assigneeFilter.filter(x => x !== id);
+      } else {
+        this.assigneeFilter = [...this.assigneeFilter, id];
+      }
     },
     filterOperators(fieldType) {
       if (fieldType === 'date') return [
