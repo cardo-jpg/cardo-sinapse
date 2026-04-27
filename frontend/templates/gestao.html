@@ -426,6 +426,26 @@
     .task-row:hover { background: #ffffff04; }
     .task-row:hover .task-del-btn { opacity: 1; }
 
+    .group-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 20px 6px; cursor: pointer; user-select: none;
+    }
+    .group-header:hover { background: #ffffff04; }
+    .group-arrow { font-size: .65rem; color: var(--muted); transition: transform .15s; }
+    .group-arrow.collapsed { transform: rotate(-90deg); }
+    .group-badge { padding: 2px 10px; border-radius: 20px; font-size: .75rem; font-weight: 700; border: 1px solid transparent; }
+    .group-count { font-size: .75rem; color: var(--muted); }
+
+    .group-panel {
+      position: fixed; z-index: 900; background: #1a1a1a; border: 1px solid #2e2e2e;
+      border-radius: 10px; padding: 14px 16px; box-shadow: 0 8px 24px #000a;
+      min-width: 340px;
+    }
+    .group-panel-title { font-size: .7rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 10px; }
+    .group-panel-row { display: flex; align-items: center; gap: 8px; }
+    .group-select { background: #111; border: 1px solid #333; color: var(--text); border-radius: 6px; padding: 5px 10px; font-size: .82rem; cursor: pointer; }
+    .group-select:focus { outline: none; border-color: var(--accent); }
+
     .task-title-cell { display: flex; align-items: center; gap: 8px; min-width: 0; }
     .task-title-text { font-size: .85rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
     .task-title-text:hover { color: var(--accent); }
@@ -1357,6 +1377,10 @@
         <button class="view-btn" :class="view==='kanban'?'active':''" @click="view='kanban'">⬜ Kanban</button>
       </div>
       <button class="view-btn" x-show="activeList && view==='list'"
+              :class="groupPanel ? 'active' : ''"
+              @click="groupPanel=!groupPanel" title="Agrupar por"
+              style="margin-left:4px">⊟ Agrupar</button>
+      <button class="view-btn" x-show="activeList && view==='list'"
               :class="colsPanel ? 'active' : ''"
               @click="colsPanel=!colsPanel" title="Personalizar colunas"
               style="margin-left:4px">⊞ Colunas</button>
@@ -1423,68 +1447,86 @@
           </template>
           <span></span>
         </div>
-        <template x-for="task in tasks" :key="task.id">
-          <div class="task-row" :style="'grid-template-columns:'+gridCols">
-            <div class="task-title-cell">
-              <div class="task-status-dot"
-                   :style="`background:${statusObj(task.status).color}`"
-                   :title="statusObj(task.status).name"
-                   @click.stop="openStatusPicker(task,$event)"></div>
-              <span class="task-title-text" @click="openEdit(task)" x-text="task.title"></span>
-            </div>
-            <div x-show="cols.status">
-              <span class="status-badge"
-                    :style="`background:${statusObj(task.status).color}22; color:${statusObj(task.status).color}; border-color:${statusObj(task.status).color}44`"
-                    @click.stop="openStatusPicker(task,$event)">
-                <span class="status-dot" :style="`background:${statusObj(task.status).color}`"></span>
-                <span x-text="statusObj(task.status).name"></span>
-              </span>
-            </div>
-            <div class="assignee-cell" x-show="cols.responsavel">
-              <template x-if="task.assignees && task.assignees.length">
-                <span>
-                  <template x-for="a in task.assignees" :key="a">
-                    <span class="assignee-avatar" :style="`background:${a==='victor'?'#19196c':'#166534'}`" x-text="memberName(a).charAt(0)" :title="memberName(a)"></span>
-                  </template>
-                </span>
-              </template>
-              <template x-if="!task.assignees || !task.assignees.length">
-                <span style="color:#333">—</span>
-              </template>
-            </div>
-            <div x-show="cols.prioridade">
-              <span class="priority-badge" :style="`color:${priorityColor(task.priority)}`">
-                <span class="priority-flag">⚑</span>
-                <span x-text="priorityLabel(task.priority)"></span>
-              </span>
-            </div>
-            <div class="due-cell" x-show="cols.prazo" :class="dueCss(task.due_date)" x-text="formatDate(task.due_date) || '—'"></div>
-            <template x-for="cf in (activeList?.custom_fields||[])" :key="cf.id">
-              <div x-show="cfCols[cf.id]" class="cf-cell" @click.stop="openCfPicker(task,cf,$event)">
-                <template x-if="cf.type==='dropdown'">
-                  <span>
-                    <template x-if="getCfValue(task,cf.id)">
-                      <span class="cf-badge"
-                            :style="`background:${getCfOpt(cf,getCfValue(task,cf.id))?.color||'#6b7280'}22;color:${getCfOpt(cf,getCfValue(task,cf.id))?.color||'#6b7280'};border-color:${getCfOpt(cf,getCfValue(task,cf.id))?.color||'#6b7280'}44`"
-                            x-text="getCfValue(task,cf.id)"></span>
-                    </template>
-                    <template x-if="!getCfValue(task,cf.id)">
-                      <span style="color:#444;font-size:.75rem">—</span>
-                    </template>
-                  </span>
-                </template>
-                <template x-if="cf.type!=='dropdown'">
-                  <span x-text="getCfValue(task,cf.id)||'—'" style="font-size:.8rem;color:#ccc"></span>
-                </template>
+        <template x-for="row in displayRows" :key="row._key">
+          <div>
+            <!-- group header row -->
+            <template x-if="row.type==='group'">
+              <div class="group-header" @click="toggleGroup(row.key)">
+                <span class="group-arrow" :class="collapsedGroups[row.key] ? 'collapsed' : ''">▼</span>
+                <span class="group-badge"
+                      :style="`background:${row.color}22; color:${row.color}; border-color:${row.color}44`"
+                      x-text="row.label"></span>
+                <span class="group-count" x-text="row.count"></span>
               </div>
             </template>
-            <button class="task-del-btn" @click="deleteTask(task)">✕</button>
+            <!-- task row -->
+            <template x-if="row.type==='task'">
+              <div class="task-row" :style="'grid-template-columns:'+gridCols">
+                <div class="task-title-cell">
+                  <div class="task-status-dot"
+                       :style="`background:${statusObj(row.task.status).color}`"
+                       :title="statusObj(row.task.status).name"
+                       @click.stop="openStatusPicker(row.task,$event)"></div>
+                  <span class="task-title-text" @click="openEdit(row.task)" x-text="row.task.title"></span>
+                </div>
+                <div x-show="cols.status">
+                  <span class="status-badge"
+                        :style="`background:${statusObj(row.task.status).color}22; color:${statusObj(row.task.status).color}; border-color:${statusObj(row.task.status).color}44`"
+                        @click.stop="openStatusPicker(row.task,$event)">
+                    <span class="status-dot" :style="`background:${statusObj(row.task.status).color}`"></span>
+                    <span x-text="statusObj(row.task.status).name"></span>
+                  </span>
+                </div>
+                <div class="assignee-cell" x-show="cols.responsavel">
+                  <template x-if="row.task.assignees && row.task.assignees.length">
+                    <span>
+                      <template x-for="a in row.task.assignees" :key="a">
+                        <span class="assignee-avatar" :style="`background:${a==='victor'?'#19196c':'#166534'}`" x-text="memberName(a).charAt(0)" :title="memberName(a)"></span>
+                      </template>
+                    </span>
+                  </template>
+                  <template x-if="!row.task.assignees || !row.task.assignees.length">
+                    <span style="color:#333">—</span>
+                  </template>
+                </div>
+                <div x-show="cols.prioridade">
+                  <span class="priority-badge" :style="`color:${priorityColor(row.task.priority)}`">
+                    <span class="priority-flag">⚑</span>
+                    <span x-text="priorityLabel(row.task.priority)"></span>
+                  </span>
+                </div>
+                <div class="due-cell" x-show="cols.prazo" :class="dueCss(row.task.due_date)" x-text="formatDate(row.task.due_date) || '—'"></div>
+                <template x-for="cf in (activeList?.custom_fields||[])" :key="cf.id">
+                  <div x-show="cfCols[cf.id]" class="cf-cell" @click.stop="openCfPicker(row.task,cf,$event)">
+                    <template x-if="cf.type==='dropdown'">
+                      <span>
+                        <template x-if="getCfValue(row.task,cf.id)">
+                          <span class="cf-badge"
+                                :style="`background:${getCfOpt(cf,getCfValue(row.task,cf.id))?.color||'#6b7280'}22;color:${getCfOpt(cf,getCfValue(row.task,cf.id))?.color||'#6b7280'};border-color:${getCfOpt(cf,getCfValue(row.task,cf.id))?.color||'#6b7280'}44`"
+                                x-text="getCfValue(row.task,cf.id)"></span>
+                        </template>
+                        <template x-if="!getCfValue(row.task,cf.id)">
+                          <span style="color:#444;font-size:.75rem">—</span>
+                        </template>
+                      </span>
+                    </template>
+                    <template x-if="cf.type!=='dropdown'">
+                      <span x-text="getCfValue(row.task,cf.id)||'—'" style="font-size:.8rem;color:#ccc"></span>
+                    </template>
+                  </div>
+                </template>
+                <button class="task-del-btn" @click="deleteTask(row.task)">✕</button>
+              </div>
+            </template>
+            <!-- add-task row -->
+            <template x-if="row.type==='add'">
+              <div class="task-add-inline" @click="openNew()">
+                <span style="opacity:.4">+</span>
+                <span style="opacity:.4" x-text="tasks.length ? 'Nova tarefa' : 'Adicionar tarefa'"></span>
+              </div>
+            </template>
           </div>
         </template>
-        <div class="task-add-inline" @click="openNew()">
-          <span style="opacity:.4">+</span>
-          <span style="opacity:.4" x-text="tasks.length ? 'Nova tarefa' : 'Adicionar tarefa'"></span>
-        </div>
       </div>
     </template>
 
@@ -1735,6 +1777,31 @@
           </div>
         </div>
       </template>
+    </div>
+  </template>
+
+  <!-- ── Group by panel ────────────────────────────────────────────────────── -->
+  <template x-if="groupPanel">
+    <div class="group-panel" x-init="positionGroupPanel()" @click.outside="groupPanel=false" x-cloak id="group-panel">
+      <div class="group-panel-title">Agrupar por</div>
+      <div class="group-panel-row">
+        <select class="group-select" x-model="groupBy" @change="collapsedGroups={}">
+          <option value="">— Sem agrupamento —</option>
+          <option value="status">Status</option>
+          <option value="responsavel">Responsável</option>
+          <option value="prioridade">Prioridade</option>
+          <option value="prazo">Prazo</option>
+          <template x-for="cf in (activeList?.custom_fields||[]).filter(c=>c.type==='dropdown')" :key="cf.id">
+            <option :value="'cf_'+cf.id" x-text="cf.name"></option>
+          </template>
+        </select>
+        <select class="group-select" x-model="groupDir" x-show="groupBy">
+          <option value="asc">Crescente</option>
+          <option value="desc">Decrescente</option>
+        </select>
+        <button x-show="groupBy" @click="groupBy=''; collapsedGroups={}"
+                style="background:none;border:none;color:#555;cursor:pointer;font-size:1rem;padding:4px" title="Remover agrupamento">🗑</button>
+      </div>
     </div>
   </template>
 
@@ -2982,8 +3049,73 @@ document.addEventListener('alpine:init', () => {
     cfPickerTask: null,
     cfPickerCf: null,
     cfPickerPos: { x: 0, y: 0 },
+    groupBy: '',
+    groupDir: 'asc',
+    groupPanel: false,
+    collapsedGroups: {},
     colMenu: null,
     colMenuPos: { x: 0, y: 0 },
+    get groupedTasks() {
+      const key = this.groupBy;
+      if (!key) return [];
+      const map = new Map();
+      for (const task of this.tasks) {
+        let gKey, gLabel, gColor = '#6b7280';
+        if (key === 'status') {
+          const s = this.statusObj(task.status);
+          gKey = task.status; gLabel = s.name; gColor = s.color;
+        } else if (key === 'prioridade') {
+          gKey = task.priority || 'normal';
+          gLabel = this.priorityLabel(gKey);
+          gColor = this.priorityColor(gKey);
+        } else if (key === 'responsavel') {
+          gKey = task.assignees?.[0] || '__none__';
+          gLabel = gKey === '__none__' ? 'Sem responsável' : this.memberName(gKey);
+          gColor = gKey === '__none__' ? '#6b7280' : '#3b82f6';
+        } else if (key === 'prazo') {
+          gKey = task.due_date || '__none__';
+          gLabel = gKey === '__none__' ? 'Sem prazo' : this.formatDate(gKey);
+          gColor = gKey === '__none__' ? '#6b7280' : '#f59e0b';
+        } else if (key.startsWith('cf_')) {
+          const cfId = key.slice(3);
+          const cf = (this.activeList?.custom_fields || []).find(c => c.id === cfId);
+          const val = task.cf_values?.[cfId] || null;
+          gKey = val || '__none__';
+          gLabel = val || 'Sem valor';
+          const opt = cf ? this.getCfOpt(cf, val) : null;
+          gColor = opt?.color || '#6b7280';
+        } else {
+          gKey = '__none__'; gLabel = 'Sem grupo';
+        }
+        if (!map.has(gKey)) map.set(gKey, { key: gKey, label: gLabel, color: gColor, tasks: [] });
+        map.get(gKey).tasks.push(task);
+      }
+      let groups = [...map.values()];
+      groups.sort((a, b) => {
+        if (a.key === '__none__') return 1;
+        if (b.key === '__none__') return -1;
+        return this.groupDir === 'asc'
+          ? a.label.localeCompare(b.label)
+          : b.label.localeCompare(a.label);
+      });
+      return groups;
+    },
+    get displayRows() {
+      const rows = [];
+      if (!this.groupBy) {
+        for (const task of this.tasks) rows.push({ type: 'task', task, _key: 't_' + task.id });
+        rows.push({ type: 'add', _key: '__add__' });
+      } else {
+        for (const g of this.groupedTasks) {
+          rows.push({ type: 'group', key: g.key, label: g.label, color: g.color, count: g.tasks.length, _key: 'g_' + g.key });
+          if (!this.collapsedGroups[g.key]) {
+            for (const task of g.tasks) rows.push({ type: 'task', task, _key: 't_' + task.id });
+          }
+        }
+        rows.push({ type: 'add', _key: '__add__' });
+      }
+      return rows;
+    },
     get gridCols() {
       const locked = this.colWidths.tarefa > 0;
       let c = locked ? `${this.colWidths.tarefa}px` : '1fr';
@@ -3374,6 +3506,21 @@ document.addEventListener('alpine:init', () => {
       task.cf_values = newVals;
       this.cfPickerTask = null;
       this.cfPickerCf = null;
+    },
+    toggleGroup(key) {
+      this.collapsedGroups = { ...this.collapsedGroups, [key]: !this.collapsedGroups[key] };
+    },
+    positionGroupPanel() {
+      this.$nextTick(() => {
+        const btn = document.querySelector('[title="Agrupar por"]');
+        const panel = document.getElementById('group-panel');
+        if (!btn || !panel) return;
+        const r = btn.getBoundingClientRect();
+        let x = r.left, y = r.bottom + 6;
+        if (x + 360 > window.innerWidth) x = window.innerWidth - 365;
+        panel.style.top = y + 'px';
+        panel.style.left = x + 'px';
+      });
     },
     openColMenu(key, label, e) {
       const r = e.currentTarget.getBoundingClientRect();
