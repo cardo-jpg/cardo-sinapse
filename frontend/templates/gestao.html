@@ -633,6 +633,28 @@
       padding: 5px 10px; border-radius: 6px; outline: none; width: 100%;
     }
 
+    .checklist-section { margin: 14px 0 4px; }
+    .checklist-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .checklist-toggle { background: none; border: none; color: var(--muted); cursor: pointer; font-size: .75rem; padding: 0 2px; }
+    .checklist-name { font-size: .82rem; font-weight: 600; color: var(--text); flex: 1; background: none; border: none; outline: none; }
+    .checklist-name:focus { color: #fff; }
+    .checklist-del { background: none; border: none; color: #444; cursor: pointer; font-size: .72rem; padding: 2px 6px; opacity: 0; transition: opacity .15s; }
+    .checklist-header:hover .checklist-del { opacity: 1; }
+    .checklist-progress { height: 4px; background: #2a2a2a; border-radius: 2px; margin-bottom: 8px; overflow: hidden; }
+    .checklist-progress-bar { height: 100%; background: #22c55e; border-radius: 2px; transition: width .2s; }
+    .checklist-progress-label { font-size: .7rem; color: var(--muted); margin-bottom: 6px; }
+    .checklist-item { display: flex; align-items: flex-start; gap: 8px; padding: 4px 0; group: true; }
+    .checklist-item-check { width: 16px; height: 16px; border: 1.5px solid #444; border-radius: 50%; flex-shrink: 0; cursor: pointer; margin-top: 1px; display: flex; align-items: center; justify-content: center; transition: background .15s, border-color .15s; }
+    .checklist-item-check.done { background: #22c55e; border-color: #22c55e; color: #fff; font-size: .6rem; }
+    .checklist-item-text { flex: 1; font-size: .82rem; color: var(--text); background: none; border: none; outline: none; resize: none; padding: 0; line-height: 1.4; }
+    .checklist-item-text.done { text-decoration: line-through; color: var(--muted); }
+    .checklist-item-del { background: none; border: none; color: #444; cursor: pointer; font-size: .7rem; padding: 2px 4px; opacity: 0; transition: opacity .15s; flex-shrink: 0; }
+    .checklist-item:hover .checklist-item-del { opacity: 1; }
+    .checklist-add-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer; color: var(--muted); font-size: .8rem; }
+    .checklist-add-item:hover { color: var(--text); }
+    .add-checklist-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 0; font-size: .8rem; color: var(--muted); background: none; border: none; cursor: pointer; margin-top: 4px; }
+    .add-checklist-btn:hover { color: var(--text); }
+
     .task-detail-desc {
       margin-top: 16px; font-size: .88rem; color: var(--text);
       background: none; border: none; outline: none; resize: none;
@@ -2403,6 +2425,53 @@
             <textarea class="task-detail-desc" x-model="form.description"
                       placeholder="Adicione uma descrição..."
                       @change="patchTask('description', form.description)"></textarea>
+
+            <!-- Checklists -->
+            <div class="checklist-section">
+              <template x-for="(cl, clIdx) in (form.extra_data.checklists || [])" :key="cl.id">
+                <div style="margin-bottom:14px">
+                  <div class="checklist-header">
+                    <span class="checklist-toggle" @click="cl._open = cl._open === false ? true : false" x-text="cl._open === false ? '▶' : '▼'"></span>
+                    <input class="checklist-name" x-model="cl.name" @change="saveChecklists()" placeholder="Checklist">
+                    <button class="checklist-del" @click="removeChecklist(cl.id)" title="Remover checklist">✕</button>
+                  </div>
+                  <template x-if="cl._open !== false">
+                    <div>
+                      <template x-if="cl.items && cl.items.length">
+                        <div>
+                          <div class="checklist-progress-label" x-text="`${cl.items.filter(i=>i.done).length}/${cl.items.length}`"></div>
+                          <div class="checklist-progress">
+                            <div class="checklist-progress-bar"
+                                 :style="`width:${cl.items.length ? Math.round(cl.items.filter(i=>i.done).length/cl.items.length*100) : 0}%`"></div>
+                          </div>
+                        </div>
+                      </template>
+                      <template x-for="item in (cl.items || [])" :key="item.id">
+                        <div class="checklist-item">
+                          <div class="checklist-item-check" :class="item.done ? 'done' : ''"
+                               @click="item.done=!item.done; saveChecklists()">
+                            <span x-show="item.done">✓</span>
+                          </div>
+                          <textarea class="checklist-item-text" :class="item.done ? 'done' : ''"
+                                    x-model="item.text" rows="1"
+                                    @change="saveChecklists()"
+                                    @keydown.enter.prevent="addChecklistItem(cl.id); $nextTick(()=>$el.closest('.checklist-section').querySelector('.checklist-item:last-of-type textarea')?.focus())"
+                                    placeholder="Item"></textarea>
+                          <button class="checklist-item-del" @click="removeChecklistItem(cl.id, item.id)">✕</button>
+                        </div>
+                      </template>
+                      <div class="checklist-add-item" @click="addChecklistItem(cl.id)">
+                        <span style="font-size:.9rem">+</span> Adicionar item
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </template>
+              <button class="add-checklist-btn" @click="addChecklist()">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="5" y="0" width="2" height="12" rx="1"/><rect x="0" y="5" width="12" height="2" rx="1"/></svg>
+                Adicionar checklist
+              </button>
+            </div>
           </div>
 
           <!-- RIGHT: activity -->
@@ -3881,6 +3950,40 @@ document.addEventListener('alpine:init', () => {
       if (!this.editTask) return;
       this.form.extra_data = {...(this.form.extra_data||{}), [cfId]: value};
       await this.patchTask('extra_data', this.form.extra_data);
+    },
+    async saveChecklists() {
+      if (!this.editTask) return;
+      const cls = (this.form.extra_data.checklists || []).map(cl => ({
+        id: cl.id, name: cl.name,
+        items: (cl.items || []).map(i => ({ id: i.id, text: i.text, done: i.done })),
+      }));
+      this.form.extra_data = { ...this.form.extra_data, checklists: cls };
+      await this.patchTask('extra_data', this.form.extra_data);
+    },
+    addChecklist() {
+      if (!this.form.extra_data) this.form.extra_data = {};
+      const cls = [...(this.form.extra_data.checklists || [])];
+      cls.push({ id: 'cl_' + Date.now(), name: 'Checklist', items: [], _open: true });
+      this.form.extra_data = { ...this.form.extra_data, checklists: cls };
+      this.saveChecklists();
+    },
+    removeChecklist(clId) {
+      const cls = (this.form.extra_data.checklists || []).filter(c => c.id !== clId);
+      this.form.extra_data = { ...this.form.extra_data, checklists: cls };
+      this.saveChecklists();
+    },
+    addChecklistItem(clId) {
+      const cls = this.form.extra_data.checklists || [];
+      const cl = cls.find(c => c.id === clId);
+      if (!cl) return;
+      cl.items = [...(cl.items || []), { id: 'ci_' + Date.now(), text: '', done: false }];
+      this.saveChecklists();
+    },
+    removeChecklistItem(clId, itemId) {
+      const cl = (this.form.extra_data.checklists || []).find(c => c.id === clId);
+      if (!cl) return;
+      cl.items = cl.items.filter(i => i.id !== itemId);
+      this.saveChecklists();
     },
 
     cfIcon(type) {
