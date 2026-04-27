@@ -3730,9 +3730,62 @@ async def put_hire_funis_budget(request: Request):
 
 # ── YouTube Tab ───────────────────────────────────────────────────────────────
 
-# Armazena refresh token em memória (persiste até restart; também salvo via Railway API)
+# Armazena refresh token em memória (persiste até restart; também salvo no Sheets)
 _hf_yt_refresh_token: str = os.getenv("HIRE_YT_REFRESH_TOKEN", "")
 _hf_malu_channel_id: str = ""  # cached after first resolve
+
+_HF_CONFIG_TAB = "HF_Config"
+
+
+def _hf_config_write(key: str, value: str):
+    """Persiste chave-valor na aba HF_Config do sheet WICI2."""
+    try:
+        creds = _sa_creds(["https://www.googleapis.com/auth/spreadsheets"])
+        svc = gapi_build("sheets", "v4", credentials=creds).spreadsheets()
+        # Garante que a aba existe
+        try:
+            svc.values().get(spreadsheetId=WICI2_SHEET_ID,
+                             range=f"{_HF_CONFIG_TAB}!A1").execute()
+        except Exception:
+            svc.batchUpdate(
+                spreadsheetId=WICI2_SHEET_ID,
+                body={"requests": [{"addSheet": {"properties": {"title": _HF_CONFIG_TAB}}}]},
+            ).execute()
+        # Acha linha existente ou appenda
+        rows = svc.values().get(spreadsheetId=WICI2_SHEET_ID,
+                                range=f"{_HF_CONFIG_TAB}!A:B").execute().get("values", [])
+        row_idx = next((i + 1 for i, r in enumerate(rows) if r and r[0] == key), None)
+        if row_idx:
+            svc.values().update(
+                spreadsheetId=WICI2_SHEET_ID,
+                range=f"{_HF_CONFIG_TAB}!A{row_idx}:B{row_idx}",
+                valueInputOption="RAW",
+                body={"values": [[key, value]]},
+            ).execute()
+        else:
+            svc.values().append(
+                spreadsheetId=WICI2_SHEET_ID,
+                range=f"{_HF_CONFIG_TAB}!A:B",
+                valueInputOption="RAW",
+                body={"values": [[key, value]]},
+            ).execute()
+    except Exception as e:
+        print(f"[hf_config_write] {e}", flush=True)
+
+
+def _hf_config_read(key: str) -> str:
+    """Lê valor da aba HF_Config do sheet WICI2."""
+    try:
+        creds = _sa_creds(["https://www.googleapis.com/auth/spreadsheets.readonly"])
+        svc = gapi_build("sheets", "v4", credentials=creds).spreadsheets()
+        rows = svc.values().get(spreadsheetId=WICI2_SHEET_ID,
+                                range=f"{_HF_CONFIG_TAB}!A:B").execute().get("values", [])
+        for row in rows:
+            if len(row) >= 2 and row[0] == key:
+                return row[1]
+    except Exception:
+        pass
+    return ""
 
 
 def _resolve_malu_channel_id(creds) -> str:
@@ -3752,9 +3805,13 @@ def _resolve_malu_channel_id(creds) -> str:
     return "MINE"
 
 def _hf_yt_creds():
-    """Load YouTube OAuth2 credentials from env var."""
+    """Load YouTube OAuth2 credentials — memória → env var → Google Sheets."""
     global _hf_yt_refresh_token
     rt = _hf_yt_refresh_token or os.getenv("HIRE_YT_REFRESH_TOKEN", "")
+    if not rt:
+        rt = _hf_config_read("HIRE_YT_REFRESH_TOKEN")
+        if rt:
+            _hf_yt_refresh_token = rt  # cache em memória
     if not rt:
         return None
     import google.oauth2.credentials
@@ -3766,32 +3823,12 @@ def _hf_yt_creds():
         client_secret=HIRE_YT_CLIENT_SECRET,
     )
 
+
 def _hf_yt_save_token(refresh_token: str):
-    """Salva refresh token em memória e persiste via Railway GraphQL API."""
+    """Salva refresh token em memória + Google Sheets (persistente)."""
     global _hf_yt_refresh_token
     _hf_yt_refresh_token = refresh_token
-    try:
-        import urllib.request
-        railway_token = "59ebb371-ae49-4f10-9c19-f48b5ff68cc7"
-        project_id    = "eee66ab4-b588-43eb-af03-215969c7613c"
-        env_id        = "db88ab42-2197-4b3e-9766-cc3df3cf4506"
-        service_id    = "3823c566-ffa2-41cd-9af9-f2987ac12a66"
-        mutation = json.dumps({"query": (
-            f'mutation {{ variableUpsert(input: {{'
-            f'  projectId: "{project_id}", environmentId: "{env_id}",'
-            f'  serviceId: "{service_id}", name: "HIRE_YT_REFRESH_TOKEN",'
-            f'  value: "{refresh_token}"'
-            f'}}) }}'
-        )})
-        req = urllib.request.Request(
-            "https://backboard.railway.app/graphql/v2",
-            data=mutation.encode(),
-            headers={"Content-Type": "application/json", "Authorization": f"Bearer {railway_token}"},
-            method="POST",
-        )
-        urllib.request.urlopen(req, timeout=10)
-    except Exception:
-        pass
+    _hf_config_write("HIRE_YT_REFRESH_TOKEN", refresh_token)
 
 
 def _hf_fetch_youtube_tab(date_start=None, date_end=None) -> dict:
@@ -3918,22 +3955,65 @@ def _hf_fetch_youtube_tab(date_start=None, date_end=None) -> dict:
             except Exception:
                 pass
 
-            # Q3c: tenta buscar assets de youtube_video_ad (In-Stream / bumper)
+            # Q3c: in-stream / bumper — tenta campos por tipo de anúncio
+            for _q3c_field in [
+                "ad_group_ad.ad.in_stream_ad.video",
+                "ad_group_ad.ad.bumper_ad.video",
+                "ad_group_ad.ad.non_skippable_in_stream_ad.video",
+            ]:
+                try:
+                    q3c = f"""
+                        SELECT ad_group_ad.ad.id, {_q3c_field}
+                        FROM ad_group_ad
+                        WHERE {dc} AND {yf} AND metrics.impressions > 0
+                    """
+                    for r in ga_svc.search(customer_id=GADS_HIRE_CUSTOMER_ID, query=q3c):
+                        aid = str(r.ad_group_ad.ad.id)
+                        if aid not in ads_map or ads_map[aid]["asset_name"] is not None:
+                            continue
+                        # navega o proto dinamicamente: "ad_group_ad.ad.in_stream_ad.video"
+                        obj = r
+                        try:
+                            for part in _q3c_field.split("."):
+                                obj = getattr(obj, part)
+                            val = str(obj) if obj else ""
+                        except Exception:
+                            val = ""
+                        if val and val.startswith("customers/"):
+                            ads_map[aid]["asset_name"] = val
+                            asset_names.add(val)
+                except Exception:
+                    pass
+
+            # Q3d: busca todos assets YouTube da conta → lookup por resource_name e por nome
+            asset_name_map: dict = {}  # asset.name.lower → youtube_video_id
             try:
-                q3c = f"""
-                    SELECT ad_group_ad.ad.id, ad_group_ad.ad.youtube_video_ad.video
-                    FROM ad_group_ad
-                    WHERE {dc} AND {yf} AND metrics.impressions > 0
+                q3d = """
+                    SELECT asset.resource_name, asset.name,
+                           asset.youtube_video_asset.youtube_video_id
+                    FROM asset
+                    WHERE asset.type = 'YOUTUBE_VIDEO'
                 """
-                for r in ga_svc.search(customer_id=GADS_HIRE_CUSTOMER_ID, query=q3c):
-                    aid = str(r.ad_group_ad.ad.id)
-                    if aid in ads_map and ads_map[aid]["asset_name"] is None:
-                        yt_vid = r.ad_group_ad.ad.youtube_video_ad.video
-                        if yt_vid:
-                            ads_map[aid]["asset_name"] = yt_vid
-                            asset_names.add(yt_vid)
+                for r in ga_svc.search(customer_id=GADS_HIRE_CUSTOMER_ID, query=q3d):
+                    vid_id = r.asset.youtube_video_asset.youtube_video_id
+                    if vid_id:
+                        yt_id_map[r.asset.resource_name] = vid_id
+                        if r.asset.name:
+                            asset_name_map[r.asset.name.lower().strip()] = vid_id
             except Exception:
                 pass
+
+            # Para anúncios ainda sem vídeo, tenta match por nome
+            for aid, v in ads_map.items():
+                if v["asset_name"] is not None or not asset_name_map:
+                    continue
+                ad_lower = v["nome"].lower().strip()
+                for aname, vid_id in asset_name_map.items():
+                    if aname in ad_lower or ad_lower in aname:
+                        marker = f"__yt__{vid_id}"
+                        v["asset_name"] = marker
+                        yt_id_map[marker] = vid_id
+                        break
 
             # Q4: busca youtube_video_id dos assets coletados
             yt_id_map: dict = {}
