@@ -1789,7 +1789,7 @@
               <span class="campos-row-icon" x-text="cfIcon(cf.type)"></span>
               <span class="campos-row-label" x-text="cf.name"></span>
               <div style="display:flex;align-items:center;gap:6px">
-                <button class="col-toggle" :class="cfCols[cf.id] ? 'on' : 'off'" @click.stop="cfCols[cf.id]=!cfCols[cf.id]"></button>
+                <button class="col-toggle" :class="cfCols[cf.id] ? 'on' : 'off'" @click.stop="cfCols[cf.id]=!cfCols[cf.id]; saveColPrefs()"></button>
                 <button style="background:none;border:none;color:#555;cursor:pointer;font-size:.75rem;padding:2px 6px" @click.stop="deleteCustomField(cf.id)" title="Remover campo">✕</button>
               </div>
             </div>
@@ -3148,8 +3148,31 @@ document.addEventListener('alpine:init', () => {
     async selectList(lst) {
       this.mainMode = 'tasks';
       this.activeList = lst; this.loading = true; this.tasks = [];
+      this.loadColPrefs(lst.id);
       const d = await fetch(`/api/gestao/lists/${lst.id}/tasks`).then(r=>r.json());
       this.tasks = d.tasks; this.loading = false;
+    },
+    _colPrefsKey(listId) { return `sinapse_cols_${listId}`; },
+    saveColPrefs() {
+      if (!this.activeList) return;
+      const prefs = {
+        cols: this.cols,
+        cfCols: this.cfCols,
+        colWidths: this.colWidths,
+        cfColWidths: this.cfColWidths,
+      };
+      localStorage.setItem(this._colPrefsKey(this.activeList.id), JSON.stringify(prefs));
+    },
+    loadColPrefs(listId) {
+      try {
+        const raw = localStorage.getItem(this._colPrefsKey(listId));
+        if (!raw) return;
+        const p = JSON.parse(raw);
+        if (p.cols)        Object.assign(this.cols, p.cols);
+        if (p.cfCols)      Object.assign(this.cfCols, p.cfCols);
+        if (p.colWidths)   Object.assign(this.colWidths, p.colWidths);
+        if (p.cfColWidths) Object.assign(this.cfColWidths, p.cfColWidths);
+      } catch(e) {}
     },
 
     spaceName(id) { return this.tree.find(s=>s.id===id)?.name||''; },
@@ -3201,10 +3224,9 @@ document.addEventListener('alpine:init', () => {
         if (saved) Object.assign(this.cols, saved);
       } catch {}
     },
-    saveCols() { localStorage.setItem('sinapse_cols', JSON.stringify(this.cols)); },
-    toggleCol(key) { this.cols[key] = !this.cols[key]; this.saveCols(); },
-    hideAllCols() { Object.keys(this.cols).forEach(k => this.cols[k] = false); this.saveCols(); },
-    showAllCols() { Object.keys(this.cols).forEach(k => this.cols[k] = true); this.saveCols(); },
+    toggleCol(key) { this.cols[key] = !this.cols[key]; this.saveColPrefs(); },
+    hideAllCols() { Object.keys(this.cols).forEach(k => this.cols[k] = false); this.saveColPrefs(); },
+    showAllCols() { Object.keys(this.cols).forEach(k => this.cols[k] = true); this.saveColPrefs(); },
 
     loadFavorites() {
       try { this.favorites = JSON.parse(localStorage.getItem('sinapse_favs') || '[]'); } catch { this.favorites = []; }
@@ -3370,6 +3392,7 @@ document.addEventListener('alpine:init', () => {
     hideCol(colMenu) {
       if (colMenu.cf) { this.cfCols[colMenu.cf.id] = false; }
       else { this.cols[colMenu.key] = false; }
+      this.saveColPrefs();
     },
     sortByCol(colMenu, dir) {
       const key = colMenu.key;
@@ -3397,25 +3420,19 @@ document.addEventListener('alpine:init', () => {
       const startX = e.clientX;
       const startW = this.cfColWidths[cfId] || 140;
       const onMove = ev => { this.cfColWidths[cfId] = Math.max(70, startW + (ev.clientX - startX)); };
-      const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+      const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); this.saveColPrefs(); };
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
     },
     startColResize(col, e) {
-      // Lock tarefa to px on first resize so all columns have fixed widths
       if (this.colWidths.tarefa === 0) {
         const cell = document.querySelector('.task-list-header > span:first-child');
         this.colWidths.tarefa = cell ? cell.offsetWidth : 400;
       }
       const startX = e.clientX;
       const startW = this.colWidths[col];
-      const onMove = ev => {
-        this.colWidths[col] = Math.max(70, startW + (ev.clientX - startX));
-      };
-      const onUp = () => {
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-      };
+      const onMove = ev => { this.colWidths[col] = Math.max(70, startW + (ev.clientX - startX)); };
+      const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); this.saveColPrefs(); };
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
     },
