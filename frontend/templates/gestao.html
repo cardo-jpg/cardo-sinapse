@@ -328,10 +328,11 @@
       background: var(--bg); flex-shrink: 0;
     }
     .g-breadcrumb {
-      flex: 1; display: flex; align-items: center; gap: 6px;
-      font-size: .9rem; color: var(--muted); overflow: hidden;
+      flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px;
+      font-size: .78rem; color: var(--muted); overflow: hidden; white-space: nowrap;
     }
-    .g-breadcrumb-list { color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .g-breadcrumb > * { flex-shrink: 0; }
+    .g-breadcrumb-list { color: var(--text); font-weight: 600; flex-shrink: 1; overflow: hidden; text-overflow: ellipsis; }
 
     .view-toggle { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
     .view-btn { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; font-size: .78rem; border: none; background: none; color: var(--muted); cursor: pointer; transition: background .12s, color .12s; }
@@ -1390,13 +1391,13 @@
           <span x-text="spaceName(activeList.space_id)"></span>
         </template>
         <template x-if="activeList && activeList.folder_id">
-          <span style="opacity:.4; margin:0 2px">›</span>
+          <span style="opacity:.3">/</span>
         </template>
         <template x-if="activeList && activeList.folder_id">
           <span x-text="folderName(activeList.folder_id)"></span>
         </template>
         <template x-if="activeList">
-          <span style="opacity:.4; margin:0 2px">›</span>
+          <span style="opacity:.3">/</span>
         </template>
         <span class="g-breadcrumb-list" x-text="activeList ? activeList.name : 'Selecione uma lista'"></span>
       </div>
@@ -1764,12 +1765,12 @@
             <span x-text="spaceName(activeDoc.space_id)"></span>
           </template>
           <template x-if="activeDoc && activeDoc.folder_id">
-            <span style="opacity:.4; margin:0 2px">›</span>
+            <span style="opacity:.3">/</span>
           </template>
           <template x-if="activeDoc && activeDoc.folder_id">
             <span x-text="folderName(activeDoc.folder_id)"></span>
           </template>
-          <span style="opacity:.4; margin:0 2px">›</span>
+          <span style="opacity:.3">/</span>
           <span style="color:var(--text); font-weight:600" x-text="activeDoc?.title || 'Documento'"></span>
         </div>
         <span class="doc-save-indicator" x-show="docModified && !docSaving">● Modificado</span>
