@@ -4041,13 +4041,13 @@ async def get_hire_funis_youtube(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# Armazena flow temporariamente para o callback (keyed by state)
+_yt_flow_store: dict = {}
+
 @app.get("/api/hire/funis/youtube/auth")
 async def hire_yt_auth(request: Request):
-    """Generate YouTube OAuth2 URL.  The client passes its own redirect_uri so it
-    works both on localhost and on the Railway domain."""
     try:
         from google_auth_oauthlib.flow import Flow
-        # Detect base URL — Railway injects X-Forwarded-Proto
         proto = request.headers.get("x-forwarded-proto", request.url.scheme)
         host  = request.headers.get("x-forwarded-host",  request.url.netloc)
         base  = f"{proto}://{host}"
@@ -4066,20 +4066,12 @@ async def hire_yt_auth(request: Request):
             ],
             redirect_uri=redirect_uri,
         )
-        auth_url, _state = flow.authorization_url(
+        auth_url, state = flow.authorization_url(
             access_type="offline",
             include_granted_scopes="false",
             prompt="consent",
-            code_challenge_method=None,
         )
-        # Remove code_challenge params if present (not supported without PKCE storage)
-        from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
-        parsed = urlparse(auth_url)
-        params = parse_qs(parsed.query, keep_blank_values=True)
-        params.pop("code_challenge", None)
-        params.pop("code_challenge_method", None)
-        clean_query = urlencode({k: v[0] for k, v in params.items()})
-        auth_url = urlunparse(parsed._replace(query=clean_query))
+        _yt_flow_store[state] = flow
         return JSONResponse({"auth_url": auth_url, "redirect_uri": redirect_uri})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -4095,27 +4087,13 @@ async def hire_yt_callback(request: Request, code: str = None, error: str = None
         return HTMLResponse("<html><body style='font-family:sans-serif;padding:40px'>"
                             "<h3>Código de autorização não recebido.</h3></body></html>")
     try:
-        from google_auth_oauthlib.flow import Flow
-        proto = request.headers.get("x-forwarded-proto", request.url.scheme)
-        host  = request.headers.get("x-forwarded-host",  request.url.netloc)
-        base  = f"{proto}://{host}"
-        redirect_uri = f"{base}/api/hire/funis/youtube/callback"
-        flow = Flow.from_client_config(
-            {"web": {
-                "client_id":     HIRE_YT_CLIENT_ID,
-                "client_secret": HIRE_YT_CLIENT_SECRET,
-                "redirect_uris": [redirect_uri],
-                "auth_uri":      "https://accounts.google.com/o/oauth2/auth",
-                "token_uri":     "https://oauth2.googleapis.com/token",
-            }},
-            scopes=[
-                "https://www.googleapis.com/auth/yt-analytics.readonly",
-                "https://www.googleapis.com/auth/youtube.readonly",
-            ],
-            redirect_uri=redirect_uri,
-        )
         import os as _os
         _os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
+        state = request.query_params.get("state", "")
+        flow = _yt_flow_store.pop(state, None)
+        if flow is None:
+            return HTMLResponse("<html><body style='font-family:sans-serif;padding:40px'>"
+                                "<h3>Sessão expirada. Tente autorizar novamente.</h3></body></html>")
         flow.fetch_token(code=code)
         creds = flow.credentials
         if creds.refresh_token:
