@@ -1401,8 +1401,25 @@
         <span class="g-breadcrumb-list" x-text="activeList ? activeList.name : 'Selecione uma lista'"></span>
       </div>
       <div class="view-toggle" x-show="activeList">
-        <button class="view-btn" :class="view==='list'?'active':''" @click="view='list'">☰ Lista</button>
-        <button class="view-btn" :class="view==='kanban'?'active':''" @click="view='kanban'">⬜ Kanban</button>
+        <button class="view-btn" :class="view==='list'?'active':''" @click="view='list'">
+          <svg width="14" height="12" viewBox="0 0 14 12" fill="currentColor" style="flex-shrink:0">
+            <rect x="0" y="0"   width="3" height="3" rx=".6"/>
+            <rect x="5" y=".5"  width="9" height="2" rx=".6"/>
+            <rect x="0" y="4.5" width="3" height="3" rx=".6"/>
+            <rect x="5" y="5"   width="9" height="2" rx=".6"/>
+            <rect x="0" y="9"   width="3" height="3" rx=".6"/>
+            <rect x="5" y="9.5" width="9" height="2" rx=".6"/>
+          </svg>
+          Lista
+        </button>
+        <button class="view-btn" :class="view==='kanban'?'active':''" @click="view='kanban'">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="currentColor" style="flex-shrink:0">
+            <rect x="0"   y="0" width="3.5" height="9"  rx="1"/>
+            <rect x="4.8" y="0" width="3.5" height="13" rx="1"/>
+            <rect x="9.5" y="0" width="3.5" height="6"  rx="1"/>
+          </svg>
+          Quadro
+        </button>
       </div>
       <div x-show="activeList && view==='list'" style="position:relative;margin-left:4px">
         <button class="view-btn" :class="assigneeFilter.length ? 'active' : ''"
