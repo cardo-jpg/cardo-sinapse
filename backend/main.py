@@ -3111,6 +3111,11 @@ HIRE_YT_CLIENT_SECRET    = os.getenv("HIRE_YT_CLIENT_SECRET", "") or GADS_CLIENT
 GADS_REFRESH_TOKEN       = os.getenv("GADS_REFRESH_TOKEN", "")
 GADS_HIRE_CUSTOMER_ID    = os.getenv("GADS_HIRE_CUSTOMER_ID", "1045573188")  # Hire / History Makers
 
+# Overrides manuais: nome_normalizado (sem prefixo AD##) → youtube_video_id
+_GADS_VIDEO_OVERRIDES: dict = {
+    "trabalhe remoto": "2aO86hvDOZc",
+}
+
 HIRE_FUNIS_SHEET_ID   = "1l6_bsucWh3CZKhBZpqBykPJuYT3GQ5ZehAR5IAXd8kg"
 HIRE_MALU_TRACKER_ID  = "1SVz6Eti4E6hkOpgVjOeYkQ3XvDuYuVYmSWOj_cWYvPM"
 # Row 1 (index 1) of IG Malu tracker "dados" = 05/02/2024 (daily sequential; last data row 777 = 22/03/2026)
@@ -4034,6 +4039,9 @@ def _hf_fetch_youtube_tab(date_start=None, date_end=None) -> dict:
                 conv  = int(v["conv"])
                 ctr   = round(v["cli"] / v["imp"] * 100, 2) if v["imp"] else 0.0
                 yt_id = yt_id_map.get(v["asset_name"], "") if v["asset_name"] else ""
+                if not yt_id:
+                    ad_norm = _norm(_re.sub(r'^AD\d+\s*[-–]\s*', '', v["nome"], flags=_re.I))
+                    yt_id = _GADS_VIDEO_OVERRIDES.get(ad_norm, "")
                 anuncios.append({
                     "nome":       v["nome"],
                     "status":     v["status"],
