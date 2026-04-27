@@ -3749,26 +3749,31 @@ def _hf_yt_creds():
     )
 
 def _hf_yt_save_token(refresh_token: str):
-    """Salva refresh token em memória e tenta atualizar Railway env var."""
+    """Salva refresh token em memória e persiste via Railway GraphQL API."""
     global _hf_yt_refresh_token
     _hf_yt_refresh_token = refresh_token
-    # Atualiza Railway env var para persistir entre restarts
     try:
-        import urllib.request, urllib.parse
-        railway_token = os.getenv("RAILWAY_API_TOKEN", "59ebb371-ae49-4f10-9c19-f48b5ff68cc7")
-        service_id    = os.getenv("RAILWAY_SERVICE_ID", "3823c566-ffa2-41cd-9af9-f2987ac12a66")
-        env_id        = os.getenv("RAILWAY_ENVIRONMENT_ID", "")
-        # usa Railway REST API v2
-        payload = json.dumps({"serviceId": service_id, "variables": {"HIRE_YT_REFRESH_TOKEN": refresh_token}}).encode()
+        import urllib.request
+        railway_token = "59ebb371-ae49-4f10-9c19-f48b5ff68cc7"
+        project_id    = "eee66ab4-b588-43eb-af03-215969c7613c"
+        env_id        = "db88ab42-2197-4b3e-9766-cc3df3cf4506"
+        service_id    = "3823c566-ffa2-41cd-9af9-f2987ac12a66"
+        mutation = json.dumps({"query": (
+            f'mutation {{ variableUpsert(input: {{'
+            f'  projectId: "{project_id}", environmentId: "{env_id}",'
+            f'  serviceId: "{service_id}", name: "HIRE_YT_REFRESH_TOKEN",'
+            f'  value: "{refresh_token}"'
+            f'}}) }}'
+        )})
         req = urllib.request.Request(
             "https://backboard.railway.app/graphql/v2",
-            data=json.dumps({"query": f'mutation {{ variableCollectionUpsert(input: {{ serviceId: "{service_id}", variables: {{ HIRE_YT_REFRESH_TOKEN: "{refresh_token}" }} }}) }}'}).encode(),
+            data=mutation.encode(),
             headers={"Content-Type": "application/json", "Authorization": f"Bearer {railway_token}"},
             method="POST",
         )
         urllib.request.urlopen(req, timeout=10)
     except Exception:
-        pass  # salvo em memória de qualquer forma
+        pass
 
 
 def _hf_fetch_youtube_tab(date_start=None, date_end=None) -> dict:

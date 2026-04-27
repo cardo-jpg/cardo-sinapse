@@ -2153,15 +2153,7 @@ async function loadYoutube() {
 
   // ── Table: Vídeos ────────────────────────────────────────────────────────────
   if (authorized) {
-    // Filtra só vídeos que têm anúncio ativo no Google Ads
-    const adVideoIds = new Set(
-      (d.anuncios || [])
-        .filter(a => a.video_url)
-        .map(a => new URL(a.video_url).searchParams.get('v'))
-        .filter(Boolean)
-    );
-    const allVideos = analytics.videos || [];
-    const videos = adVideoIds.size > 0 ? allVideos.filter(v => adVideoIds.has(v.id)) : allVideos;
+    const videos = analytics.videos || [];
     let htmlV = videos.map(v => `
       <tr>
         <td class="vid-title" title="${v.titulo}">${v.titulo}</td>
