@@ -365,8 +365,11 @@ def _wici2_fetch_metrics(date_start=None, date_end=None, profile: str = "") -> d
     # ── Médias diárias ────────────────────────────────────────────────────────
     today    = datetime.now().date()
     ref_date = date_end if date_end else today
-    base_date = data_inicio_geral if data_inicio_geral else (min(all_ws_dates) if all_ws_dates else ref_date)
-    dias_vendendo = max(1, (ref_date - base_date).days)
+    if date_start:
+        base_date = date_start
+    else:
+        base_date = data_inicio_geral if data_inicio_geral else (min(all_ws_dates) if all_ws_dates else ref_date)
+    dias_vendendo = max(1, (ref_date - base_date).days + 1)
 
     media_geral   = round(ws_total       / dias_vendendo, 1)
     media_org     = round(ws_org         / dias_vendendo, 1)
