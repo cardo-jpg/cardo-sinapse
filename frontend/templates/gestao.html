@@ -447,9 +447,9 @@
     .group-select:focus { outline: none; border-color: var(--accent); }
 
     .filter-panel {
-      position: absolute; top: calc(100% + 6px); left: 0; z-index: 900;
+      position: absolute; top: calc(100% + 6px); right: 0; z-index: 900;
       background: #1a1a1a; border: 1px solid #2e2e2e; border-radius: 10px;
-      padding: 14px 16px; box-shadow: 0 8px 24px #000a; min-width: 480px;
+      padding: 14px 16px; box-shadow: 0 8px 24px #000a; min-width: 420px;
     }
     .filter-panel-title { font-size: .7rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 10px; }
     .filter-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
@@ -1399,6 +1399,9 @@
           <div class="filter-panel-title">Filtros</div>
           <template x-for="f in filters" :key="f.id">
             <div class="filter-row">
+              <button @click="removeFilter(f.id)"
+                      style="background:none;border:none;color:#555;cursor:pointer;padding:2px 6px;font-size:.8rem;flex-shrink:0"
+                      title="Remover filtro">✕</button>
               <span class="filter-field-tag" x-text="f.fieldLabel"></span>
               <select class="group-select" x-model="f.operator">
                 <template x-for="op in filterOperators(f.fieldType)" :key="op.v">
@@ -1420,7 +1423,6 @@
                   </template>
                 </span>
               </template>
-              <button @click="removeFilter(f.id)" style="background:none;border:none;color:#555;cursor:pointer;padding:2px 6px;font-size:.8rem;margin-left:auto">✕</button>
             </div>
           </template>
           <div style="position:relative;display:inline-block">
