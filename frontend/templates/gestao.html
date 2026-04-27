@@ -1376,10 +1376,32 @@
         <button class="view-btn" :class="view==='list'?'active':''" @click="view='list'">☰ Lista</button>
         <button class="view-btn" :class="view==='kanban'?'active':''" @click="view='kanban'">⬜ Kanban</button>
       </div>
-      <button class="view-btn" x-show="activeList && view==='list'"
-              :class="groupPanel ? 'active' : ''"
-              @click="groupPanel=!groupPanel" title="Agrupar por"
-              style="margin-left:4px">⊟ Agrupar</button>
+      <div x-show="activeList && view==='list'" style="position:relative;margin-left:4px">
+        <button class="view-btn" :class="groupPanel ? 'active' : ''"
+                @click.stop="groupPanel=!groupPanel" title="Agrupar por">⊟ Agrupar</button>
+        <div class="group-panel" x-show="groupPanel" @click.outside="groupPanel=false" x-cloak
+             style="position:absolute;top:calc(100% + 6px);left:0;z-index:900">
+          <div class="group-panel-title">Agrupar por</div>
+          <div class="group-panel-row">
+            <select class="group-select" x-model="groupBy" @change="collapsedGroups={}">
+              <option value="">— Sem agrupamento —</option>
+              <option value="status">Status</option>
+              <option value="responsavel">Responsável</option>
+              <option value="prioridade">Prioridade</option>
+              <option value="prazo">Prazo</option>
+              <template x-for="cf in (activeList?.custom_fields||[]).filter(c=>c.type==='dropdown')" :key="cf.id">
+                <option :value="'cf_'+cf.id" x-text="cf.name"></option>
+              </template>
+            </select>
+            <select class="group-select" x-model="groupDir" x-show="groupBy">
+              <option value="asc">Crescente</option>
+              <option value="desc">Decrescente</option>
+            </select>
+            <button x-show="groupBy" @click="groupBy=''; collapsedGroups={}"
+                    style="background:none;border:none;color:#555;cursor:pointer;font-size:1rem;padding:4px" title="Remover agrupamento">🗑</button>
+          </div>
+        </div>
+      </div>
       <button class="view-btn" x-show="activeList && view==='list'"
               :class="colsPanel ? 'active' : ''"
               @click="colsPanel=!colsPanel" title="Personalizar colunas"
@@ -1777,31 +1799,6 @@
           </div>
         </div>
       </template>
-    </div>
-  </template>
-
-  <!-- ── Group by panel ────────────────────────────────────────────────────── -->
-  <template x-if="groupPanel">
-    <div class="group-panel" x-init="positionGroupPanel()" @click.outside="groupPanel=false" x-cloak id="group-panel">
-      <div class="group-panel-title">Agrupar por</div>
-      <div class="group-panel-row">
-        <select class="group-select" x-model="groupBy" @change="collapsedGroups={}">
-          <option value="">— Sem agrupamento —</option>
-          <option value="status">Status</option>
-          <option value="responsavel">Responsável</option>
-          <option value="prioridade">Prioridade</option>
-          <option value="prazo">Prazo</option>
-          <template x-for="cf in (activeList?.custom_fields||[]).filter(c=>c.type==='dropdown')" :key="cf.id">
-            <option :value="'cf_'+cf.id" x-text="cf.name"></option>
-          </template>
-        </select>
-        <select class="group-select" x-model="groupDir" x-show="groupBy">
-          <option value="asc">Crescente</option>
-          <option value="desc">Decrescente</option>
-        </select>
-        <button x-show="groupBy" @click="groupBy=''; collapsedGroups={}"
-                style="background:none;border:none;color:#555;cursor:pointer;font-size:1rem;padding:4px" title="Remover agrupamento">🗑</button>
-      </div>
     </div>
   </template>
 
@@ -3509,18 +3506,6 @@ document.addEventListener('alpine:init', () => {
     },
     toggleGroup(key) {
       this.collapsedGroups = { ...this.collapsedGroups, [key]: !this.collapsedGroups[key] };
-    },
-    positionGroupPanel() {
-      this.$nextTick(() => {
-        const btn = document.querySelector('[title="Agrupar por"]');
-        const panel = document.getElementById('group-panel');
-        if (!btn || !panel) return;
-        const r = btn.getBoundingClientRect();
-        let x = r.left, y = r.bottom + 6;
-        if (x + 360 > window.innerWidth) x = window.innerWidth - 365;
-        panel.style.top = y + 'px';
-        panel.style.left = x + 'px';
-      });
     },
     openColMenu(key, label, e) {
       const r = e.currentTarget.getBoundingClientRect();
