@@ -3106,6 +3106,8 @@ async def get_wici2_lp(
 GADS_DEVELOPER_TOKEN     = os.getenv("GADS_DEVELOPER_TOKEN", "")
 GADS_CLIENT_ID           = os.getenv("GADS_CLIENT_ID", "")
 GADS_CLIENT_SECRET       = os.getenv("GADS_CLIENT_SECRET", "")
+HIRE_YT_CLIENT_ID        = os.getenv("HIRE_YT_CLIENT_ID", "") or GADS_CLIENT_ID
+HIRE_YT_CLIENT_SECRET    = os.getenv("HIRE_YT_CLIENT_SECRET", "") or GADS_CLIENT_SECRET
 GADS_REFRESH_TOKEN       = os.getenv("GADS_REFRESH_TOKEN", "")
 GADS_HIRE_CUSTOMER_ID    = os.getenv("GADS_HIRE_CUSTOMER_ID", "1045573188")  # Hire / History Makers
 
@@ -4052,8 +4054,8 @@ async def hire_yt_auth(request: Request):
         redirect_uri = f"{base}/api/hire/funis/youtube/callback"
         flow = Flow.from_client_config(
             {"web": {
-                "client_id":     GADS_CLIENT_ID,
-                "client_secret": GADS_CLIENT_SECRET,
+                "client_id":     HIRE_YT_CLIENT_ID,
+                "client_secret": HIRE_YT_CLIENT_SECRET,
                 "redirect_uris": [redirect_uri],
                 "auth_uri":      "https://accounts.google.com/o/oauth2/auth",
                 "token_uri":     "https://oauth2.googleapis.com/token",
@@ -4091,8 +4093,8 @@ async def hire_yt_callback(request: Request, code: str = None, error: str = None
         redirect_uri = f"{base}/api/hire/funis/youtube/callback"
         flow = Flow.from_client_config(
             {"web": {
-                "client_id":     GADS_CLIENT_ID,
-                "client_secret": GADS_CLIENT_SECRET,
+                "client_id":     HIRE_YT_CLIENT_ID,
+                "client_secret": HIRE_YT_CLIENT_SECRET,
                 "redirect_uris": [redirect_uri],
                 "auth_uri":      "https://accounts.google.com/o/oauth2/auth",
                 "token_uri":     "https://oauth2.googleapis.com/token",
