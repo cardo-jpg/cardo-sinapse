@@ -3730,47 +3730,45 @@ async def put_hire_funis_budget(request: Request):
 
 # ── YouTube Tab ───────────────────────────────────────────────────────────────
 
-def _hf_yt_creds():
-    """Load YouTube OAuth2 credentials from HF_Config sheet (yt_refresh_token row)."""
-    try:
-        import google.oauth2.credentials
-        svc = _hf_budget_svc()
-        rows = svc.get(
-            spreadsheetId=HIRE_FUNIS_SHEET_ID, range="HF_Config!A2:B"
-        ).execute().get("values", [])
-        config = {r[0]: r[1] for r in rows if len(r) >= 2}
-        rt = config.get("yt_refresh_token", "")
-        if not rt:
-            return None
-        return google.oauth2.credentials.Credentials(
-            token=None,
-            refresh_token=rt,
-            token_uri="https://oauth2.googleapis.com/token",
-            client_id=GADS_CLIENT_ID,
-            client_secret=GADS_CLIENT_SECRET,
-        )
-    except Exception:
-        return None
+# Armazena refresh token em memória (persiste até restart; também salvo via Railway API)
+_hf_yt_refresh_token: str = os.getenv("HIRE_YT_REFRESH_TOKEN", "")
 
+def _hf_yt_creds():
+    """Load YouTube OAuth2 credentials from env var."""
+    global _hf_yt_refresh_token
+    rt = _hf_yt_refresh_token or os.getenv("HIRE_YT_REFRESH_TOKEN", "")
+    if not rt:
+        return None
+    import google.oauth2.credentials
+    return google.oauth2.credentials.Credentials(
+        token=None,
+        refresh_token=rt,
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=HIRE_YT_CLIENT_ID,
+        client_secret=HIRE_YT_CLIENT_SECRET,
+    )
 
 def _hf_yt_save_token(refresh_token: str):
-    """Persist YouTube refresh_token to HF_Config sheet (upsert by key)."""
-    svc = _hf_budget_svc()
+    """Salva refresh token em memória e tenta atualizar Railway env var."""
+    global _hf_yt_refresh_token
+    _hf_yt_refresh_token = refresh_token
+    # Atualiza Railway env var para persistir entre restarts
     try:
-        rows = svc.get(
-            spreadsheetId=HIRE_FUNIS_SHEET_ID, range="HF_Config!A2:B"
-        ).execute().get("values", [])
+        import urllib.request, urllib.parse
+        railway_token = os.getenv("RAILWAY_API_TOKEN", "59ebb371-ae49-4f10-9c19-f48b5ff68cc7")
+        service_id    = os.getenv("RAILWAY_SERVICE_ID", "3823c566-ffa2-41cd-9af9-f2987ac12a66")
+        env_id        = os.getenv("RAILWAY_ENVIRONMENT_ID", "")
+        # usa Railway REST API v2
+        payload = json.dumps({"serviceId": service_id, "variables": {"HIRE_YT_REFRESH_TOKEN": refresh_token}}).encode()
+        req = urllib.request.Request(
+            "https://backboard.railway.app/graphql/v2",
+            data=json.dumps({"query": f'mutation {{ variableCollectionUpsert(input: {{ serviceId: "{service_id}", variables: {{ HIRE_YT_REFRESH_TOKEN: "{refresh_token}" }} }}) }}'}).encode(),
+            headers={"Content-Type": "application/json", "Authorization": f"Bearer {railway_token}"},
+            method="POST",
+        )
+        urllib.request.urlopen(req, timeout=10)
     except Exception:
-        rows = []
-    new_rows = [[r[0], r[1]] for r in rows if len(r) >= 2 and r[0] != "yt_refresh_token"]
-    new_rows.append(["yt_refresh_token", refresh_token])
-    svc.clear(spreadsheetId=HIRE_FUNIS_SHEET_ID, range="HF_Config!A2:B").execute()
-    svc.update(
-        spreadsheetId=HIRE_FUNIS_SHEET_ID,
-        range="HF_Config!A2:B",
-        valueInputOption="RAW",
-        body={"values": new_rows},
-    ).execute()
+        pass  # salvo em memória de qualquer forma
 
 
 def _hf_fetch_youtube_tab(date_start=None, date_end=None) -> dict:
