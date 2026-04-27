@@ -1382,19 +1382,34 @@
     <template x-if="mainMode === 'tasks' && activeList && !loading && view==='list'">
       <div class="task-list">
         <div class="task-list-header" :style="'grid-template-columns:'+gridCols">
-          <span class="col-header-resizable">Tarefa
+          <span class="col-header-resizable">
+            <span class="cf-col-header-label" @click.stop="openColMenu('tarefa','Tarefa',$event)">
+              <span>Tarefa</span><span style="opacity:.4;font-size:.65rem">⌄</span>
+            </span>
             <div class="col-resizer" @mousedown.prevent="startColResize('tarefa',$event)"></div>
           </span>
-          <span x-show="cols.status" class="col-header-resizable">Status
+          <span x-show="cols.status" class="col-header-resizable">
+            <span class="cf-col-header-label" @click.stop="openColMenu('status','Status',$event)">
+              <span>Status</span><span style="opacity:.4;font-size:.65rem">⌄</span>
+            </span>
             <div class="col-resizer" @mousedown.prevent="startColResize('status',$event)"></div>
           </span>
-          <span x-show="cols.responsavel" class="col-header-resizable">Responsável
+          <span x-show="cols.responsavel" class="col-header-resizable">
+            <span class="cf-col-header-label" @click.stop="openColMenu('responsavel','Responsável',$event)">
+              <span>Responsável</span><span style="opacity:.4;font-size:.65rem">⌄</span>
+            </span>
             <div class="col-resizer" @mousedown.prevent="startColResize('responsavel',$event)"></div>
           </span>
-          <span x-show="cols.prioridade" class="col-header-resizable">Prioridade
+          <span x-show="cols.prioridade" class="col-header-resizable">
+            <span class="cf-col-header-label" @click.stop="openColMenu('prioridade','Prioridade',$event)">
+              <span>Prioridade</span><span style="opacity:.4;font-size:.65rem">⌄</span>
+            </span>
             <div class="col-resizer" @mousedown.prevent="startColResize('prioridade',$event)"></div>
           </span>
-          <span x-show="cols.prazo" class="col-header-resizable">Prazo
+          <span x-show="cols.prazo" class="col-header-resizable">
+            <span class="cf-col-header-label" @click.stop="openColMenu('prazo','Prazo',$event)">
+              <span>Prazo</span><span style="opacity:.4;font-size:.65rem">⌄</span>
+            </span>
             <div class="col-resizer" @mousedown.prevent="startColResize('prazo',$event)"></div>
           </span>
           <template x-for="cf in (activeList?.custom_fields||[])" :key="cf.id">
@@ -1693,25 +1708,33 @@
     </div>
   </template>
 
-  <!-- ── CF column header menu ─────────────────────────────────────────────── -->
-  <template x-if="cfHeaderMenuCf">
+  <!-- ── Column header menu (built-in + custom) ────────────────────────────── -->
+  <template x-if="colMenu">
     <div class="cf-header-menu"
-         :style="`top:${cfHeaderMenuPos.y}px; left:${cfHeaderMenuPos.x}px`"
-         @click.outside="cfHeaderMenuCf=null" x-cloak>
-      <div class="cf-header-menu-item" @click="sortByCf(cfHeaderMenuCf,'asc'); cfHeaderMenuCf=null">
+         :style="`top:${colMenuPos.y}px; left:${colMenuPos.x}px`"
+         @click.outside="colMenu=null" x-cloak>
+      <div class="cf-header-menu-item" @click="sortByCol(colMenu,'asc'); colMenu=null">
         <span>↑</span><span>Ordenar A → Z</span>
       </div>
-      <div class="cf-header-menu-item" @click="sortByCf(cfHeaderMenuCf,'desc'); cfHeaderMenuCf=null">
+      <div class="cf-header-menu-item" @click="sortByCol(colMenu,'desc'); colMenu=null">
         <span>↓</span><span>Ordenar Z → A</span>
       </div>
-      <div class="cf-header-menu-sep"></div>
-      <div class="cf-header-menu-item" @click="cfCols[cfHeaderMenuCf.id]=false; cfHeaderMenuCf=null">
-        <span>◻</span><span>Ocultar coluna</span>
-      </div>
-      <div class="cf-header-menu-sep"></div>
-      <div class="cf-header-menu-item danger" @click="deleteCustomField(cfHeaderMenuCf.id); cfHeaderMenuCf=null">
-        <span>🗑</span><span>Excluir campo</span>
-      </div>
+      <template x-if="colMenu.key !== 'tarefa'">
+        <div>
+          <div class="cf-header-menu-sep"></div>
+          <div class="cf-header-menu-item" @click="hideCol(colMenu); colMenu=null">
+            <span>◻</span><span>Ocultar coluna</span>
+          </div>
+        </div>
+      </template>
+      <template x-if="colMenu.cf">
+        <div>
+          <div class="cf-header-menu-sep"></div>
+          <div class="cf-header-menu-item danger" @click="deleteCustomField(colMenu.cf.id); colMenu=null">
+            <span>🗑</span><span>Excluir campo</span>
+          </div>
+        </div>
+      </template>
     </div>
   </template>
 
@@ -2959,8 +2982,8 @@ document.addEventListener('alpine:init', () => {
     cfPickerTask: null,
     cfPickerCf: null,
     cfPickerPos: { x: 0, y: 0 },
-    cfHeaderMenuCf: null,
-    cfHeaderMenuPos: { x: 0, y: 0 },
+    colMenu: null,
+    colMenuPos: { x: 0, y: 0 },
     get gridCols() {
       const locked = this.colWidths.tarefa > 0;
       let c = locked ? `${this.colWidths.tarefa}px` : '1fr';
@@ -3330,17 +3353,36 @@ document.addEventListener('alpine:init', () => {
       this.cfPickerTask = null;
       this.cfPickerCf = null;
     },
+    openColMenu(key, label, e) {
+      const r = e.currentTarget.getBoundingClientRect();
+      let x = r.left, y = r.bottom + 4;
+      if (x + 210 > window.innerWidth) x = window.innerWidth - 215;
+      this.colMenu = { key, label };
+      this.colMenuPos = { x, y };
+    },
     openCfHeaderMenu(cf, e) {
       const r = e.currentTarget.getBoundingClientRect();
       let x = r.left, y = r.bottom + 4;
       if (x + 210 > window.innerWidth) x = window.innerWidth - 215;
-      this.cfHeaderMenuCf = cf;
-      this.cfHeaderMenuPos = { x, y };
+      this.colMenu = { key: cf.id, label: cf.name, cf };
+      this.colMenuPos = { x, y };
     },
-    sortByCf(cf, dir) {
+    hideCol(colMenu) {
+      if (colMenu.cf) { this.cfCols[colMenu.cf.id] = false; }
+      else { this.cols[colMenu.key] = false; }
+    },
+    sortByCol(colMenu, dir) {
+      const key = colMenu.key;
+      const valOf = task => {
+        if (colMenu.cf) return (task.cf_values?.[key] || '').toLowerCase();
+        if (key === 'status')      return (this.statusObj(task.status)?.name || '').toLowerCase();
+        if (key === 'responsavel') return (task.assignees?.[0] || '').toLowerCase();
+        if (key === 'prioridade')  return (task.priority || '').toLowerCase();
+        if (key === 'prazo')       return task.due_date || '';
+        return (task[key] || '').toString().toLowerCase();
+      };
       this.tasks = [...this.tasks].sort((a, b) => {
-        const va = (a.cf_values?.[cf.id] || '').toLowerCase();
-        const vb = (b.cf_values?.[cf.id] || '').toLowerCase();
+        const va = valOf(a), vb = valOf(b);
         if (!va && !vb) return 0;
         if (!va) return 1;
         if (!vb) return -1;
