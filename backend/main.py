@@ -3939,6 +3939,7 @@ def _hf_fetch_youtube_tab(date_start=None, date_end=None) -> dict:
 
             # Q3b: tenta buscar assets de video_responsive_ad
             asset_names: set = set()
+            yt_id_map:   dict = {}   # resource_name / marker → youtube_video_id
             try:
                 q3b = f"""
                     SELECT ad_group_ad.ad.id, ad_group_ad.ad.video_responsive_ad.videos
@@ -3985,38 +3986,34 @@ def _hf_fetch_youtube_tab(date_start=None, date_end=None) -> dict:
                 except Exception:
                     pass
 
-            # Q3d: busca todos assets YouTube da conta → lookup por resource_name e por nome
-            asset_name_map: dict = {}  # asset.name.lower → youtube_video_id
+            # Q3d: resource 'video' da conta → title.lower → youtube_video_id
+            title_to_vid: dict = {}
             try:
-                q3d = """
-                    SELECT asset.resource_name, asset.name,
-                           asset.youtube_video_asset.youtube_video_id
-                    FROM asset
-                    WHERE asset.type = 'YOUTUBE_VIDEO'
-                """
+                q3d = "SELECT video.id, video.title FROM video"
                 for r in ga_svc.search(customer_id=GADS_HIRE_CUSTOMER_ID, query=q3d):
-                    vid_id = r.asset.youtube_video_asset.youtube_video_id
-                    if vid_id:
-                        yt_id_map[r.asset.resource_name] = vid_id
-                        if r.asset.name:
-                            asset_name_map[r.asset.name.lower().strip()] = vid_id
-            except Exception:
-                pass
+                    if r.video.id and r.video.title:
+                        title_to_vid[r.video.title.lower().strip()] = r.video.id
+                print(f"[hf_yt q3d] {len(title_to_vid)} vídeos encontrados", flush=True)
+            except Exception as e:
+                print(f"[hf_yt q3d err] {e}", flush=True)
 
-            # Para anúncios ainda sem vídeo, tenta match por nome
+            # Para anúncios sem vídeo, match por título (remove prefixo "AD13 - ")
+            import re as _re, unicodedata as _ud
+            def _norm(s):
+                return _ud.normalize("NFD", s).encode("ascii", "ignore").decode().lower().strip()
             for aid, v in ads_map.items():
-                if v["asset_name"] is not None or not asset_name_map:
+                if v["asset_name"] is not None or not title_to_vid:
                     continue
-                ad_lower = v["nome"].lower().strip()
-                for aname, vid_id in asset_name_map.items():
-                    if aname in ad_lower or ad_lower in aname:
+                ad_norm = _norm(_re.sub(r'^AD\d+\s*[-–]\s*', '', v["nome"], flags=_re.I))
+                for title_raw, vid_id in title_to_vid.items():
+                    title_norm = _norm(title_raw)
+                    if title_norm in ad_norm or ad_norm in title_norm:
                         marker = f"__yt__{vid_id}"
                         v["asset_name"] = marker
                         yt_id_map[marker] = vid_id
                         break
 
-            # Q4: busca youtube_video_id dos assets coletados
-            yt_id_map: dict = {}
+            # Q4: busca youtube_video_id dos assets coletados via Q3b/Q3c
             if asset_names:
                 try:
                     names_filter = ", ".join(f"'{n}'" for n in asset_names)
