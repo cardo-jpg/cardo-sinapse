@@ -1101,8 +1101,8 @@
         <!-- locked placeholder (shown when not authorized) -->
         <div id="ytSubLocked" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;gap:10px;color:rgba(255,255,255,.3)">
           <span style="font-size:1.6rem">🔒</span>
-          <span style="font-size:.8rem">Requer YouTube Analytics</span>
-          <button class="yt-auth-btn" style="margin-top:4px;font-size:.75rem;padding:6px 14px" onclick="ytAuth()">Autorizar</button>
+          <span style="font-size:.8rem;text-align:center">Conectar YouTube da Malu<br><span style="font-size:.7rem;opacity:.6">Use a conta Google pessoal da Malu</span></span>
+          <button class="yt-auth-btn" style="margin-top:4px;font-size:.75rem;padding:6px 14px" onclick="ytAuth()">Conectar</button>
         </div>
         <div class="yt-chart-canvas-wrap" id="ytSubChartWrap" style="display:none">
           <canvas id="ytSubChart"></canvas>
@@ -1138,26 +1138,6 @@
       </div>
     </div>
 
-    <!-- Table: Vídeos (YouTube Analytics) -->
-    <div class="hf-table-section" id="ytVideosSection" style="display:none">
-      <div class="hf-table-label">Performance Vídeo — YouTube Studio</div>
-      <div class="hf-table-wrap">
-        <table class="hf-table">
-          <thead>
-            <tr>
-              <th>Título</th>
-              <th class="num">Link</th>
-              <th class="num">Novos Inscritos</th>
-              <th class="num">Visualizações</th>
-              <th class="num">Curtidas</th>
-              <th class="num">Compart.</th>
-              <th class="num">Média Visualização</th>
-            </tr>
-          </thead>
-          <tbody id="ytVideosTbody"></tbody>
-        </table>
-      </div>
-    </div>
 
   </div><!-- /viewYoutube -->
 
@@ -2033,7 +2013,6 @@ async function loadYoutube() {
   // Inscritos card: show lock or chart
   document.getElementById('ytSubLocked').style.display    = authorized ? 'none' : 'flex';
   document.getElementById('ytSubChartWrap').style.display = authorized ? ''     : 'none';
-  document.getElementById('ytVideosSection').style.display = authorized ? ''    : 'none';
 
   // ── Chart 1: Inscritos (YouTube Analytics daily) ──────────────────────────
   if (_ytSubChart)  { _ytSubChart.destroy();  _ytSubChart  = null; }

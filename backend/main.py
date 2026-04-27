@@ -4071,11 +4071,9 @@ def _hf_fetch_youtube_tab(date_start=None, date_end=None) -> dict:
                 creds.refresh(GRequest())
 
             yt_an = gapi_build("youtubeAnalytics", "v2", credentials=creds)
-            malu_ch = _resolve_malu_channel_id(creds)
-            ch_ids = f"channel=={malu_ch}"
 
             resp = yt_an.reports().query(
-                ids=ch_ids,
+                ids="channel==MINE",
                 startDate=ds,
                 endDate=de,
                 metrics="subscribersGained,subscribersLost",
@@ -4088,7 +4086,7 @@ def _hf_fetch_youtube_tab(date_start=None, date_end=None) -> dict:
             ]
 
             resp_v = yt_an.reports().query(
-                ids=ch_ids,
+                ids="channel==MINE",
                 startDate=ds,
                 endDate=de,
                 metrics="views,likes,shares,averageViewDuration,subscribersGained",
