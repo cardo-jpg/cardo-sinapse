@@ -360,6 +360,7 @@
         <!-- Presets -->
         <div class="preset-tabs" id="presetTabs">
           <button class="preset-tab" data-preset="today"     onclick="setPreset(this)">Hoje</button>
+          <button class="preset-tab" data-preset="2d"        onclick="setPreset(this)">2 dias</button>
           <button class="preset-tab" data-preset="3d"        onclick="setPreset(this)">3 dias</button>
           <button class="preset-tab" data-preset="7d"        onclick="setPreset(this)">7 dias</button>
           <button class="preset-tab" data-preset="30d"       onclick="setPreset(this)">30 dias</button>
@@ -1046,6 +1047,7 @@ function setPreset(btn) {
   const fmt = d => d.toISOString().slice(0,10);
 
   if      (state.preset === 'today')     { state.dateStart = fmt(today); state.dateEnd = fmt(today); }
+  else if (state.preset === '2d')        { const s=new Date(today); s.setDate(s.getDate()-1);  state.dateStart=fmt(s); state.dateEnd=fmt(today); }
   else if (state.preset === '3d')        { const s=new Date(today); s.setDate(s.getDate()-2);  state.dateStart=fmt(s); state.dateEnd=fmt(today); }
   else if (state.preset === '7d')        { const s=new Date(today); s.setDate(s.getDate()-6);  state.dateStart=fmt(s); state.dateEnd=fmt(today); }
   else if (state.preset === '30d')       { const s=new Date(today); s.setDate(s.getDate()-29); state.dateStart=fmt(s); state.dateEnd=fmt(today); }
