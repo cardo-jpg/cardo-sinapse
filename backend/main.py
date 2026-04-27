@@ -3823,28 +3823,26 @@ def _hf_fetch_youtube_tab(date_start=None, date_end=None) -> dict:
         except Exception as e:
             kpis["q1_error"] = str(e)
 
-        # ── Q2: Subscription conversions — same pattern as working _hf_fetch_yt_gads
-        # Must include segments.conversion_action_name in SELECT when filtering by it.
-        # Do NOT combine with segments.date in same query (GAQL segment incompatibility).
+        # ── Q2: Subscription conversions por dia
         try:
             q2 = f"""
-                SELECT segments.conversion_action_name, metrics.conversions
+                SELECT segments.date, segments.conversion_action_name, metrics.conversions
                 FROM campaign
                 WHERE {dc} AND {yf}
                   AND segments.conversion_action_name = 'YouTube channel subscriptions'
             """
-            tot_ins = int(sum(
-                r.metrics.conversions
-                for r in ga_svc.search(customer_id=GADS_HIRE_CUSTOMER_ID, query=q2)
-            ))
+            daily_ins: dict = {}
+            for r in ga_svc.search(customer_id=GADS_HIRE_CUSTOMER_ID, query=q2):
+                d_key = r.segments.date
+                daily_ins[d_key] = daily_ins.get(d_key, 0) + int(r.metrics.conversions)
+            tot_ins = sum(daily_ins.values())
             kpis["inscritos"]      = tot_ins
             kpis["custo_inscrito"] = round(kpis["investido"] / tot_ins, 2) if tot_ins else 0.0
-            # backfill daily ins equally (no day-level data from this query)
-            if serie_gads_map:
-                days = sorted(serie_gads_map.keys())
-                per_day = tot_ins / len(days) if days else 0
-                for d_key in days:
-                    serie_gads_map[d_key]["ins"] = round(per_day, 1)
+            # preenche série diária com dados reais por dia
+            for d_key, ins in daily_ins.items():
+                if d_key not in serie_gads_map:
+                    serie_gads_map[d_key] = {"inv": 0.0, "ins": 0}
+                serie_gads_map[d_key]["ins"] = ins
         except Exception as e:
             kpis["q2_error"] = str(e)
 
