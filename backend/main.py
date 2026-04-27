@@ -4070,7 +4070,16 @@ async def hire_yt_auth(request: Request):
             access_type="offline",
             include_granted_scopes="false",
             prompt="consent",
+            code_challenge_method=None,
         )
+        # Remove code_challenge params if present (not supported without PKCE storage)
+        from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+        parsed = urlparse(auth_url)
+        params = parse_qs(parsed.query, keep_blank_values=True)
+        params.pop("code_challenge", None)
+        params.pop("code_challenge_method", None)
+        clean_query = urlencode({k: v[0] for k, v in params.items()})
+        auth_url = urlunparse(parsed._replace(query=clean_query))
         return JSONResponse({"auth_url": auth_url, "redirect_uri": redirect_uri})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
