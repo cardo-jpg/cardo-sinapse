@@ -540,7 +540,7 @@
     .assignee-cell { font-size: .85rem; color: var(--muted); }
     .assignee-avatar {
       display: inline-flex; align-items: center; justify-content: center;
-      width: 22px; height: 22px; border-radius: 50%; font-size: .65rem; font-weight: 700; color: #fff;
+      width: 22px; height: 22px; border-radius: 50%; font-size: .65rem; font-weight: 700; color: #aaa;
     }
 
     .due-cell { font-size: .83rem; }
@@ -1438,7 +1438,7 @@
             <!-- Members -->
             <template x-for="m in members.filter(m=>!assigneePanelQ||m.name.toLowerCase().includes(assigneePanelQ.toLowerCase()))" :key="m.id">
               <div class="assignee-panel-item" @click="toggleAssigneeFilter(m.id)">
-                <div class="assignee-panel-avatar" :style="`background:${m.id==='victor'?'#19196c':'#166534'};color:#fff`" x-text="m.name.charAt(0)"></div>
+                <div class="assignee-panel-avatar" :style="`background:#2a2a2a;color:#aaa`" x-text="m.name.charAt(0)"></div>
                 <span class="assignee-panel-name" x-text="m.name"></span>
                 <span class="assignee-panel-count" x-text="assigneeCounts[m.id] || 0"></span>
                 <div class="assignee-panel-check" :class="assigneeFilter.includes(m.id) ? 'checked' : ''">
@@ -1652,7 +1652,7 @@
                   <template x-if="row.task.assignees && row.task.assignees.length">
                     <span>
                       <template x-for="a in row.task.assignees" :key="a">
-                        <span class="assignee-avatar" :style="`background:${a==='victor'?'#19196c':'#166534'}`" x-text="memberName(a).charAt(0)" :title="memberName(a)"></span>
+                        <span class="assignee-avatar" :style="`background:#2a2a2a`" x-text="memberName(a).charAt(0)" :title="memberName(a)"></span>
                       </template>
                     </span>
                   </template>
@@ -3537,7 +3537,7 @@ document.addEventListener('alpine:init', () => {
     dueCss(d) {
       if(!d) return '';
       const diff=(new Date(d+'T00:00:00')-new Date().setHours(0,0,0,0))/86400000;
-      return diff<0?'due-overdue':diff<=2?'due-soon':'due-normal';
+      return diff<0?'due-overdue':'due-normal';
     },
 
     openCtxMenu(event, type, target, spaceCtx, folderCtx) {
