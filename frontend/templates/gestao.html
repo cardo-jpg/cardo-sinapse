@@ -2445,7 +2445,7 @@
         <template x-for="group in statusGroups" :key="group.id">
           <div>
             <!-- group header -->
-            <div class="sm-group-header" :style="`color:${group.color}`">
+            <div class="sm-group-header" style="color:#fff">
               <span x-text="group.label"></span>
               <button class="sm-group-add" @click="addSmStatus(group.id)" title="Adicionar neste grupo">+</button>
             </div>
