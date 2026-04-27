@@ -3732,6 +3732,24 @@ async def put_hire_funis_budget(request: Request):
 
 # Armazena refresh token em memória (persiste até restart; também salvo via Railway API)
 _hf_yt_refresh_token: str = os.getenv("HIRE_YT_REFRESH_TOKEN", "")
+_hf_malu_channel_id: str = ""  # cached after first resolve
+
+
+def _resolve_malu_channel_id(creds) -> str:
+    """Resolve Malu Osowski's YouTube channel ID via handle lookup; falls back to MINE."""
+    global _hf_malu_channel_id
+    if _hf_malu_channel_id:
+        return _hf_malu_channel_id
+    try:
+        yt_data = gapi_build("youtube", "v3", credentials=creds)
+        r = yt_data.channels().list(part="id,snippet", forHandle="MaluOsowski").execute()
+        items = r.get("items", [])
+        if items:
+            _hf_malu_channel_id = items[0]["id"]
+            return _hf_malu_channel_id
+    except Exception:
+        pass
+    return "MINE"
 
 def _hf_yt_creds():
     """Load YouTube OAuth2 credentials from env var."""
@@ -3968,9 +3986,11 @@ def _hf_fetch_youtube_tab(date_start=None, date_end=None) -> dict:
                 creds.refresh(GRequest())
 
             yt_an = gapi_build("youtubeAnalytics", "v2", credentials=creds)
+            malu_ch = _resolve_malu_channel_id(creds)
+            ch_ids = f"channel=={malu_ch}"
 
             resp = yt_an.reports().query(
-                ids="channel==MINE",
+                ids=ch_ids,
                 startDate=ds,
                 endDate=de,
                 metrics="subscribersGained,subscribersLost",
@@ -3983,7 +4003,7 @@ def _hf_fetch_youtube_tab(date_start=None, date_end=None) -> dict:
             ]
 
             resp_v = yt_an.reports().query(
-                ids="channel==MINE",
+                ids=ch_ids,
                 startDate=ds,
                 endDate=de,
                 metrics="views,likes,shares,averageViewDuration,subscribersGained",
