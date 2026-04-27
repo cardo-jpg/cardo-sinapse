@@ -1820,6 +1820,29 @@
     </div>
   </template>
 
+  <!-- ── Status modal color picker ───────────────────────────────────────── -->
+  <template x-if="smColorPickerStatusId !== null">
+    <div class="cf-color-popover"
+         :style="`top:${smColorPickerPos.y}px;left:${smColorPickerPos.x}px`"
+         @click.outside="smColorPickerStatusId=null" x-cloak>
+      <div class="cf-color-grid">
+        <template x-for="c in cfPalette" :key="c">
+          <div class="cf-color-swatch"
+               :style="`background:${c}`"
+               :class="smStatuses.find(s=>s.id===smColorPickerStatusId)?.color===c ? 'selected' : ''"
+               @click.stop="setSmStatusColor(smColorPickerStatusId,c); smColorPickerStatusId=null"></div>
+        </template>
+        <label class="cf-color-swatch cf-color-plus" title="Cor personalizada">
+          +
+          <input type="color"
+                 :value="smStatuses.find(s=>s.id===smColorPickerStatusId)?.color||'#6b7280'"
+                 @input.stop="setSmStatusColor(smColorPickerStatusId,$event.target.value)"
+                 @change.stop="smColorPickerStatusId=null">
+        </label>
+      </div>
+    </div>
+  </template>
+
   <!-- ── Status picker ────────────────────────────────────────────────────── -->
   <template x-if="statusPickerTask">
     <div class="status-picker"
@@ -2431,9 +2454,8 @@
             <template x-for="s in smStatuses.filter(s => s.group === group.id)" :key="s.id">
               <div class="sm-item">
                 <span class="sm-drag-handle">⠿</span>
-                <div class="sm-color-btn" :style="`background:${s.color}`">
-                  <input type="color" x-model="s.color">
-                </div>
+                <div class="sm-color-btn" :style="`background:${s.color}`"
+                     @click.stop="openSmColorPicker(s.id,$event)"></div>
                 <input class="form-input" style="flex:1; font-size:.85rem; padding:6px 10px"
                        x-model="s.name" placeholder="Nome do status">
                 <button class="sm-del-btn" @click="removeSmStatusById(s.id)"
@@ -3282,6 +3304,8 @@ document.addEventListener('alpine:init', () => {
 
     cfModal: false, cfName: '', cfType: 'text',
     cfOptionsList: [],
+    smColorPickerStatusId: null,
+    smColorPickerPos: { x: 0, y: 0 },
     cfColorPickerIdx: null,
     cfColorPickerPos: {x:0,y:0},
     cfOptionColors: ['#9333ea','#3b82f6','#f59e0b','#22c55e','#ef4444','#06b6d4','#f97316','#ec4899'],
@@ -3764,6 +3788,18 @@ document.addEventListener('alpine:init', () => {
     },
     setCfOptColor(idx, color) {
       this.cfOptionsList[idx] = {...this.cfOptionsList[idx], color};
+    },
+    openSmColorPicker(statusId, e) {
+      const r = e.currentTarget.getBoundingClientRect();
+      let x = r.left, y = r.bottom + 4;
+      if (x + 200 > window.innerWidth) x = window.innerWidth - 210;
+      if (y + 220 > window.innerHeight) y = r.top - 224;
+      this.smColorPickerStatusId = (this.smColorPickerStatusId === statusId) ? null : statusId;
+      this.smColorPickerPos = {x, y};
+    },
+    setSmStatusColor(statusId, color) {
+      const s = this.smStatuses.find(s => s.id === statusId);
+      if (s) s.color = color;
     },
     openCfModal() { this.cfModal=true; this.cfName=''; this.cfType='text'; this.cfOptionsList=[this._newCfOpt(0), this._newCfOpt(1)]; },
     addCfOption() { this.cfOptionsList.push(this._newCfOpt(this.cfOptionsList.length)); },
