@@ -334,7 +334,7 @@
     .g-breadcrumb-list { color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     .view-toggle { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-    .view-btn { padding: 6px 12px; font-size: .78rem; border: none; background: none; color: var(--muted); cursor: pointer; transition: background .12s, color .12s; }
+    .view-btn { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; font-size: .78rem; border: none; background: none; color: var(--muted); cursor: pointer; transition: background .12s, color .12s; }
     .view-btn.active { background: var(--accent); color: #fff; font-weight: 600; }
     .view-btn:not(.active):hover { background: #ffffff0a; color: var(--text); }
 
@@ -1392,7 +1392,12 @@
       <div x-show="activeList && view==='list'" style="position:relative;margin-left:4px">
         <button class="view-btn" :class="filterPanel ? 'active' : ''"
                 @click.stop="filterPanel=!filterPanel">
-          ⊿ Filtros
+          <svg width="13" height="11" viewBox="0 0 13 11" fill="currentColor" style="flex-shrink:0">
+            <rect x="0" y="0"   width="13" height="1.8" rx="0.9"/>
+            <rect x="2.5" y="4.1" width="8"  height="1.8" rx="0.9"/>
+            <rect x="5"   y="8.2" width="3"  height="1.8" rx="0.9"/>
+          </svg>
+          Filtros
           <span x-show="filters.length" class="filter-count-badge" x-text="filters.length"></span>
         </button>
         <div class="filter-panel" x-show="filterPanel" @click.outside="filterPanel=false" x-cloak>
@@ -1441,7 +1446,13 @@
       </div>
       <div x-show="activeList && view==='list'" style="position:relative;margin-left:4px">
         <button class="view-btn" :class="groupPanel ? 'active' : ''"
-                @click.stop="groupPanel=!groupPanel" title="Agrupar por">⊟ Agrupar</button>
+                @click.stop="groupPanel=!groupPanel" title="Agrupar por">
+          <svg width="15" height="12" viewBox="0 0 15 12" fill="currentColor" style="flex-shrink:0">
+            <path d="M0 2.2 L7.5 0 L15 2.2 L7.5 4.4 Z" opacity="0.45"/>
+            <path d="M0 5.8 L7.5 3.6 L15 5.8 L7.5 8 Z" opacity="0.72"/>
+            <path d="M0 9.4 L7.5 7.2 L15 9.4 L7.5 11.6 Z"/>
+          </svg>
+          Agrupar</button>
         <div class="group-panel" x-show="groupPanel" @click.outside="groupPanel=false" x-cloak
              style="position:absolute;top:calc(100% + 6px);left:0;z-index:900">
           <div class="group-panel-title">Agrupar por</div>
