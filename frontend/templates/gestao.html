@@ -446,6 +446,19 @@
     .group-select { background: #111; border: 1px solid #333; color: var(--text); border-radius: 6px; padding: 5px 10px; font-size: .82rem; cursor: pointer; }
     .group-select:focus { outline: none; border-color: var(--accent); }
 
+    .filter-panel {
+      position: absolute; top: calc(100% + 6px); left: 0; z-index: 900;
+      background: #1a1a1a; border: 1px solid #2e2e2e; border-radius: 10px;
+      padding: 14px 16px; box-shadow: 0 8px 24px #000a; min-width: 480px;
+    }
+    .filter-panel-title { font-size: .7rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 10px; }
+    .filter-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+    .filter-field-tag { background: #2a2a2a; border: 1px solid #383838; border-radius: 6px; padding: 4px 10px; font-size: .8rem; color: #ccc; white-space: nowrap; }
+    .filter-add-btn { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 6px; background: none; border: 1px dashed #383838; color: var(--muted); font-size: .82rem; cursor: pointer; transition: border-color .12s, color .12s; margin-top: 4px; }
+    .filter-add-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .filter-field-picker { position: absolute; top: calc(100% + 4px); left: 0; z-index: 10; background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 6px; min-width: 220px; box-shadow: 0 8px 20px #000a; }
+    .filter-count-badge { background: var(--accent); color: #fff; border-radius: 8px; padding: 0 5px; font-size: .68rem; margin-left: 4px; font-weight: 700; }
+
     .task-title-cell { display: flex; align-items: center; gap: 8px; min-width: 0; }
     .task-title-text { font-size: .85rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
     .task-title-text:hover { color: var(--accent); }
@@ -1375,6 +1388,54 @@
       <div class="view-toggle" x-show="activeList">
         <button class="view-btn" :class="view==='list'?'active':''" @click="view='list'">☰ Lista</button>
         <button class="view-btn" :class="view==='kanban'?'active':''" @click="view='kanban'">⬜ Kanban</button>
+      </div>
+      <div x-show="activeList && view==='list'" style="position:relative;margin-left:4px">
+        <button class="view-btn" :class="filterPanel ? 'active' : ''"
+                @click.stop="filterPanel=!filterPanel">
+          ⊿ Filtros
+          <span x-show="filters.length" class="filter-count-badge" x-text="filters.length"></span>
+        </button>
+        <div class="filter-panel" x-show="filterPanel" @click.outside="filterPanel=false" x-cloak>
+          <div class="filter-panel-title">Filtros</div>
+          <template x-for="f in filters" :key="f.id">
+            <div class="filter-row">
+              <span class="filter-field-tag" x-text="f.fieldLabel"></span>
+              <select class="group-select" x-model="f.operator">
+                <template x-for="op in filterOperators(f.fieldType)" :key="op.v">
+                  <option :value="op.v" x-text="op.l"></option>
+                </template>
+              </select>
+              <template x-if="!['is_empty','is_not_empty'].includes(f.operator)">
+                <span>
+                  <template x-if="f.fieldType !== 'date'">
+                    <select class="group-select" x-model="f.value">
+                      <option value="">Selecionar...</option>
+                      <template x-for="opt in filterValues(f)" :key="opt.v">
+                        <option :value="opt.v" x-text="opt.l"></option>
+                      </template>
+                    </select>
+                  </template>
+                  <template x-if="f.fieldType === 'date'">
+                    <input type="date" class="group-select" x-model="f.value" style="padding:4px 8px">
+                  </template>
+                </span>
+              </template>
+              <button @click="removeFilter(f.id)" style="background:none;border:none;color:#555;cursor:pointer;padding:2px 6px;font-size:.8rem;margin-left:auto">✕</button>
+            </div>
+          </template>
+          <div style="position:relative;display:inline-block">
+            <button class="filter-add-btn" @click.stop="filterPickerOpen=!filterPickerOpen">+ Adicionar filtro</button>
+            <div class="filter-field-picker" x-show="filterPickerOpen" @click.outside="filterPickerOpen=false" x-cloak>
+              <input type="text" class="status-picker-search" placeholder="Pesquisar campo..."
+                     x-model="filterPickerQ" x-init="$el.focus()">
+              <template x-for="field in filterFieldsList.filter(ff=>!filterPickerQ||ff.label.toLowerCase().includes(filterPickerQ.toLowerCase()))" :key="field.key">
+                <div class="status-picker-item" @click.stop="addFilter(field.key); filterPickerOpen=false; filterPickerQ=''">
+                  <span x-text="field.label"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
       </div>
       <div x-show="activeList && view==='list'" style="position:relative;margin-left:4px">
         <button class="view-btn" :class="groupPanel ? 'active' : ''"
@@ -3046,17 +3107,37 @@ document.addEventListener('alpine:init', () => {
     cfPickerTask: null,
     cfPickerCf: null,
     cfPickerPos: { x: 0, y: 0 },
+    filters: [],
+    filterPanel: false,
+    filterPickerOpen: false,
+    filterPickerQ: '',
     groupBy: '',
     groupDir: 'asc',
     groupPanel: false,
     collapsedGroups: {},
     colMenu: null,
     colMenuPos: { x: 0, y: 0 },
+    get filteredTasks() {
+      if (!this.filters.length) return this.tasks;
+      return this.tasks.filter(task => this.filters.every(f => this._taskMatchesFilter(task, f)));
+    },
+    get filterFieldsList() {
+      const fields = [
+        { key: 'status',      label: 'Status',       type: 'status'   },
+        { key: 'prioridade',  label: 'Prioridade',   type: 'priority' },
+        { key: 'responsavel', label: 'Responsável',  type: 'member'   },
+        { key: 'prazo',       label: 'Prazo',        type: 'date'     },
+      ];
+      for (const cf of this.activeList?.custom_fields || []) {
+        if (cf.type === 'dropdown') fields.push({ key: 'cf_' + cf.id, label: cf.name, type: 'dropdown', cf });
+      }
+      return fields;
+    },
     get groupedTasks() {
       const key = this.groupBy;
       if (!key) return [];
       const map = new Map();
-      for (const task of this.tasks) {
+      for (const task of this.filteredTasks) {
         let gKey, gLabel, gColor = '#6b7280';
         if (key === 'status') {
           const s = this.statusObj(task.status);
@@ -3100,7 +3181,7 @@ document.addEventListener('alpine:init', () => {
     get displayRows() {
       const rows = [];
       if (!this.groupBy) {
-        for (const task of this.tasks) rows.push({ type: 'task', task, _key: 't_' + task.id });
+        for (const task of this.filteredTasks) rows.push({ type: 'task', task, _key: 't_' + task.id });
         rows.push({ type: 'add', _key: '__add__' });
       } else {
         for (const g of this.groupedTasks) {
@@ -3503,6 +3584,56 @@ document.addEventListener('alpine:init', () => {
       task.cf_values = newVals;
       this.cfPickerTask = null;
       this.cfPickerCf = null;
+    },
+    filterOperators(fieldType) {
+      if (fieldType === 'date') return [
+        {v:'before', l:'antes de'}, {v:'after', l:'depois de'},
+        {v:'is_empty', l:'está vazio'}, {v:'is_not_empty', l:'não está vazio'},
+      ];
+      return [
+        {v:'is', l:'é'}, {v:'is_not', l:'não é'},
+        {v:'is_empty', l:'está vazio'}, {v:'is_not_empty', l:'não está vazio'},
+      ];
+    },
+    filterValues(filter) {
+      if (filter.fieldType === 'status') return this.statuses.map(s => ({v: s.id, l: s.name}));
+      if (filter.fieldType === 'priority') return [
+        {v:'high', l:'Alta'}, {v:'normal', l:'Normal'}, {v:'low', l:'Baixa'},
+      ];
+      if (filter.fieldType === 'member') return this.members.map(m => ({v: m.id, l: m.name}));
+      if (filter.fieldType === 'dropdown') return (filter.cf?.options || []).map(o => ({v: o.name, l: o.name}));
+      return [];
+    },
+    addFilter(fieldKey) {
+      const field = this.filterFieldsList.find(f => f.key === fieldKey);
+      if (!field) return;
+      this.filters.push({
+        id: Date.now(),
+        field: field.key, fieldLabel: field.label, fieldType: field.type,
+        operator: field.type === 'date' ? 'before' : 'is',
+        value: '',
+        cf: field.cf || null,
+      });
+    },
+    removeFilter(id) { this.filters = this.filters.filter(f => f.id !== id); },
+    _getFilterTaskVal(task, field) {
+      if (field === 'status')      return task.status || '';
+      if (field === 'prioridade')  return task.priority || '';
+      if (field === 'responsavel') return task.assignees?.[0] || '';
+      if (field === 'prazo')       return task.due_date || '';
+      if (field.startsWith('cf_')) return task.cf_values?.[field.slice(3)] || '';
+      return '';
+    },
+    _taskMatchesFilter(task, f) {
+      const val = this._getFilterTaskVal(task, f.field);
+      if (f.operator === 'is_empty')     return !val;
+      if (f.operator === 'is_not_empty') return !!val;
+      if (!f.value) return true;
+      if (f.operator === 'is')     return val === f.value;
+      if (f.operator === 'is_not') return val !== f.value;
+      if (f.operator === 'before') return val && val < f.value;
+      if (f.operator === 'after')  return val && val > f.value;
+      return true;
     },
     toggleGroup(key) {
       this.collapsedGroups = { ...this.collapsedGroups, [key]: !this.collapsedGroups[key] };
