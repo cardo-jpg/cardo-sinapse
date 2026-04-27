@@ -457,6 +457,20 @@
     .status-picker-check { margin-left: auto; color: #22c55e; font-size: .75rem; }
 
     .col-header-resizable { position: relative; user-select: none; }
+    .cf-col-header-label { cursor: pointer; display: flex; align-items: center; gap: 4px; }
+    .cf-col-header-label:hover { color: #fff; }
+    .cf-header-menu {
+      position: fixed; z-index: 9999; background: #1a1a1a; border: 1px solid #2e2e2e;
+      border-radius: 8px; min-width: 200px; padding: 6px 0; box-shadow: 0 8px 24px #000a;
+    }
+    .cf-header-menu-item {
+      display: flex; align-items: center; gap: 10px; padding: 8px 14px;
+      font-size: .82rem; color: #ccc; cursor: pointer; transition: background .1s;
+    }
+    .cf-header-menu-item:hover { background: #ffffff0f; color: #fff; }
+    .cf-header-menu-item.danger { color: #ef4444; }
+    .cf-header-menu-item.danger:hover { background: #ef444418; }
+    .cf-header-menu-sep { border-top: 1px solid #2e2e2e; margin: 4px 0; }
     .col-resizer {
       position: absolute; right: -4px; top: 0; bottom: 0; width: 8px;
       cursor: col-resize; z-index: 2; display: flex; align-items: center; justify-content: center;
@@ -1384,7 +1398,11 @@
             <div class="col-resizer" @mousedown.prevent="startColResize('prazo',$event)"></div>
           </span>
           <template x-for="cf in (activeList?.custom_fields||[])" :key="cf.id">
-            <span x-show="cfCols[cf.id]" class="col-header-resizable" x-text="cf.name">
+            <span x-show="cfCols[cf.id]" class="col-header-resizable">
+              <span class="cf-col-header-label" @click.stop="openCfHeaderMenu(cf,$event)">
+                <span x-text="cf.name"></span>
+                <span style="opacity:.4;font-size:.65rem">⌄</span>
+              </span>
               <div class="col-resizer" @mousedown.prevent="startCfColResize(cf.id,$event)"></div>
             </span>
           </template>
@@ -1671,6 +1689,28 @@
       <div class="status-picker-item" style="color:#666;font-size:.75rem" @click="pickCfValue(null)">
         <span style="width:10px;height:10px;border-radius:50%;flex-shrink:0;background:#333;border:1px solid #555"></span>
         <span>Nenhum</span>
+      </div>
+    </div>
+  </template>
+
+  <!-- ── CF column header menu ─────────────────────────────────────────────── -->
+  <template x-if="cfHeaderMenuCf">
+    <div class="cf-header-menu"
+         :style="`top:${cfHeaderMenuPos.y}px; left:${cfHeaderMenuPos.x}px`"
+         @click.outside="cfHeaderMenuCf=null" x-cloak>
+      <div class="cf-header-menu-item" @click="sortByCf(cfHeaderMenuCf,'asc'); cfHeaderMenuCf=null">
+        <span>↑</span><span>Ordenar A → Z</span>
+      </div>
+      <div class="cf-header-menu-item" @click="sortByCf(cfHeaderMenuCf,'desc'); cfHeaderMenuCf=null">
+        <span>↓</span><span>Ordenar Z → A</span>
+      </div>
+      <div class="cf-header-menu-sep"></div>
+      <div class="cf-header-menu-item" @click="cfCols[cfHeaderMenuCf.id]=false; cfHeaderMenuCf=null">
+        <span>◻</span><span>Ocultar coluna</span>
+      </div>
+      <div class="cf-header-menu-sep"></div>
+      <div class="cf-header-menu-item danger" @click="deleteCustomField(cfHeaderMenuCf.id); cfHeaderMenuCf=null">
+        <span>🗑</span><span>Excluir campo</span>
       </div>
     </div>
   </template>
@@ -2919,6 +2959,8 @@ document.addEventListener('alpine:init', () => {
     cfPickerTask: null,
     cfPickerCf: null,
     cfPickerPos: { x: 0, y: 0 },
+    cfHeaderMenuCf: null,
+    cfHeaderMenuPos: { x: 0, y: 0 },
     get gridCols() {
       const locked = this.colWidths.tarefa > 0;
       let c = locked ? `${this.colWidths.tarefa}px` : '1fr';
@@ -3287,6 +3329,23 @@ document.addEventListener('alpine:init', () => {
       task.cf_values = newVals;
       this.cfPickerTask = null;
       this.cfPickerCf = null;
+    },
+    openCfHeaderMenu(cf, e) {
+      const r = e.currentTarget.getBoundingClientRect();
+      let x = r.left, y = r.bottom + 4;
+      if (x + 210 > window.innerWidth) x = window.innerWidth - 215;
+      this.cfHeaderMenuCf = cf;
+      this.cfHeaderMenuPos = { x, y };
+    },
+    sortByCf(cf, dir) {
+      this.tasks = [...this.tasks].sort((a, b) => {
+        const va = (a.cf_values?.[cf.id] || '').toLowerCase();
+        const vb = (b.cf_values?.[cf.id] || '').toLowerCase();
+        if (!va && !vb) return 0;
+        if (!va) return 1;
+        if (!vb) return -1;
+        return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+      });
     },
     startCfColResize(cfId, e) {
       if (this.colWidths.tarefa === 0) {
