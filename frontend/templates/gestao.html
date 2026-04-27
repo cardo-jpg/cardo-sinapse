@@ -1389,6 +1389,16 @@
         <button class="view-btn" :class="view==='list'?'active':''" @click="view='list'">☰ Lista</button>
         <button class="view-btn" :class="view==='kanban'?'active':''" @click="view='kanban'">⬜ Kanban</button>
       </div>
+      <button class="view-btn" x-show="activeList && view==='list'"
+              :class="showClosed ? 'active' : ''"
+              @click="showClosed=!showClosed"
+              :title="showClosed ? 'Ocultar concluídas' : 'Mostrar concluídas'"
+              style="margin-left:4px">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" style="flex-shrink:0">
+          <circle cx="7.5" cy="7.5" r="6.5" stroke="currentColor" stroke-width="1.4"/>
+          <path d="M4.5 7.5 L6.5 9.5 L10.5 5.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
       <div x-show="activeList && view==='list'" style="position:relative;margin-left:4px">
         <button class="view-btn" :class="filterPanel ? 'active' : ''"
                 @click.stop="filterPanel=!filterPanel">
@@ -3120,6 +3130,7 @@ document.addEventListener('alpine:init', () => {
     cfPickerTask: null,
     cfPickerCf: null,
     cfPickerPos: { x: 0, y: 0 },
+    showClosed: false,
     filters: [],
     filterPanel: false,
     filterPickerOpen: false,
@@ -3131,8 +3142,12 @@ document.addEventListener('alpine:init', () => {
     colMenu: null,
     colMenuPos: { x: 0, y: 0 },
     get filteredTasks() {
-      if (!this.filters.length) return this.tasks;
-      return this.tasks.filter(task => this.filters.every(f => this._taskMatchesFilter(task, f)));
+      let list = this.tasks;
+      if (!this.showClosed) {
+        list = list.filter(task => this.statusObj(task.status).group !== 'closed');
+      }
+      if (!this.filters.length) return list;
+      return list.filter(task => this.filters.every(f => this._taskMatchesFilter(task, f)));
     },
     get filterFieldsList() {
       const fields = [
