@@ -3737,6 +3737,11 @@ async def get_hire_funis_corredor(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/hire/funis/budget")
+async def get_hire_funis_budget(request: Request):
+    return JSONResponse(_hf_load_budgets())
+
+
 @app.put("/api/hire/funis/budget")
 async def put_hire_funis_budget(request: Request):
     try:

@@ -2160,7 +2160,8 @@ async function loadYoutube() {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 updateDrLabel();
-preFillBudgetsFromLocal(); // mostra valores salvos antes mesmo da API responder
+preFillBudgetsFromLocal();
+fetch('/api/hire/funis/budget').then(r=>r.json()).then(loadBudgetInputs).catch(()=>{});
 loadAudiencia();
 </script>
 </body>
