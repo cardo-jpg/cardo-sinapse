@@ -3166,7 +3166,28 @@ def _hf_load_budgets() -> dict:
     except Exception:
         return {}
 
+def _hf_ensure_budgets_tab():
+    """Cria a aba HF_Budgets com cabeçalho se não existir."""
+    try:
+        svc = _hf_budget_svc()
+        svc.get(spreadsheetId=HIRE_FUNIS_SHEET_ID, range="HF_Budgets!A1").execute()
+    except Exception:
+        creds = _sa_creds(["https://www.googleapis.com/auth/spreadsheets"])
+        ss = gapi_build("sheets", "v4", credentials=creds).spreadsheets()
+        ss.batchUpdate(
+            spreadsheetId=HIRE_FUNIS_SHEET_ID,
+            body={"requests": [{"addSheet": {"properties": {"title": "HF_Budgets"}}}]},
+        ).execute()
+        _hf_budget_svc().update(
+            spreadsheetId=HIRE_FUNIS_SHEET_ID,
+            range="HF_Budgets!A1:C1",
+            valueInputOption="RAW",
+            body={"values": [["channel", "month", "budget"]]},
+        ).execute()
+
+
 def _hf_save_budget(channel: str, month: str, budget: float):
+    _hf_ensure_budgets_tab()
     svc = _hf_budget_svc()
     rows = svc.get(
         spreadsheetId=HIRE_FUNIS_SHEET_ID, range="HF_Budgets!A2:C"
