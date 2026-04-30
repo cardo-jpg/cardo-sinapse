@@ -2017,7 +2017,9 @@ function renderLP(d) {
   const vendasA = la.vendas || 0, vendasB = lb.vendas || 0;
   const investA = la.invest || 0, investB = lb.invest || 0;
   const totalPv = pvA + pvB, totalVendas = vendasA + vendasB, totalInvest = investA + investB;
-  setEl('lpGeralTx',     totalPv     > 0 ? PCT(totalVendas / totalPv * 100)    : '—');
+  const txA = la.tx_conv_pv || 0, txB = lb.tx_conv_pv || 0;
+  const txGeral = (txA > 0 && txB > 0) ? (txA + txB) / 2 : (txA || txB);
+  setEl('lpGeralTx',     txGeral > 0 ? PCT(txGeral * 100) : '—');
   setEl('lpGeralVendas', totalVendas > 0 ? totalVendas                          : '—');
   setEl('lpGeralInvest', totalInvest > 0 ? BRL(totalInvest)                    : '—');
   setEl('lpGeralCpa',    totalVendas > 0 ? BRL(totalInvest / totalVendas)       : '—');
