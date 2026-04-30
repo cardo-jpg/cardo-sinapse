@@ -2011,18 +2011,16 @@ function renderLP(d) {
   chartLpCrA = crA; chartLpCoA = coA; chartLpTxA = txA; chartLpTxPvA = txpvA;
   chartLpCrB = crB; chartLpCoB = coB; chartLpTxB = txB; chartLpTxPvB = txpvB;
 
-  // Resumo geral ponderado
-  const la = d.lp_a || {}, lb = d.lp_b || {};
-  const pvA = la.pv || 0, pvB = lb.pv || 0;
-  const vendasA = la.vendas || 0, vendasB = lb.vendas || 0;
-  const investA = la.invest || 0, investB = lb.invest || 0;
-  const totalPv = pvA + pvB, totalVendas = vendasA + vendasB, totalInvest = investA + investB;
-  const txA = la.tx_conv_pv || 0, txB = lb.tx_conv_pv || 0;
-  const txGeral = (txA > 0 && txB > 0) ? (txA + txB) / 2 : (txA || txB);
-  setEl('lpGeralTx',     txGeral > 0 ? PCT(txGeral * 100) : '—');
-  setEl('lpGeralVendas', totalVendas > 0 ? totalVendas                          : '—');
-  setEl('lpGeralInvest', totalInvest > 0 ? BRL(totalInvest)                    : '—');
-  setEl('lpGeralCpa',    totalVendas > 0 ? BRL(totalInvest / totalVendas)       : '—');
+  // Resumo geral
+  const _la = d.lp_a || {}, _lb = d.lp_b || {};
+  const _txA = _la.tx_conv_pv || 0, _txB = _lb.tx_conv_pv || 0;
+  const _txGeral = (_txA > 0 && _txB > 0) ? (_txA + _txB) / 2 : (_txA || _txB);
+  const _vendasT = (_la.vendas || 0) + (_lb.vendas || 0);
+  const _investT = (_la.invest || 0) + (_lb.invest || 0);
+  setEl('lpGeralTx',     _txGeral > 0 ? PCT(_txGeral)           : '—');
+  setEl('lpGeralVendas', _vendasT > 0 ? _vendasT                : '—');
+  setEl('lpGeralInvest', _investT > 0 ? BRL(_investT)           : '—');
+  setEl('lpGeralCpa',    _vendasT > 0 ? BRL(_investT / _vendasT): '—');
 }
 
 function _renderLPFunnel(d, targetH, suffix) {
