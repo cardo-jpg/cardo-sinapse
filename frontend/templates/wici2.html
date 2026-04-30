@@ -2011,16 +2011,18 @@ function renderLP(d) {
   chartLpCrA = crA; chartLpCoA = coA; chartLpTxA = txA; chartLpTxPvA = txpvA;
   chartLpCrB = crB; chartLpCoB = coB; chartLpTxB = txB; chartLpTxPvB = txpvB;
 
-  // Resumo geral
-  const _la = d.lp_a || {}, _lb = d.lp_b || {};
-  const _txA = _la.tx_conv_pv || 0, _txB = _lb.tx_conv_pv || 0;
-  const _txGeral = (_txA > 0 && _txB > 0) ? (_txA + _txB) / 2 : (_txA || _txB);
-  const _vendasT = (_la.vendas || 0) + (_lb.vendas || 0);
-  const _investT = (_la.invest || 0) + (_lb.invest || 0);
-  setEl('lpGeralTx',     _txGeral > 0 ? PCT(_txGeral)           : '—');
-  setEl('lpGeralVendas', _vendasT > 0 ? _vendasT                : '—');
-  setEl('lpGeralInvest', _investT > 0 ? BRL(_investT)           : '—');
-  setEl('lpGeralCpa',    _vendasT > 0 ? BRL(_investT / _vendasT): '—');
+  // Resumo geral (isolado para não afetar os painéis)
+  try {
+    const gla = d.lp_a || {}, glb = d.lp_b || {};
+    const gtxA = gla.tx_conv_pv || 0, gtxB = glb.tx_conv_pv || 0;
+    const gtx  = (gtxA > 0 && gtxB > 0) ? (gtxA + gtxB) / 2 : (gtxA || gtxB);
+    const gven = (gla.vendas || 0) + (glb.vendas || 0);
+    const ginv = (gla.invest || 0) + (glb.invest || 0);
+    setEl('lpGeralTx',     gtx  > 0 ? PCT(gtx)           : '—');
+    setEl('lpGeralVendas', gven > 0 ? gven                : '—');
+    setEl('lpGeralInvest', ginv > 0 ? BRL(ginv)           : '—');
+    setEl('lpGeralCpa',    gven > 0 ? BRL(ginv / gven)    : '—');
+  } catch(e) { console.warn('geral LP', e); }
 }
 
 function _renderLPFunnel(d, targetH, suffix) {
