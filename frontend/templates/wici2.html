@@ -766,6 +766,18 @@
 
     <!-- Tab: LP -->
     <div id="viewLP" style="display:none;">
+
+      <!-- Resumo geral LP -->
+      <div style="display:flex;gap:32px;align-items:center;background:var(--purple-card);border:1px solid rgba(123,45,139,.28);border-radius:14px;padding:16px 24px;margin-bottom:20px;flex-wrap:wrap;">
+        <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.35);">Geral (A + B)</div>
+        <div style="display:flex;gap:32px;flex-wrap:wrap;">
+          <div><div style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.35);">Total Gasto</div><div style="font-size:1.2rem;font-weight:700" id="lpGeralInvest">—</div></div>
+          <div><div style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.35);">CPA Médio</div><div style="font-size:1.2rem;font-weight:700" id="lpGeralCpa">—</div></div>
+          <div><div style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.35);">TX. Conv PV→V Geral</div><div style="font-size:1.2rem;font-weight:700;color:var(--purple-light)" id="lpGeralTx">—</div></div>
+          <div><div style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.35);">Total Vendas</div><div style="font-size:1.2rem;font-weight:700" id="lpGeralVendas">—</div></div>
+        </div>
+      </div>
+
       <div class="lp-grid">
 
         <!-- LP A -->
@@ -1998,6 +2010,17 @@ function renderLP(d) {
   const { cr: crB, co: coB, tx: txB, txpv: txpvB } = _renderLPPanel('B', d.lp_b || {});
   chartLpCrA = crA; chartLpCoA = coA; chartLpTxA = txA; chartLpTxPvA = txpvA;
   chartLpCrB = crB; chartLpCoB = coB; chartLpTxB = txB; chartLpTxPvB = txpvB;
+
+  // Resumo geral ponderado
+  const la = d.lp_a || {}, lb = d.lp_b || {};
+  const pvA = la.pv || 0, pvB = lb.pv || 0;
+  const vendasA = la.vendas || 0, vendasB = lb.vendas || 0;
+  const investA = la.invest || 0, investB = lb.invest || 0;
+  const totalPv = pvA + pvB, totalVendas = vendasA + vendasB, totalInvest = investA + investB;
+  setEl('lpGeralTx',     totalPv     > 0 ? PCT(totalVendas / totalPv * 100)    : '—');
+  setEl('lpGeralVendas', totalVendas > 0 ? totalVendas                          : '—');
+  setEl('lpGeralInvest', totalInvest > 0 ? BRL(totalInvest)                    : '—');
+  setEl('lpGeralCpa',    totalVendas > 0 ? BRL(totalInvest / totalVendas)       : '—');
 }
 
 function _renderLPFunnel(d, targetH, suffix) {
