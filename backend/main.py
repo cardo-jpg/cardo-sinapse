@@ -4601,45 +4601,70 @@ async def dft_performance():
         if len(rows) < 2:
             return JSONResponse({"data": []})
 
-        headers = [h.strip().lower() for h in rows[0]]
+        # Mapeia índices por nome de coluna (normalizado sem acentos)
+        import unicodedata
+        def norm(s):
+            return unicodedata.normalize("NFD", s).encode("ascii","ignore").decode().strip().lower()
 
-        def col(row, name, fallback=""):
-            try:
-                return row[headers.index(name)] if name in headers else fallback
-            except IndexError:
-                return fallback
+        headers_raw = rows[0]
+        hdrs = {norm(h): i for i, h in enumerate(headers_raw)}
+
+        def ci(name, fallback=-1):
+            return hdrs.get(norm(name), fallback)
+
+        def get_col(row, name, fallback=""):
+            idx = ci(name)
+            if idx < 0 or idx >= len(row): return fallback
+            return row[idx]
 
         def to_float(v):
             if not v: return 0.0
-            return float(str(v).replace("R$","").replace(".","").replace(",",".").strip() or 0)
+            try:
+                return float(str(v).replace("R$","").replace(" ","").replace(".","").replace(",",".").strip() or 0)
+            except ValueError:
+                return 0.0
 
         def to_int(v):
             if not v: return 0
-            return int(str(v).replace(".","").replace(",","").strip() or 0)
+            try:
+                return int(float(str(v).replace(".","").replace(",",".").strip() or 0))
+            except ValueError:
+                return 0
 
         def fmt_date(v):
             v = str(v).strip()
             if "/" in v:
                 p = v.split("/")
-                return f"{p[2]}-{p[1].zfill(2)}-{p[0].zfill(2)}"
+                if len(p) == 3:
+                    return f"{p[2]}-{p[1].zfill(2)}-{p[0].zfill(2)}"
             return v
+
+        # Mapeamento de nomes de campanha do sheet para o dashboard
+        CAMP_MAP = {
+            "dft_visitas_f":    "Branding",
+            "dft_visitas_f_v2": "Branding",
+            "dft_demanda":      "Demanda Ativa",
+            "dft_segmentos":    "Segmentos",
+        }
 
         data = []
         for row in rows[1:]:
             if not row or not row[0]: continue
             try:
+                camp_raw = get_col(row, "campanha") or (row[1] if len(row) > 1 else "")
+                camp = CAMP_MAP.get(norm(camp_raw), camp_raw)
                 data.append({
                     "date":   fmt_date(row[0]),
-                    "camp":   col(row, "campanha") or (row[1] if len(row) > 1 else ""),
-                    "invest": round(to_float(col(row, "investido")), 2),
-                    "imp":    to_int(col(row, "impressões")),
-                    "clk":    to_int(col(row, "cliques")),
+                    "camp":   camp,
+                    "invest": round(to_float(get_col(row, "investido")), 2),
+                    "imp":    to_int(get_col(row, "impressoes")),
+                    "clk":    to_int(get_col(row, "cliques")),
                     "leads":  0,
                 })
             except Exception:
                 continue
 
-        return JSONResponse({"data": data})
+        return JSONResponse({"data": data, "headers": list(hdrs.keys())})
 
     except HTTPException:
         raise
