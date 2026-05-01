@@ -49,6 +49,8 @@ CONVS_DIR.mkdir(parents=True, exist_ok=True)
 SECRET_KEY           = os.getenv("SECRET_KEY", "sinapse-secret-2026")
 GREENN_WEBHOOK_TOKEN    = os.getenv("GREENN_WEBHOOK_TOKEN", "")
 RD_STATION_CRM_TOKEN   = os.getenv("RD_STATION_CRM_TOKEN", "69ec14e6208dc300173fc00c")
+DFT_PERF_SHEET_ID      = "17CuuYKxf13NHpJHRAZPoGW9_1Ni_xnIcVTeDQHXb5yQ"
+DFT_PERF_SHEET_GID     = 734559877
 USERS = {
     "victor": os.getenv("USER_VICTOR_PASSWORD", "C@rdobrain2026"),
     "jose":   os.getenv("USER_JOSE_PASSWORD",   "C@rdosinapse2026"),
@@ -636,8 +638,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://lp.dftlogistica.com.br"],
-    allow_methods=["POST"],
+    allow_origins=["https://lp.dftlogistica.com.br", "https://cardo-jpg.github.io"],
+    allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
 )
 app.include_router(gestao_router)
@@ -4574,6 +4576,75 @@ async def dft_lead(request: Request):
         raise
     except Exception as e:
         print(f"[dft-lead] erro: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/dft/performance")
+async def dft_performance():
+    try:
+        creds = _sa_creds(["https://www.googleapis.com/auth/spreadsheets.readonly"])
+        svc = gapi_build("sheets", "v4", credentials=creds).spreadsheets()
+        meta = svc.get(spreadsheetId=DFT_PERF_SHEET_ID).execute()
+        tab_name = next(
+            (s["properties"]["title"] for s in meta.get("sheets", [])
+             if s["properties"]["sheetId"] == DFT_PERF_SHEET_GID),
+            None
+        )
+        if not tab_name:
+            raise HTTPException(status_code=404, detail="Aba não encontrada")
+
+        rows = svc.values().get(
+            spreadsheetId=DFT_PERF_SHEET_ID,
+            range=f"{tab_name}!A:N"
+        ).execute().get("values", [])
+
+        if len(rows) < 2:
+            return JSONResponse({"data": []})
+
+        headers = [h.strip().lower() for h in rows[0]]
+
+        def col(row, name, fallback=""):
+            try:
+                return row[headers.index(name)] if name in headers else fallback
+            except IndexError:
+                return fallback
+
+        def to_float(v):
+            if not v: return 0.0
+            return float(str(v).replace("R$","").replace(".","").replace(",",".").strip() or 0)
+
+        def to_int(v):
+            if not v: return 0
+            return int(str(v).replace(".","").replace(",","").strip() or 0)
+
+        def fmt_date(v):
+            v = str(v).strip()
+            if "/" in v:
+                p = v.split("/")
+                return f"{p[2]}-{p[1].zfill(2)}-{p[0].zfill(2)}"
+            return v
+
+        data = []
+        for row in rows[1:]:
+            if not row or not row[0]: continue
+            try:
+                data.append({
+                    "date":   fmt_date(row[0]),
+                    "camp":   col(row, "campanha") or (row[1] if len(row) > 1 else ""),
+                    "invest": round(to_float(col(row, "investido")), 2),
+                    "imp":    to_int(col(row, "impressões")),
+                    "clk":    to_int(col(row, "cliques")),
+                    "leads":  0,
+                })
+            except Exception:
+                continue
+
+        return JSONResponse({"data": data})
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[dft-performance] erro: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
