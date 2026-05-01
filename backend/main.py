@@ -4579,6 +4579,17 @@ async def dft_lead(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/dft/sheets")
+async def dft_sheets():
+    creds = _sa_creds(["https://www.googleapis.com/auth/spreadsheets.readonly"])
+    svc = gapi_build("sheets", "v4", credentials=creds).spreadsheets()
+    meta = svc.get(spreadsheetId=DFT_PERF_SHEET_ID).execute()
+    return JSONResponse([
+        {"title": s["properties"]["title"], "gid": s["properties"]["sheetId"]}
+        for s in meta.get("sheets", [])
+    ])
+
+
 @app.get("/api/dft/performance")
 async def dft_performance():
     try:
