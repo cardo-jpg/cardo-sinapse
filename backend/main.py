@@ -4657,15 +4657,19 @@ async def dft_performance():
             if "segmento" in n:     return "Segmentos"
             return raw
 
+        # Encontra coluna de investimento por prefixo (investido, investimento, etc.)
+        invest_idx = next((i for k, i in hdrs.items() if k.startswith("invest")), -1)
+
         data = []
         for row in rows[1:]:
             if not row or not row[0]: continue
             try:
                 camp_raw = get_col(row, "campanha") or (row[1] if len(row) > 1 else "")
+                invest_val = row[invest_idx] if invest_idx >= 0 and invest_idx < len(row) else ""
                 data.append({
                     "date":   fmt_date(row[0]),
                     "camp":   map_camp(camp_raw),
-                    "invest": round(to_float(get_col(row, "investimento")), 2),
+                    "invest": round(to_float(invest_val), 2),
                     "imp":    to_int(get_col(row, "impressoes")),
                     "clk":    to_int(get_col(row, "cliques")),
                     "leads":  to_int(get_col(row, "leads")),
