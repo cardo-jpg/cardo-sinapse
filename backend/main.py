@@ -50,7 +50,7 @@ SECRET_KEY           = os.getenv("SECRET_KEY", "sinapse-secret-2026")
 GREENN_WEBHOOK_TOKEN    = os.getenv("GREENN_WEBHOOK_TOKEN", "")
 RD_STATION_CRM_TOKEN   = os.getenv("RD_STATION_CRM_TOKEN", "69ec14e6208dc300173fc00c")
 DFT_PERF_SHEET_ID      = "17CuuYKxf13NHpJHRAZPoGW9_1Ni_xnIcVTeDQHXb5yQ"
-DFT_PERF_SHEET_GID     = 734559877
+DFT_PERF_SHEET_GID     = 550644796  # aba Google Ads
 USERS = {
     "victor": os.getenv("USER_VICTOR_PASSWORD", "C@rdobrain2026"),
     "jose":   os.getenv("USER_JOSE_PASSWORD",   "C@rdosinapse2026"),
