@@ -4650,27 +4650,25 @@ async def dft_performance():
                     return f"{p[2]}-{p[1].zfill(2)}-{p[0].zfill(2)}"
             return v
 
-        # Mapeamento de nomes de campanha do sheet para o dashboard
-        CAMP_MAP = {
-            "dft_visitas_f":    "Branding",
-            "dft_visitas_f_v2": "Branding",
-            "dft_demanda":      "Demanda Ativa",
-            "dft_segmentos":    "Segmentos",
-        }
+        def map_camp(raw):
+            n = norm(raw)
+            if "branding" in n:     return "Branding"
+            if "demanda" in n:      return "Demanda Ativa"
+            if "segmento" in n:     return "Segmentos"
+            return raw
 
         data = []
         for row in rows[1:]:
             if not row or not row[0]: continue
             try:
                 camp_raw = get_col(row, "campanha") or (row[1] if len(row) > 1 else "")
-                camp = CAMP_MAP.get(norm(camp_raw), camp_raw)
                 data.append({
                     "date":   fmt_date(row[0]),
-                    "camp":   camp,
-                    "invest": round(to_float(get_col(row, "investido")), 2),
+                    "camp":   map_camp(camp_raw),
+                    "invest": round(to_float(get_col(row, "investimento")), 2),
                     "imp":    to_int(get_col(row, "impressoes")),
                     "clk":    to_int(get_col(row, "cliques")),
-                    "leads":  0,
+                    "leads":  to_int(get_col(row, "leads")),
                 })
             except Exception:
                 continue
