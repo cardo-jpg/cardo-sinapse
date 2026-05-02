@@ -1196,20 +1196,24 @@
                     <thead>
                       <tr style="border-bottom:1px solid var(--border);">
                         <th style="padding:8px 10px; text-align:left; color:var(--muted); font-size:.65rem; text-transform:uppercase;">Arquivo</th>
+                        <th style="padding:8px 10px; text-align:left; color:var(--muted); font-size:.65rem; text-transform:uppercase;">Mês da Fatura</th>
                         <th style="padding:8px 10px; text-align:right; color:var(--muted); font-size:.65rem; text-transform:uppercase;">Itens</th>
                         <th style="padding:8px 10px; text-align:right; color:var(--muted); font-size:.65rem; text-transform:uppercase;">Aprovados</th>
                         <th style="padding:8px 10px; text-align:right; color:var(--muted); font-size:.65rem; text-transform:uppercase;">Total</th>
-                        <th style="padding:8px 10px; text-align:left; color:var(--muted); font-size:.65rem; text-transform:uppercase;">Importado em</th>
                       </tr>
                     </thead>
                     <tbody>
                       <template x-for="f in cartaoData.faturas" :key="f.id">
                         <tr style="border-bottom:1px solid #1a1a1a;">
-                          <td style="padding:7px 10px;" x-text="f.nome_arquivo"></td>
+                          <td style="padding:7px 10px; color:var(--muted); font-size:.75rem;" x-text="f.nome_arquivo"></td>
+                          <td style="padding:7px 10px;">
+                            <input type="month" class="form-input" style="font-size:.75rem; padding:3px 6px; width:140px;"
+                              :value="f.mes_referencia || ''"
+                              @change="api('PATCH','/api/fin/importacoes/'+f.id,{mes_referencia:$event.target.value||null}).then(()=>{f.mes_referencia=$event.target.value||null; loadCartaoAnalise()})">
+                          </td>
                           <td style="padding:7px 10px; text-align:right; color:var(--muted);" x-text="f.total_itens"></td>
                           <td style="padding:7px 10px; text-align:right; color:#4caf50;" x-text="f.itens_aprovados"></td>
                           <td style="padding:7px 10px; text-align:right; color:#ef5350;" x-text="formatBRL(f.total||0)"></td>
-                          <td style="padding:7px 10px; color:var(--muted); font-size:.75rem;" x-text="(f.created_at||'').slice(0,10)"></td>
                         </tr>
                       </template>
                     </tbody>

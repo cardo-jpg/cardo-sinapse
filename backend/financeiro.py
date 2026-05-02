@@ -1519,6 +1519,26 @@ async def listar_importacoes(request: Request):
     return {"importacoes": rows}
 
 
+@router.patch("/api/fin/importacoes/{imp_id}")
+async def atualizar_importacao(imp_id: int, request: Request):
+    _require(request)
+    data = await request.json()
+    allowed = {"mes_referencia"}
+    fields = {k: v for k, v in data.items() if k in allowed}
+    if not fields:
+        raise HTTPException(400, "Nenhum campo válido")
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        sets = ", ".join(f"{k}=%s" for k in fields)
+        cur.execute(f"UPDATE fin_importacoes SET {sets} WHERE id=%s", list(fields.values()) + [imp_id])
+        conn.commit()
+        return {"ok": True}
+    finally:
+        cur.close()
+        conn.close()
+
+
 @router.get("/api/fin/importacoes/{imp_id}/itens")
 async def listar_itens(imp_id: int, request: Request):
     _require(request)
