@@ -955,18 +955,13 @@ async def api_list_lancamentos(request: Request, mes: str = None):
         cur.execute(sql, params)
         rows = [dict(r) for r in cur.fetchall()]
 
-        cur.execute(
-            "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE situacao='em_aberto' AND vencimento <= %s",
-            (today,),
-        )
-        row_emabert = cur.fetchone()["coalesce"]
-
         if mes:
             like_mes = f"{mes}%"
             cur.execute("SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='receber' AND situacao='em_aberto' AND vencimento LIKE %s", (like_mes,))
             a_receber = cur.fetchone()["coalesce"]
             cur.execute("SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='pagar' AND situacao='em_aberto' AND vencimento LIKE %s", (like_mes,))
             a_pagar = cur.fetchone()["coalesce"]
+            row_emabert = float(a_receber) + float(a_pagar)
             cur.execute("SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='receber' AND situacao='quitado' AND vencimento LIKE %s AND COALESCE(origem,'manual')!='cc'", (like_mes,))
             recebidos = cur.fetchone()["coalesce"]
             cur.execute("SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='pagar' AND situacao='quitado' AND vencimento LIKE %s AND COALESCE(origem,'manual')!='cc'", (like_mes,))
@@ -980,6 +975,12 @@ async def api_list_lancamentos(request: Request, mes: str = None):
             cur.execute("SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='pagar' AND situacao='em_aberto' AND vencimento >= %s AND vencimento LIKE %s", (today, like_mes))
             mes_pagar = cur.fetchone()["coalesce"]
         else:
+            cur.execute(
+                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos "
+                "WHERE situacao='em_aberto' AND vencimento <= %s",
+                (today,),
+            )
+            row_emabert = cur.fetchone()["coalesce"]
             a_receber = a_pagar = recebidos = pagos = 0.0
             atrasados_receber = atrasados_pagar = mes_receber = mes_pagar = 0.0
     finally:
