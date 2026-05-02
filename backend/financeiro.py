@@ -1015,7 +1015,7 @@ async def api_list_lancamentos(request: Request, mes: str = None):
             a_receber = cur.fetchone()["coalesce"]
             cur.execute("SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='pagar' AND situacao='em_aberto' AND vencimento LIKE %s", (like_mes,))
             a_pagar = cur.fetchone()["coalesce"]
-            row_emabert = float(a_receber) + float(a_pagar)
+            row_emabert = float(a_receber) - float(a_pagar)
             cur.execute("SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='receber' AND situacao='quitado' AND vencimento LIKE %s AND COALESCE(origem,'manual')!='cc'", (like_mes,))
             recebidos = cur.fetchone()["coalesce"]
             cur.execute("SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='pagar' AND situacao='quitado' AND vencimento LIKE %s AND COALESCE(origem,'manual')!='cc'", (like_mes,))
