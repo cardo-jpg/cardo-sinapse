@@ -505,7 +505,10 @@
             <button class="fin-month-btn" @click="nextMes()">&#8594;</button>
           </div>
           <div class="fin-actions">
-            <button class="btn btn-ghost" @click="syncSiga()" :disabled="syncing" x-text="syncing ? 'Sincronizando...' : '↻ Sincronizar SIGA'"></button>
+            <button class="btn btn-green" @click="openLancModal('receber')">+ Receber</button>
+            <button class="btn btn-red" @click="openLancModal('pagar')">+ Pagar</button>
+            <button class="btn btn-ghost" @click="openTransfModal()">Transferência</button>
+            <button class="btn btn-ghost" @click="migrarSiga()" :disabled="migrando" x-text="migrando ? 'Importando...' : '↓ Importar SIGA'" title="Importação única do histórico do SIGA"></button>
           </div>
         </div>
 
@@ -582,7 +585,13 @@
                         <td>
                           <span class="badge" :class="l.situacao==='quitado' ? 'badge-green' : 'badge-yellow'" x-text="l.situacao==='quitado' ? 'Quitado' : 'Em aberto'"></span>
                         </td>
-                        <td></td>
+                        <td>
+                          <div class="td-actions">
+                            <button class="btn-icon" title="Quitar" @click="quitarLanc(l)" x-show="l.situacao!=='quitado'">&#10003;</button>
+                            <button class="btn-icon" title="Editar" @click="openLancEdit(l)">&#9998;</button>
+                            <button class="btn-icon danger" title="Excluir" @click="deleteLanc(l.id)">&#128465;</button>
+                          </div>
+                        </td>
                       </tr>
                     </template>
                   </tbody>
@@ -1939,7 +1948,7 @@ window.finApp = function() {
     clientes: [],
     fornecedores: [],
     selectedIds: [],
-    syncing: false,
+    migrando: false,
 
     /* ── search ── */
     clienteQ: '',
@@ -2121,14 +2130,15 @@ window.finApp = function() {
       finally { this.loading = false; }
     },
 
-    async syncSiga() {
-      this.syncing = true;
+    async migrarSiga() {
+      if (!confirm('Isso vai importar todo o histórico do SIGA para o banco de dados.\nLançamentos anteriores importados do SIGA serão substituídos.\n\nContinuar?')) return;
+      this.migrando = true;
       try {
-        await this.api('POST', '/api/fin/siga/refresh');
+        const res = await this.api('POST', '/api/fin/migrar-siga');
         await this.loadLancamentos();
-        this.showToast('Dados sincronizados do SIGA');
+        this.showToast(`${res.importados} lançamentos importados do SIGA`);
       } catch(e) { this.showToast(e.message, 'error'); }
-      finally { this.syncing = false; }
+      finally { this.migrando = false; }
     },
 
     toggleAll(e) {
