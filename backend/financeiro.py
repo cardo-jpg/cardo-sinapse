@@ -830,7 +830,7 @@ _MESES_ABBR_LIST = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out',
 # ── SIGA Google Sheets — fonte de verdade ─────────────────────────────────────
 
 SIGA_SHEET_ID        = os.getenv("SIGA_SHEET_ID", "1mcZiIOsI2jLC_A-rSUuVFCEkXIdihyqj2qMRjBiCzjU")
-SIGA_MIGRATION_VER   = "v5"  # bump para forçar reimportação
+SIGA_MIGRATION_VER   = "v6"  # bump para forçar reimportação
 _SIGA_ROWS: list      = []
 _SIGA_ROWS_TS: float  = 0.0
 _SIGA_ROWS_TTL: int   = 300
@@ -909,6 +909,9 @@ def _fetch_siga_rows() -> list[dict]:
             emissao    = _br_date(_g(r, 0))
             vencimento = _br_date(_g(r, 1))
             quitado_em = _br_date(_g(r, 2))
+            # Pula linhas de saldo/resumo sem nenhuma data (ex: totais do fim do export)
+            if not emissao and not vencimento and not quitado_em:
+                continue
             tipo       = "receber" if receber > 0 else "pagar"
             situacao   = "quitado" if quitado_em else "em_aberto"
             valor      = receber if receber > 0 else pagar
