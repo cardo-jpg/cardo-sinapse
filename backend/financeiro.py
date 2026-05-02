@@ -847,10 +847,14 @@ _SIGA_ROWS_TTL: int   = 300
 def _sheets_svc():
     from google.oauth2.service_account import Credentials
     from googleapiclient.discovery import build
-    json_path = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", str(BASE_DIR / "service_account.json"))
-    creds = Credentials.from_service_account_file(
-        json_path, scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
-    )
+    scopes = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+    raw = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "")
+    if raw.strip().startswith("{"):
+        info = json.loads(raw)
+        creds = Credentials.from_service_account_info(info, scopes=scopes)
+    else:
+        path = raw or str(BASE_DIR / "service_account.json")
+        creds = Credentials.from_service_account_file(path, scopes=scopes)
     return build("sheets", "v4", credentials=creds)
 
 
