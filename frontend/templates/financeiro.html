@@ -971,7 +971,7 @@
 
     <!-- ═══════════════════════════════ ANÁLISE ════════════════════════════════ -->
     <template x-if="currentSection==='analise'">
-      <div class="dash-wrap" x-init="$nextTick(() => initDashboard())">
+      <div class="dash-wrap" x-init="$nextTick(() => initDashboard())" x-effect="dashData && $nextTick(() => $nextTick(() => initCharts()))">
 
         <div class="sec-header" style="margin-bottom:20px; flex-wrap:wrap; gap:10px;">
           <span class="sec-title">Análise Financeira</span>
@@ -2597,8 +2597,6 @@ window.finApp = function() {
             this.mp.viewYear = parseInt(this.dashDe.split('-')[0]);
           }
         }
-        await new Promise(r => setTimeout(r, 120));
-        this.initCharts();
       } catch(e) { this.showToast('Erro ao carregar dados: ' + e.message, 'error'); }
       finally { this.dashLoading = false; }
     },
@@ -2782,7 +2780,6 @@ window.finApp = function() {
       Chart.defaults.font.size = 11;
 
       // Chart 1: Top clientes
-      await this.$nextTick();
       const topCli = this.dashData.top_clientes || [];
       const c5 = document.getElementById('chart-top-cli');
       if (c5 && topCli.length) {
