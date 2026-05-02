@@ -1027,7 +1027,7 @@
         </template>
 
         <template x-if="dashData">
-          <div x-init="$nextTick(() => initCharts())">
+          <div>
             <!-- KPIs -->
             <div class="dash-kpis">
               <div class="dash-kpi">
@@ -1140,7 +1140,7 @@
         </template>
 
         <template x-if="cartaoData">
-          <div x-init="$nextTick(() => initCartaoCharts())">
+          <div>
             <!-- KPIs -->
             <div class="dash-kpis">
               <div class="dash-kpi">
@@ -2599,12 +2599,12 @@ window.finApp = function() {
         }
       } catch(e) { this.showToast('Erro ao carregar dados: ' + e.message, 'error'); }
       finally { this.dashLoading = false; }
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      this.initCharts();
     },
 
     async applyDashFilter() {
       await this.loadDashboard(this.dashDe, this.dashAte);
-      await this.$nextTick();
-      this.initCharts();
     },
 
     initDashboard() {
@@ -2691,7 +2691,7 @@ window.finApp = function() {
         this.cartaoData = await this.api('GET', '/api/fin/cartao-analise' + qs);
       } catch(e) { this.showToast('Erro ao carregar faturas: ' + e.message, 'error'); }
       finally { this.cartaoLoading = false; }
-      await this.$nextTick();
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
       this.initCartaoCharts();
     },
 
