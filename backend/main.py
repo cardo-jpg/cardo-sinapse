@@ -24,7 +24,7 @@ import anthropic
 from google.oauth2 import service_account
 from googleapiclient.discovery import build as gapi_build
 from backend.gestao import router as gestao_router, init_db as gestao_init_db, page_gestao as gestao_page
-from backend.financeiro import router as financeiro_router, init_db as financeiro_init_db
+from backend.financeiro import router as financeiro_router, init_db as financeiro_init_db, migrar_siga_startup
 from backend.fin_pessoais import router as fp_router, init_db as fp_init_db
 
 load_dotenv()
@@ -633,6 +633,7 @@ async def lifespan(app: FastAPI):
     fp_init_db()
     start_sync_scheduler()
     _schedule_cpa_monitor()
+    await migrar_siga_startup()
     yield
 
 app = FastAPI(lifespan=lifespan)

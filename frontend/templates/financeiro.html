@@ -508,7 +508,6 @@
             <button class="btn btn-green" @click="openLancModal('receber')">+ Receber</button>
             <button class="btn btn-red" @click="openLancModal('pagar')">+ Pagar</button>
             <button class="btn btn-ghost" @click="openTransfModal()">Transferência</button>
-            <button class="btn btn-ghost" @click="migrarSiga()" :disabled="migrando" x-text="migrando ? 'Importando...' : '↓ Importar SIGA'" title="Importação única do histórico do SIGA"></button>
           </div>
         </div>
 
@@ -1948,7 +1947,6 @@ window.finApp = function() {
     clientes: [],
     fornecedores: [],
     selectedIds: [],
-    migrando: false,
 
     /* ── search ── */
     clienteQ: '',
@@ -2128,17 +2126,6 @@ window.finApp = function() {
         this.bottomTotals = data.bottom_totals || {};
       } catch(e) { this.showToast(e.message, 'error'); }
       finally { this.loading = false; }
-    },
-
-    async migrarSiga() {
-      if (!confirm('Isso vai importar todo o histórico do SIGA para o banco de dados.\nLançamentos anteriores importados do SIGA serão substituídos.\n\nContinuar?')) return;
-      this.migrando = true;
-      try {
-        const res = await this.api('POST', '/api/fin/migrar-siga');
-        await this.loadLancamentos();
-        this.showToast(`${res.importados} lançamentos importados do SIGA`);
-      } catch(e) { this.showToast(e.message, 'error'); }
-      finally { this.migrando = false; }
     },
 
     toggleAll(e) {

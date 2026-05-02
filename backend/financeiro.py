@@ -1846,13 +1846,15 @@ async def dashboard_sheets(request: Request, de: str = None, ate: str = None):
     }
 
 
-@router.post("/api/fin/migrar-siga")
-async def migrar_siga(request: Request):
-    """Importação única do histórico do SIGA para o PostgreSQL."""
-    _require(request)
-    import asyncio
-    loop      = asyncio.get_event_loop()
-    siga_rows = await loop.run_in_executor(None, _fetch_siga_rows)
+def _executar_migracao_siga() -> int:
+    """Limpa todos os lançamentos e reimporta do Google Sheets SIGA. Retorna qtd importada."""
+    import logging
+    log = logging.getLogger(__name__)
+    try:
+        siga_rows = _fetch_siga_rows()
+    except Exception as e:
+        log.error(f"[migrar-siga] erro ao ler Google Sheets: {e}")
+        return 0
 
     conn = get_conn()
     cur  = dict_cursor(conn)
@@ -1864,7 +1866,8 @@ async def migrar_siga(request: Request):
         cur.execute("SELECT id, nome FROM fin_centros_custo")
         centro_map = {r['nome'].lower(): r['id'] for r in cur.fetchall()}
 
-        cur.execute("DELETE FROM fin_lancamentos WHERE origem = 'siga'")
+        # Limpa tudo — dá uma base limpa antes de reimportar
+        cur.execute("DELETE FROM fin_lancamentos WHERE COALESCE(origem,'manual') IN ('manual','siga') OR origem IS NULL")
 
         now = datetime.now().isoformat()
         for r in siga_rows:
@@ -1886,10 +1889,53 @@ async def migrar_siga(request: Request):
                 )
             )
         conn.commit()
-        return {"ok": True, "importados": len(siga_rows)}
+        log.info(f"[migrar-siga] {len(siga_rows)} lançamentos importados")
+        return len(siga_rows)
     except Exception as e:
         conn.rollback()
-        raise HTTPException(500, str(e))
+        log.error(f"[migrar-siga] erro na inserção: {e}")
+        return 0
     finally:
         cur.close()
         conn.close()
+
+
+async def migrar_siga_startup():
+    """Roda no startup: importa SIGA se ainda não há lançamentos limpos (sem manuais antigos)."""
+    import asyncio
+    import logging
+    log = logging.getLogger(__name__)
+    try:
+        conn = get_conn()
+        cur  = dict_cursor(conn)
+        try:
+            # Se ainda houver lançamentos sem origem='siga' (dados manuais antigos), reimporta
+            cur.execute("SELECT COUNT(*) FROM fin_lancamentos WHERE COALESCE(origem,'manual') != 'siga' AND COALESCE(origem,'manual') != 'cc'")
+            manuais = cur.fetchone()["count"]
+            cur.execute("SELECT COUNT(*) FROM fin_lancamentos WHERE origem = 'siga'")
+            siga_count = cur.fetchone()["count"]
+        finally:
+            cur.close(); conn.close()
+
+        if manuais == 0 and siga_count > 0:
+            log.info(f"[migrar-siga] banco limpo com {siga_count} lançamentos SIGA — OK")
+            return
+
+        log.info(f"[migrar-siga] encontrados {manuais} lançamentos manuais — reimportando SIGA...")
+        loop = asyncio.get_event_loop()
+        n = await loop.run_in_executor(None, _executar_migracao_siga)
+        log.info(f"[migrar-siga] startup concluído: {n} lançamentos")
+    except Exception as e:
+        logging.getLogger(__name__).error(f"[migrar-siga] startup falhou: {e}")
+
+
+@router.post("/api/fin/migrar-siga")
+async def migrar_siga(request: Request):
+    """Reimporta todo o histórico SIGA (apaga lançamentos manuais/siga e reimporta)."""
+    _require(request)
+    import asyncio
+    loop = asyncio.get_event_loop()
+    n = await loop.run_in_executor(None, _executar_migracao_siga)
+    global _SIGA_ROWS, _SIGA_ROWS_TS
+    _SIGA_ROWS = []; _SIGA_ROWS_TS = 0.0
+    return {"ok": True, "importados": n}
