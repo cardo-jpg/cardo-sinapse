@@ -167,6 +167,12 @@ def init_db():
                 created_at    TEXT    DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS fin_meta (
+                key   TEXT PRIMARY KEY,
+                value TEXT
+            )
+        """)
         conn.commit()
 
         # Seed clientes/fornecedores if tables are empty (first deploy)
@@ -831,7 +837,8 @@ _MES_PT_MAP = {'Jan':'Jan','Feb':'Fev','Mar':'Mar','Apr':'Abr','May':'Mai',
 
 # ── SIGA Google Sheets — fonte de verdade ─────────────────────────────────────
 
-SIGA_SHEET_ID  = os.getenv("SIGA_SHEET_ID", "1mcZiIOsI2jLC_A-rSUuVFCEkXIdihyqj2qMRjBiCzjU")
+SIGA_SHEET_ID        = os.getenv("SIGA_SHEET_ID", "1mcZiIOsI2jLC_A-rSUuVFCEkXIdihyqj2qMRjBiCzjU")
+SIGA_MIGRATION_VER   = "v3"  # bump para forçar reimportação
 _SIGA_ROWS: list      = []
 _SIGA_ROWS_TS: float  = 0.0
 _SIGA_ROWS_TTL: int   = 300
@@ -1867,10 +1874,12 @@ def _executar_migracao_siga() -> int:
         centro_map = {r['nome'].lower(): r['id'] for r in cur.fetchall()}
 
         # Limpa tudo — dá uma base limpa antes de reimportar
-        cur.execute("DELETE FROM fin_lancamentos WHERE COALESCE(origem,'manual') IN ('manual','siga') OR origem IS NULL")
+        cur.execute("DELETE FROM fin_lancamentos WHERE COALESCE(origem,'manual') NOT IN ('cc')")
 
         now = datetime.now().isoformat()
         for r in siga_rows:
+            # Para itens quitados, usar quitado_em como vencimento (alinha com o que o SIGA mostra)
+            venc_db = r['quitado_em'] if r['situacao'] == 'quitado' and r['quitado_em'] else r['vencimento']
             cur.execute(
                 """INSERT INTO fin_lancamentos
                    (tipo, emissao, contato_nome, descricao, vencimento,
@@ -1880,7 +1889,7 @@ def _executar_migracao_siga() -> int:
                 (
                     r['tipo'], r['emissao'] or r['vencimento'],
                     r['contato_nome'], r['descricao'],
-                    r['vencimento'], r['valor'], r['valor_total'],
+                    venc_db, r['valor'], r['valor_total'],
                     conta_map.get((r['conta_nome'] or '').lower()),
                     cat_map.get((r['categoria_nome'] or '').lower()),
                     centro_map.get((r['centro_nome'] or '').lower()),
@@ -1888,8 +1897,14 @@ def _executar_migracao_siga() -> int:
                     r['situacao'], now,
                 )
             )
+
+        # Grava versão da migração para controle de re-runs
+        cur.execute(
+            "INSERT INTO fin_meta (key, value) VALUES ('siga_migration_version', %s) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value",
+            (SIGA_MIGRATION_VER,)
+        )
         conn.commit()
-        log.info(f"[migrar-siga] {len(siga_rows)} lançamentos importados")
+        log.info(f"[migrar-siga] {len(siga_rows)} lançamentos importados (versão {SIGA_MIGRATION_VER})")
         return len(siga_rows)
     except Exception as e:
         conn.rollback()
@@ -1901,7 +1916,7 @@ def _executar_migracao_siga() -> int:
 
 
 async def migrar_siga_startup():
-    """Roda no startup: importa SIGA se ainda não há lançamentos limpos (sem manuais antigos)."""
+    """Roda no startup: só executa se a versão da migração no banco for diferente da atual."""
     import asyncio
     import logging
     log = logging.getLogger(__name__)
@@ -1909,19 +1924,17 @@ async def migrar_siga_startup():
         conn = get_conn()
         cur  = dict_cursor(conn)
         try:
-            # Se ainda houver lançamentos sem origem='siga' (dados manuais antigos), reimporta
-            cur.execute("SELECT COUNT(*) FROM fin_lancamentos WHERE COALESCE(origem,'manual') != 'siga' AND COALESCE(origem,'manual') != 'cc'")
-            manuais = cur.fetchone()["count"]
-            cur.execute("SELECT COUNT(*) FROM fin_lancamentos WHERE origem = 'siga'")
-            siga_count = cur.fetchone()["count"]
+            cur.execute("SELECT value FROM fin_meta WHERE key = 'siga_migration_version'")
+            row = cur.fetchone()
+            current_ver = row["value"] if row else None
         finally:
             cur.close(); conn.close()
 
-        if manuais == 0 and siga_count > 0:
-            log.info(f"[migrar-siga] banco limpo com {siga_count} lançamentos SIGA — OK")
+        if current_ver == SIGA_MIGRATION_VER:
+            log.info(f"[migrar-siga] versão {SIGA_MIGRATION_VER} já aplicada — OK")
             return
 
-        log.info(f"[migrar-siga] encontrados {manuais} lançamentos manuais — reimportando SIGA...")
+        log.info(f"[migrar-siga] versão no banco={current_ver}, esperada={SIGA_MIGRATION_VER} — reimportando...")
         loop = asyncio.get_event_loop()
         n = await loop.run_in_executor(None, _executar_migracao_siga)
         log.info(f"[migrar-siga] startup concluído: {n} lançamentos")
