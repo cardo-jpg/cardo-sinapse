@@ -1867,6 +1867,22 @@ def _executar_migracao_siga() -> int:
         log.error(f"[migrar-siga] erro ao ler Google Sheets: {e}")
         return 0
 
+    # Proteção: aborta se o Sheet não tiver dados dos últimos 2 meses
+    today = date.today()
+    if today.month <= 2:
+        cutoff = f"{today.year - 1}-{today.month + 10:02d}"
+    else:
+        cutoff = f"{today.year}-{today.month - 2:02d}"
+    recent = [r for r in siga_rows
+              if (r.get('quitado_em') or r.get('vencimento') or '')[:7] >= cutoff]
+    if not recent:
+        log.warning(
+            "[migrar-siga] Sheet sem dados a partir de %s (%d linhas total) "
+            "— migração abortada para preservar dados existentes no banco",
+            cutoff, len(siga_rows)
+        )
+        return -1
+
     conn = get_conn()
     cur  = dict_cursor(conn)
     try:
