@@ -883,42 +883,62 @@ def _fetch_siga_rows() -> list[dict]:
         return _SIGA_ROWS
 
     svc = _sheets_svc()
-    result = svc.spreadsheets().values().get(
-        spreadsheetId=SIGA_SHEET_ID, range="A:P"
-    ).execute()
-    raw = result.get("values", [])
+
+    # Lê todas as abas da planilha
+    meta = svc.spreadsheets().get(spreadsheetId=SIGA_SHEET_ID).execute()
+    sheet_names = [s['properties']['title'] for s in meta.get('sheets', [])]
 
     def _g(r, idx):
         return str(r[idx]).strip() if idx < len(r) else ""
 
     rows = []
-    for i, r in enumerate(raw[1:], start=2):
-        receber = _br_val(_g(r, 13))
-        pagar   = _br_val(_g(r, 14))
-        if receber == 0.0 and pagar == 0.0:
-            continue
-        emissao    = _br_date(_g(r, 0))
-        vencimento = _br_date(_g(r, 1))
-        quitado_em = _br_date(_g(r, 2))
-        tipo       = "receber" if receber > 0 else "pagar"
-        situacao   = "quitado" if quitado_em else "em_aberto"
-        valor      = receber if receber > 0 else pagar
-        rows.append({
-            "id":             i,
-            "tipo":           tipo,
-            "emissao":        emissao,
-            "vencimento":     vencimento or emissao,
-            "quitado_em":     quitado_em,
-            "contato_nome":   _g(r, 5),
-            "descricao":      _g(r, 6),
-            "categoria_nome": _g(r, 7),
-            "centro_nome":    _g(r, 8),
-            "conta_nome":     _g(r, 9),
-            "documento":      _g(r, 10),
-            "situacao":       situacao,
-            "valor":          valor,
-            "valor_total":    valor,
-        })
+    seen = set()  # (vencimento, descricao, valor) para evitar duplicatas entre abas
+
+    for sheet_name in sheet_names:
+        result = svc.spreadsheets().values().get(
+            spreadsheetId=SIGA_SHEET_ID,
+            range=f"'{sheet_name}'!A:P",
+        ).execute()
+        raw = result.get("values", [])
+
+        # Encontra a linha de cabeçalho (procura "Emissão" na coluna A ou B)
+        header_idx = 0
+        for i, row in enumerate(raw):
+            cell = _g(row, 0).lower().replace('ã', 'a').replace('ê', 'e')
+            if cell in ('emissao', 'emissão') or _g(row, 1).lower() == 'vencimento':
+                header_idx = i
+                break
+
+        for r in raw[header_idx + 1:]:
+            receber = _br_val(_g(r, 13))
+            pagar   = _br_val(_g(r, 14))
+            if receber == 0.0 and pagar == 0.0:
+                continue
+            emissao    = _br_date(_g(r, 0))
+            vencimento = _br_date(_g(r, 1))
+            quitado_em = _br_date(_g(r, 2))
+            tipo       = "receber" if receber > 0 else "pagar"
+            situacao   = "quitado" if quitado_em else "em_aberto"
+            valor      = receber if receber > 0 else pagar
+            key = (vencimento or emissao, _g(r, 6)[:40], round(valor, 2))
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append({
+                "tipo":           tipo,
+                "emissao":        emissao,
+                "vencimento":     vencimento or emissao,
+                "quitado_em":     quitado_em,
+                "contato_nome":   _g(r, 5),
+                "descricao":      _g(r, 6),
+                "categoria_nome": _g(r, 7),
+                "centro_nome":    _g(r, 8),
+                "conta_nome":     _g(r, 9),
+                "documento":      _g(r, 10),
+                "situacao":       situacao,
+                "valor":          valor,
+                "valor_total":    valor,
+            })
 
     _SIGA_ROWS    = rows
     _SIGA_ROWS_TS = now
