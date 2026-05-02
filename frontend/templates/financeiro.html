@@ -505,9 +505,7 @@
             <button class="fin-month-btn" @click="nextMes()">&#8594;</button>
           </div>
           <div class="fin-actions">
-            <button class="btn btn-green" @click="openLancModal('receber')">+ Receber</button>
-            <button class="btn btn-red" @click="openLancModal('pagar')">+ Pagar</button>
-            <button class="btn btn-ghost" @click="openTransfModal()">Transferência</button>
+            <button class="btn btn-ghost" @click="syncSiga()" :disabled="syncing" x-text="syncing ? 'Sincronizando...' : '↻ Sincronizar SIGA'"></button>
           </div>
         </div>
 
@@ -584,13 +582,7 @@
                         <td>
                           <span class="badge" :class="l.situacao==='quitado' ? 'badge-green' : 'badge-yellow'" x-text="l.situacao==='quitado' ? 'Quitado' : 'Em aberto'"></span>
                         </td>
-                        <td>
-                          <div class="td-actions">
-                            <button class="btn-icon" title="Quitar" @click="quitarLanc(l)" x-show="l.situacao!=='quitado'">&#10003;</button>
-                            <button class="btn-icon" title="Editar" @click="openLancEdit(l)">&#9998;</button>
-                            <button class="btn-icon danger" title="Excluir" @click="deleteLanc(l.id)">&#128465;</button>
-                          </div>
-                        </td>
+                        <td></td>
                       </tr>
                     </template>
                   </tbody>
@@ -1947,6 +1939,7 @@ window.finApp = function() {
     clientes: [],
     fornecedores: [],
     selectedIds: [],
+    syncing: false,
 
     /* ── search ── */
     clienteQ: '',
@@ -2126,6 +2119,16 @@ window.finApp = function() {
         this.bottomTotals = data.bottom_totals || {};
       } catch(e) { this.showToast(e.message, 'error'); }
       finally { this.loading = false; }
+    },
+
+    async syncSiga() {
+      this.syncing = true;
+      try {
+        await this.api('POST', '/api/fin/siga/refresh');
+        await this.loadLancamentos();
+        this.showToast('Dados sincronizados do SIGA');
+      } catch(e) { this.showToast(e.message, 'error'); }
+      finally { this.syncing = false; }
     },
 
     toggleAll(e) {

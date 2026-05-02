@@ -829,6 +829,90 @@ _MES_PT_MAP = {'Jan':'Jan','Feb':'Fev','Mar':'Mar','Apr':'Abr','May':'Mai',
                'Jun':'Jun','Jul':'Jul','Aug':'Ago','Sep':'Set','Oct':'Out',
                'Nov':'Nov','Dec':'Dez'}
 
+# ── SIGA Google Sheets — fonte de verdade ─────────────────────────────────────
+
+SIGA_SHEET_ID  = os.getenv("SIGA_SHEET_ID", "1mcZiIOsI2jLC_A-rSUuVFCEkXIdihyqj2qMRjBiCzjU")
+_SIGA_ROWS: list      = []
+_SIGA_ROWS_TS: float  = 0.0
+_SIGA_ROWS_TTL: int   = 300
+
+
+def _sheets_svc():
+    from google.oauth2.service_account import Credentials
+    from googleapiclient.discovery import build
+    json_path = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", str(BASE_DIR / "service_account.json"))
+    creds = Credentials.from_service_account_file(
+        json_path, scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
+    )
+    return build("sheets", "v4", credentials=creds)
+
+
+def _br_date(v) -> str | None:
+    if not v or not str(v).strip():
+        return None
+    try:
+        return datetime.strptime(str(v).strip(), "%d/%m/%Y").date().isoformat()
+    except Exception:
+        return None
+
+
+def _br_val(v) -> float:
+    if not v or not str(v).strip():
+        return 0.0
+    try:
+        return float(str(v).strip().replace(".", "").replace(",", "."))
+    except Exception:
+        return 0.0
+
+
+def _fetch_siga_rows() -> list[dict]:
+    global _SIGA_ROWS, _SIGA_ROWS_TS
+    now = _time.time()
+    if _SIGA_ROWS and now - _SIGA_ROWS_TS < _SIGA_ROWS_TTL:
+        return _SIGA_ROWS
+
+    svc = _sheets_svc()
+    result = svc.spreadsheets().values().get(
+        spreadsheetId=SIGA_SHEET_ID, range="A:P"
+    ).execute()
+    raw = result.get("values", [])
+
+    def _g(r, idx):
+        return str(r[idx]).strip() if idx < len(r) else ""
+
+    rows = []
+    for i, r in enumerate(raw[1:], start=2):
+        receber = _br_val(_g(r, 13))
+        pagar   = _br_val(_g(r, 14))
+        if receber == 0.0 and pagar == 0.0:
+            continue
+        emissao    = _br_date(_g(r, 0))
+        vencimento = _br_date(_g(r, 1))
+        quitado_em = _br_date(_g(r, 2))
+        tipo       = "receber" if receber > 0 else "pagar"
+        situacao   = "quitado" if quitado_em else "em_aberto"
+        valor      = receber if receber > 0 else pagar
+        rows.append({
+            "id":             i,
+            "tipo":           tipo,
+            "emissao":        emissao,
+            "vencimento":     vencimento or emissao,
+            "quitado_em":     quitado_em,
+            "contato_nome":   _g(r, 5),
+            "descricao":      _g(r, 6),
+            "categoria_nome": _g(r, 7),
+            "centro_nome":    _g(r, 8),
+            "conta_nome":     _g(r, 9),
+            "documento":      _g(r, 10),
+            "situacao":       situacao,
+            "valor":          valor,
+            "valor_total":    valor,
+        })
+
+    _SIGA_ROWS    = rows
+    _SIGA_ROWS_TS = now
+    return rows
+
 
 def _siga_summary_for_mes(mes_yyyymm: str) -> dict:
     try:
@@ -851,102 +935,43 @@ def _siga_summary_for_mes(mes_yyyymm: str) -> dict:
 @router.get("/api/fin/lancamentos")
 async def api_list_lancamentos(request: Request, mes: str = None):
     _require(request)
-    today = date.today().isoformat()
+    import asyncio
+    today    = date.today().isoformat()
+    loop     = asyncio.get_event_loop()
+    all_rows = await loop.run_in_executor(None, _fetch_siga_rows)
 
-    conn = get_conn()
-    cur = dict_cursor(conn)
-    try:
-        sql = _LANCAMENTO_JOIN + " WHERE COALESCE(l.origem,'manual') != 'cc'"
-        params = []
-        if mes:
-            sql += " AND l.vencimento LIKE %s"
-            params.append(f"{mes}%")
-        sql += " ORDER BY l.vencimento, l.id"
-        cur.execute(sql, params)
-        rows = [dict(r) for r in cur.fetchall()]
+    rows = [r for r in all_rows if (r["vencimento"] or "").startswith(mes)] if mes else all_rows
 
-        cur.execute(
-            "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE situacao='em_aberto' AND vencimento <= %s",
-            (today,),
-        )
-        row_emabert = cur.fetchone()["coalesce"]
+    if mes:
+        a_receber         = sum(r["valor"] for r in rows if r["tipo"] == "receber" and r["situacao"] != "quitado")
+        a_pagar           = sum(r["valor"] for r in rows if r["tipo"] == "pagar"   and r["situacao"] != "quitado")
+        recebidos         = sum(r["valor"] for r in rows if r["tipo"] == "receber" and r["situacao"] == "quitado")
+        pagos             = sum(r["valor"] for r in rows if r["tipo"] == "pagar"   and r["situacao"] == "quitado")
+        atrasados_receber = sum(r["valor"] for r in rows if r["tipo"] == "receber" and r["situacao"] != "quitado" and (r["vencimento"] or "") < today)
+        atrasados_pagar   = sum(r["valor"] for r in rows if r["tipo"] == "pagar"   and r["situacao"] != "quitado" and (r["vencimento"] or "") < today)
+        mes_receber       = sum(r["valor"] for r in rows if r["tipo"] == "receber" and r["situacao"] != "quitado" and (r["vencimento"] or "") >= today)
+        mes_pagar         = sum(r["valor"] for r in rows if r["tipo"] == "pagar"   and r["situacao"] != "quitado" and (r["vencimento"] or "") >= today)
+    else:
+        a_receber = a_pagar = recebidos = pagos = 0.0
+        atrasados_receber = atrasados_pagar = mes_receber = mes_pagar = 0.0
 
-        if mes:
-            like_mes = f"{mes}%"
-
-            cur.execute(
-                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='receber' AND situacao='em_aberto' AND vencimento LIKE %s",
-                (like_mes,),
-            )
-            a_receber = cur.fetchone()["coalesce"]
-
-            cur.execute(
-                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='pagar' AND situacao='em_aberto' AND vencimento LIKE %s",
-                (like_mes,),
-            )
-            a_pagar = cur.fetchone()["coalesce"]
-
-            cur.execute(
-                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='receber' AND situacao='quitado' AND vencimento LIKE %s AND COALESCE(origem,'manual')!='cc'",
-                (like_mes,),
-            )
-            recebidos = cur.fetchone()["coalesce"]
-
-            cur.execute(
-                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='pagar' AND situacao='quitado' AND vencimento LIKE %s AND COALESCE(origem,'manual')!='cc'",
-                (like_mes,),
-            )
-            pagos = cur.fetchone()["coalesce"]
-
-            cur.execute(
-                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='receber' AND situacao='em_aberto' AND vencimento < %s AND vencimento LIKE %s",
-                (today, like_mes),
-            )
-            atrasados_receber = cur.fetchone()["coalesce"]
-
-            cur.execute(
-                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='pagar' AND situacao='em_aberto' AND vencimento < %s AND vencimento LIKE %s",
-                (today, like_mes),
-            )
-            atrasados_pagar = cur.fetchone()["coalesce"]
-
-            cur.execute(
-                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='receber' AND situacao='em_aberto' AND vencimento >= %s AND vencimento LIKE %s",
-                (today, like_mes),
-            )
-            mes_receber = cur.fetchone()["coalesce"]
-
-            cur.execute(
-                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='pagar' AND situacao='em_aberto' AND vencimento >= %s AND vencimento LIKE %s",
-                (today, like_mes),
-            )
-            mes_pagar = cur.fetchone()["coalesce"]
-        else:
-            a_receber = a_pagar = recebidos = pagos = 0.0
-            atrasados_receber = atrasados_pagar = mes_receber = mes_pagar = 0.0
-    finally:
-        cur.close()
-        conn.close()
+    em_aberto = sum(r["valor"] for r in all_rows if r["situacao"] != "quitado" and (r["vencimento"] or "") <= today)
 
     summary = {
-        "em_aberto": round(float(row_emabert), 2),
-        "a_receber": round(float(a_receber), 2),
-        "a_pagar":   round(float(a_pagar), 2),
-        "recebidos": round(float(recebidos), 2),
-        "pagos":     round(float(pagos), 2),
+        "em_aberto": round(em_aberto, 2),
+        "a_receber": round(a_receber, 2),
+        "a_pagar":   round(a_pagar, 2),
+        "recebidos": round(recebidos, 2),
+        "pagos":     round(pagos, 2),
     }
     bottom_totals = {
-        "atrasados_receber": round(float(atrasados_receber), 2),
-        "mes_receber":       round(float(mes_receber), 2),
-        "atrasados_pagar":   round(float(atrasados_pagar), 2),
-        "mes_pagar":         round(float(mes_pagar), 2),
-        "total":             round(float(recebidos) - float(pagos), 2),
+        "atrasados_receber": round(atrasados_receber, 2),
+        "mes_receber":       round(mes_receber, 2),
+        "atrasados_pagar":   round(atrasados_pagar, 2),
+        "mes_pagar":         round(mes_pagar, 2),
+        "total":             round(recebidos - pagos, 2),
     }
-    return {
-        "lancamentos":   rows,
-        "summary":       summary,
-        "bottom_totals": bottom_totals,
-    }
+    return {"lancamentos": rows, "summary": summary, "bottom_totals": bottom_totals}
 
 
 @router.post("/api/fin/lancamentos")
@@ -1218,55 +1243,32 @@ async def api_saldos(request: Request):
 @router.get("/api/fin/fluxo-caixa")
 async def api_fluxo_caixa(request: Request, ano: int = None):
     _require(request)
+    import asyncio
     if not ano:
         ano = date.today().year
     today_str = date.today().isoformat()
-    labels = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+    labels    = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+
+    loop     = asyncio.get_event_loop()
+    all_rows = await loop.run_in_executor(None, _fetch_siga_rows)
+
     resultado = []
-
-    conn = get_conn()
-    cur = dict_cursor(conn)
-    try:
-        for m in range(1, 13):
-            like = f"{ano}-{m:02d}%"
-
-            cur.execute(
-                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='receber' AND vencimento LIKE %s AND COALESCE(origem,'manual')!='cc'",
-                (like,),
-            )
-            receber = float(cur.fetchone()["coalesce"])
-
-            cur.execute(
-                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='pagar' AND vencimento LIKE %s AND COALESCE(origem,'manual')!='cc'",
-                (like,),
-            )
-            pagar = float(cur.fetchone()["coalesce"])
-
-            cur.execute(
-                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='receber' AND situacao='quitado' AND vencimento LIKE %s AND COALESCE(origem,'manual')!='cc'",
-                (like,),
-            )
-            recebidos = float(cur.fetchone()["coalesce"])
-
-            cur.execute(
-                "SELECT COALESCE(SUM(valor_total),0) FROM fin_lancamentos WHERE tipo='pagar' AND situacao='quitado' AND vencimento LIKE %s AND COALESCE(origem,'manual')!='cc'",
-                (like,),
-            )
-            pagos = float(cur.fetchone()["coalesce"])
-
-            mes_str  = f"{ano}-{m:02d}"
-            realizado = mes_str < today_str[:7]
-            saldo_op  = (recebidos - pagos) if realizado else (receber - pagar)
-            resultado.append({
-                'mes': m, 'label': labels[m-1],
-                'receber': receber, 'pagar': pagar,
-                'recebidos': recebidos, 'pagos': pagos,
-                'saldo_op': round(saldo_op, 2),
-                'realizado': realizado,
-            })
-    finally:
-        cur.close()
-        conn.close()
+    for m in range(1, 13):
+        prefix   = f"{ano}-{m:02d}"
+        mes_rows = [r for r in all_rows if (r["vencimento"] or "").startswith(prefix)]
+        receber  = sum(r["valor"] for r in mes_rows if r["tipo"] == "receber")
+        pagar    = sum(r["valor"] for r in mes_rows if r["tipo"] == "pagar")
+        recebidos = sum(r["valor"] for r in mes_rows if r["tipo"] == "receber" and r["situacao"] == "quitado")
+        pagos     = sum(r["valor"] for r in mes_rows if r["tipo"] == "pagar"   and r["situacao"] == "quitado")
+        realizado = prefix < today_str[:7]
+        saldo_op  = (recebidos - pagos) if realizado else (receber - pagar)
+        resultado.append({
+            'mes': m, 'label': labels[m - 1],
+            'receber': round(receber, 2),   'pagar': round(pagar, 2),
+            'recebidos': round(recebidos, 2), 'pagos': round(pagos, 2),
+            'saldo_op': round(saldo_op, 2),
+            'realizado': realizado,
+        })
 
     saldo_acum = 0.0
     for r in resultado:
@@ -1749,16 +1751,84 @@ async def cartao_analise(request: Request, de: str = None, ate: str = None):
 async def dashboard_sheets(request: Request, de: str = None, ate: str = None):
     _require(request)
     import asyncio
-    global _DASH_CACHE, _DASH_CACHE_TS
-    key = (de or '', ate or '')
-    now = _time.time()
-    if key in _DASH_CACHE and now - _DASH_CACHE_TS.get(key, 0) < _DASH_CACHE_TTL:
-        return _DASH_CACHE[key]
-    try:
-        loop = asyncio.get_event_loop()
-        data = await loop.run_in_executor(None, lambda: _fetch_dashboard(de, ate))
-    except Exception as e:
-        raise HTTPException(500, f"Erro ao ler planilhas: {e}")
-    _DASH_CACHE[key] = data
-    _DASH_CACHE_TS[key] = now
-    return data
+    from collections import defaultdict
+
+    loop     = asyncio.get_event_loop()
+    all_rows = await loop.run_in_executor(None, _fetch_siga_rows)
+
+    def _ym(s):
+        if not s: return None
+        if '-' in s:
+            y, m = s.split('-'); return (int(y), int(m))
+        abbr, yy = s.split('/'); return (2000 + int(yy), _MESES_ABBR_LIST.index(abbr) + 1)
+
+    def _label(iso):
+        if not iso or len(iso) < 7: return None
+        y, m = iso[:7].split('-')
+        return f"{_MESES_ABBR_LIST[int(m)-1]}/{y[2:]}"
+
+    ym_de  = _ym(de)  if de  else None
+    ym_ate = _ym(ate) if ate else None
+
+    def _in_range(iso):
+        if not iso: return False
+        try:
+            y, m = iso[:7].split('-'); ym = (int(y), int(m))
+        except Exception:
+            return False
+        if ym_de  and ym < ym_de:  return False
+        if ym_ate and ym > ym_ate: return False
+        return True
+
+    ref_date = lambda r: r.get("quitado_em") or r["vencimento"]
+    quitadas = [r for r in all_rows if r["situacao"] == "quitado" and _in_range(ref_date(r))]
+
+    by_month: dict = defaultdict(lambda: {'receber': 0.0, 'pagar': 0.0, 'n': 0})
+    for r in quitadas:
+        k = _label(ref_date(r))
+        if not k: continue
+        by_month[k]['receber'] += r["valor"] if r["tipo"] == "receber" else 0
+        by_month[k]['pagar']   += r["valor"] if r["tipo"] == "pagar"   else 0
+        by_month[k]['n']       += 1
+
+    def _sk(mes):
+        try: abbr, yy = mes.split('/'); return (int(yy), _MESES_ABBR_LIST.index(abbr))
+        except Exception: return (0, 0)
+
+    siga_mensal = [
+        {'mes': k, 'receber': round(v['receber'], 2), 'pagar': round(v['pagar'], 2),
+         'lucro': round(v['receber'] - v['pagar'], 2), 'n': v['n']}
+        for k, v in sorted(by_month.items(), key=lambda x: _sk(x[0]))
+    ]
+
+    cli: dict = defaultdict(float)
+    for r in quitadas:
+        if r["tipo"] == "receber": cli[r["contato_nome"]] += r["valor"]
+    top_clientes = [{'nome': k, 'total': round(v, 2)}
+                    for k, v in sorted(cli.items(), key=lambda x: -x[1])[:12]]
+
+    forn: dict = defaultdict(float)
+    for r in quitadas:
+        if r["tipo"] == "pagar": forn[r["contato_nome"]] += r["valor"]
+    top_fornecedores = [{'nome': k, 'total': round(v, 2)}
+                        for k, v in sorted(forn.items(), key=lambda x: -x[1])[:12]]
+
+    cc: dict = defaultdict(float)
+    for r in quitadas:
+        cn = r.get("centro_nome") or ""
+        if r["tipo"] == "pagar" and cn and cn not in ('Sem Centro de Custos', ''):
+            cc[cn] += r["valor"]
+    centros = [{'nome': k, 'total': round(v, 2)}
+               for k, v in sorted(cc.items(), key=lambda x: -x[1])]
+
+    return {'siga_mensal': siga_mensal, 'top_clientes': top_clientes,
+            'top_fornecedores': top_fornecedores, 'centros': centros}
+
+
+@router.post("/api/fin/siga/refresh")
+async def siga_refresh(request: Request):
+    _require(request)
+    global _SIGA_ROWS, _SIGA_ROWS_TS
+    _SIGA_ROWS    = []
+    _SIGA_ROWS_TS = 0.0
+    return {"ok": True}
