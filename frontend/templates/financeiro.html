@@ -1084,7 +1084,7 @@
 
     <!-- ═══════════════════════════════ FATURAS ════════════════════════════════ -->
     <template x-if="currentSection==='cartao'">
-      <div class="dash-wrap" x-init="$nextTick(() => initCartaoCharts())">
+      <div class="dash-wrap">
 
         <div class="sec-header" style="margin-bottom:20px;">
           <span class="sec-title">Análise CC — Cartão de Crédito</span>
@@ -1139,8 +1139,8 @@
           </div>
         </template>
 
-        <template x-if="!cartaoLoading && cartaoData">
-          <div>
+        <template x-if="cartaoData">
+          <div x-init="$nextTick(() => initCartaoCharts())">
             <!-- KPIs -->
             <div class="dash-kpis">
               <div class="dash-kpi">
@@ -2682,7 +2682,6 @@ window.finApp = function() {
     },
 
     async loadCartaoAnalise() {
-      if (this.cartaoData) { await this.$nextTick(); await this.$nextTick(); this.initCartaoCharts(); return; }
       this.cartaoLoading = true;
       try {
         const p = new URLSearchParams();
@@ -2692,7 +2691,6 @@ window.finApp = function() {
         this.cartaoData = await this.api('GET', '/api/fin/cartao-analise' + qs);
       } catch(e) { this.showToast('Erro ao carregar faturas: ' + e.message, 'error'); }
       finally { this.cartaoLoading = false; }
-      await this.$nextTick();
       await this.$nextTick();
       this.initCartaoCharts();
     },
