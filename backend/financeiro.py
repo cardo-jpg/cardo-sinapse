@@ -830,7 +830,7 @@ _MESES_ABBR_LIST = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out',
 # ── SIGA Google Sheets — fonte de verdade ─────────────────────────────────────
 
 SIGA_SHEET_ID        = os.getenv("SIGA_SHEET_ID", "1mcZiIOsI2jLC_A-rSUuVFCEkXIdihyqj2qMRjBiCzjU")
-SIGA_MIGRATION_VER   = "v8"  # bump para forçar reimportação
+SIGA_MIGRATION_VER   = "v9"  # bump para forçar reimportação
 _SIGA_ROWS: list      = []
 _SIGA_ROWS_TS: float  = 0.0
 _SIGA_ROWS_TTL: int   = 300
