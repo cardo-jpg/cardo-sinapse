@@ -830,7 +830,7 @@ _MESES_ABBR_LIST = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out',
 # ── SIGA Google Sheets — fonte de verdade ─────────────────────────────────────
 
 SIGA_SHEET_ID        = os.getenv("SIGA_SHEET_ID", "1mcZiIOsI2jLC_A-rSUuVFCEkXIdihyqj2qMRjBiCzjU")
-SIGA_MIGRATION_VER   = "v6"  # bump para forçar reimportação
+SIGA_MIGRATION_VER   = "v7"  # bump para forçar reimportação
 _SIGA_ROWS: list      = []
 _SIGA_ROWS_TS: float  = 0.0
 _SIGA_ROWS_TTL: int   = 300
@@ -868,6 +868,46 @@ def _br_val(v) -> float:
         return 0.0
 
 
+_SIGA_COL_ALIASES: dict = {
+    'emissao':              'emissao',
+    'emissão':              'emissao',
+    'vencimento':           'vencimento',
+    'quitado em':           'quitado_em',
+    'situacao':             'situacao',
+    'situação':             'situacao',
+    'contato':              'contato_nome',
+    'nome fantasia':        'contato_nome',
+    'nome fantasia/apelido':'contato_nome',
+    'descricao':            'descricao',
+    'descrição':            'descricao',
+    'categoria':            'categoria_nome',
+    'centro de custos':     'centro_nome',
+    'conta corrente':       'conta_nome',
+    'documento':            'documento',
+    'receber':              'receber',
+    'pagar':                'pagar',
+}
+# Fallback por índice fixo (formato antigo) se a coluna não for encontrada no header
+_SIGA_COL_DEFAULTS: dict = {
+    'emissao': 0, 'vencimento': 1, 'quitado_em': 2,
+    'contato_nome': 5, 'descricao': 6, 'categoria_nome': 7,
+    'centro_nome': 8, 'conta_nome': 9, 'documento': 10,
+    'receber': 13, 'pagar': 14,
+}
+
+
+def _siga_build_col_map(header_row: list) -> dict:
+    def _n(s): return (s or '').lower().strip().replace('ã','a').replace('é','e').replace('ê','e').replace('ç','c').replace('ó','o').replace('á','a').replace('â','a')
+    col_map = {}
+    for i, cell in enumerate(header_row):
+        field = _SIGA_COL_ALIASES.get(_n(cell))
+        if field and field not in col_map:
+            col_map[field] = i
+    for field, idx in _SIGA_COL_DEFAULTS.items():
+        col_map.setdefault(field, idx)
+    return col_map
+
+
 def _fetch_siga_rows() -> list[dict]:
     global _SIGA_ROWS, _SIGA_ROWS_TS
     now = _time.time()
@@ -876,46 +916,57 @@ def _fetch_siga_rows() -> list[dict]:
 
     svc = _sheets_svc()
 
-    # Lê todas as abas da planilha
     meta = svc.spreadsheets().get(spreadsheetId=SIGA_SHEET_ID).execute()
     sheet_names = [s['properties']['title'] for s in meta.get('sheets', [])]
 
-    def _g(r, idx):
-        return str(r[idx]).strip() if idx < len(r) else ""
+    def _g(r, idx): return str(r[idx]).strip() if idx < len(r) else ""
+    def _gf(r, cm, f): return _g(r, cm.get(f, -1)) if cm.get(f, -1) >= 0 else ""
 
     rows = []
-    seen = set()  # (vencimento, descricao, valor) para evitar duplicatas entre abas
+    seen: set = set()
 
     for sheet_name in sheet_names:
         result = svc.spreadsheets().values().get(
             spreadsheetId=SIGA_SHEET_ID,
-            range=f"'{sheet_name}'!A:P",
+            range=f"'{sheet_name}'!A:T",
         ).execute()
         raw = result.get("values", [])
 
-        # Encontra a linha de cabeçalho (procura "Emissão" na coluna A ou B)
         header_idx = 0
+        col_map: dict = {}
         for i, row in enumerate(raw):
-            cell = _g(row, 0).lower().replace('ã', 'a').replace('ê', 'e')
-            if cell in ('emissao', 'emissão') or _g(row, 1).lower() == 'vencimento':
+            n = _g(row, 0).lower().replace('ã','a').replace('ê','e')
+            if n in ('emissao', 'emissão') or _g(row, 1).lower() == 'vencimento':
                 header_idx = i
+                col_map = _siga_build_col_map(row)
                 break
+        if not col_map:
+            col_map = _siga_build_col_map([])
 
         for r in raw[header_idx + 1:]:
-            receber = _br_val(_g(r, 13))
-            pagar   = _br_val(_g(r, 14))
+            receber = _br_val(_gf(r, col_map, 'receber'))
+            pagar   = _br_val(_gf(r, col_map, 'pagar'))
             if receber == 0.0 and pagar == 0.0:
                 continue
-            emissao    = _br_date(_g(r, 0))
-            vencimento = _br_date(_g(r, 1))
-            quitado_em = _br_date(_g(r, 2))
-            # Pula linhas de saldo/resumo sem nenhuma data (ex: totais do fim do export)
+            emissao    = _br_date(_gf(r, col_map, 'emissao'))
+            vencimento = _br_date(_gf(r, col_map, 'vencimento'))
+            quitado_em = _br_date(_gf(r, col_map, 'quitado_em'))
             if not emissao and not vencimento and not quitado_em:
                 continue
-            tipo       = "receber" if receber > 0 else "pagar"
-            situacao   = "quitado" if quitado_em else "em_aberto"
-            valor      = receber if receber > 0 else pagar
-            key = (vencimento or emissao, _g(r, 6)[:40], round(valor, 2))
+
+            # Usa coluna Situação explícita se disponível
+            sit_raw = _gf(r, col_map, 'situacao').lower()
+            if 'aberto' in sit_raw:
+                situacao = 'em_aberto'
+            elif sit_raw == 'quitado':
+                situacao = 'quitado'
+            else:
+                situacao = 'quitado' if quitado_em else 'em_aberto'
+
+            tipo  = "receber" if receber > 0 else "pagar"
+            valor = receber if receber > 0 else pagar
+            key   = (vencimento or emissao, _gf(r, col_map, 'contato_nome')[:30],
+                     _gf(r, col_map, 'descricao')[:30], round(valor, 2))
             if key in seen:
                 continue
             seen.add(key)
@@ -924,12 +975,12 @@ def _fetch_siga_rows() -> list[dict]:
                 "emissao":        emissao,
                 "vencimento":     vencimento or emissao,
                 "quitado_em":     quitado_em,
-                "contato_nome":   _g(r, 5),
-                "descricao":      _g(r, 6),
-                "categoria_nome": _g(r, 7),
-                "centro_nome":    _g(r, 8),
-                "conta_nome":     _g(r, 9),
-                "documento":      _g(r, 10),
+                "contato_nome":   _gf(r, col_map, 'contato_nome'),
+                "descricao":      _gf(r, col_map, 'descricao'),
+                "categoria_nome": _gf(r, col_map, 'categoria_nome'),
+                "centro_nome":    _gf(r, col_map, 'centro_nome'),
+                "conta_nome":     _gf(r, col_map, 'conta_nome'),
+                "documento":      _gf(r, col_map, 'documento'),
                 "situacao":       situacao,
                 "valor":          valor,
                 "valor_total":    valor,
