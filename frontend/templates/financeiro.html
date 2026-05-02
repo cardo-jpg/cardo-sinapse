@@ -1053,7 +1053,7 @@
               </div>
             </div>
 
-            <div class="dash-row cols-2" x-show="dashData.top_clientes?.length">
+            <div class="dash-row cols-2">
               <div class="dash-box">
                 <div class="dash-box-title">Top Clientes — Total Recebido</div>
                 <div style="height:260px;"><canvas id="chart-top-cli"></canvas></div>
@@ -1064,7 +1064,7 @@
               </div>
             </div>
 
-            <div class="dash-row cols-2" x-show="dashData.centros?.length || dashData.siga_mensal?.length">
+            <div class="dash-row cols-2">
               <div class="dash-box">
                 <div class="dash-box-title">Centros de Custo — Total Gasto</div>
                 <div style="height:260px;"><canvas id="chart-centros"></canvas></div>
@@ -2881,6 +2881,8 @@ window.finApp = function() {
           },
         });
       }
+      // Força resize em todos os charts para corrigir dimensões após render
+      Object.values(this._dashCharts).forEach(c => { try { c.resize(); } catch(_){} });
     },
 
     /* ══════════════════════════ IMPORTAR ══════════════════════════ */
