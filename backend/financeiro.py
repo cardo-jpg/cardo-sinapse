@@ -239,6 +239,19 @@ def init_db():
                     "INSERT INTO fin_fornecedores (tipo,nome_fantasia,razao_social,cnpj,cpf,email,telefone) VALUES (%s,%s,%s,%s,%s,%s,%s)",
                     row,
                 )
+        # Seed centros de custo SIGA (idempotente — insere só se nome não existe)
+        _SIGA_CENTROS = [
+            'Despesa Comissão', 'Despesa de Infraestrutura', 'Despesa de Treinamento',
+            'Despesa Financeira', 'Despesa Geral e Insumos', 'Despesa Operacional',
+            'Despesa Tributária', 'Despesas Equipe', 'Despesas Fixas',
+            'Remuneração Administrativa', 'Sem Centro de Custos',
+        ]
+        dcur.execute("SELECT nome FROM fin_centros_custo")
+        existing = {r['nome'] for r in dcur.fetchall()}
+        for nome in _SIGA_CENTROS:
+            if nome not in existing:
+                dcur.execute("INSERT INTO fin_centros_custo (nome) VALUES (%s)", (nome,))
+
         dcur.close()
         conn.commit()
     finally:
@@ -830,7 +843,7 @@ _MESES_ABBR_LIST = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out',
 # ── SIGA Google Sheets — fonte de verdade ─────────────────────────────────────
 
 SIGA_SHEET_ID        = os.getenv("SIGA_SHEET_ID", "1mcZiIOsI2jLC_A-rSUuVFCEkXIdihyqj2qMRjBiCzjU")
-SIGA_MIGRATION_VER   = "v10"  # bump para forçar reimportação
+SIGA_MIGRATION_VER   = "v11"  # bump para forçar reimportação
 _SIGA_ROWS: list      = []
 _SIGA_ROWS_TS: float  = 0.0
 _SIGA_ROWS_TTL: int   = 300
