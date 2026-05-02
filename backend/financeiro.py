@@ -1962,49 +1962,75 @@ async def migrar_siga(request: Request):
 async def debug_siga_mes(request: Request, mes: str = "2026-04"):
     """Debug: compara Sheet vs DB para um mês (quitados). Ex: ?mes=2026-04"""
     _require(request)
+
+    # Raw Sheet data (sem cache) para inspecionar colunas
     try:
-        sheet_rows = _fetch_siga_rows()
+        svc = _sheets_svc()
+        result = svc.spreadsheets().values().get(
+            spreadsheetId=SIGA_SHEET_ID, range="A:P"
+        ).execute()
+        raw = result.get("values", [])
     except Exception as e:
         return {"error": str(e)}
 
-    sheet_pagar   = [r for r in sheet_rows if r['tipo'] == 'pagar'   and (r.get('quitado_em') or '')[:7] == mes]
-    sheet_receber = [r for r in sheet_rows if r['tipo'] == 'receber' and (r.get('quitado_em') or '')[:7] == mes]
+    header = raw[0] if raw else []
+    sample_raw = raw[1:6]  # primeiras 5 linhas de dados
+
+    try:
+        sheet_rows = _fetch_siga_rows()
+    except Exception as e:
+        return {"error_fetch": str(e), "header": header}
+
+    sheet_pagar_mes   = [r for r in sheet_rows if r['tipo'] == 'pagar'   and (r.get('quitado_em') or '')[:7] == mes]
+    sheet_receber_mes = [r for r in sheet_rows if r['tipo'] == 'receber' and (r.get('quitado_em') or '')[:7] == mes]
+    # também por vencimento (sem filtrar quitado_em)
+    sheet_pagar_venc   = [r for r in sheet_rows if r['tipo'] == 'pagar'   and (r.get('vencimento') or '')[:7] == mes]
+    sheet_receber_venc = [r for r in sheet_rows if r['tipo'] == 'receber' and (r.get('vencimento') or '')[:7] == mes]
 
     conn = get_conn()
     cur  = dict_cursor(conn)
     try:
         cur.execute(
-            "SELECT tipo, vencimento, contato_nome, descricao, valor_total "
+            "SELECT tipo, vencimento, situacao, contato_nome, descricao, valor_total "
             "FROM fin_lancamentos "
-            "WHERE situacao='quitado' AND vencimento LIKE %s "
-            "  AND COALESCE(origem,'manual') != 'cc' "
-            "ORDER BY tipo, vencimento",
+            "WHERE vencimento LIKE %s AND COALESCE(origem,'manual') != 'cc' "
+            "ORDER BY tipo, situacao, vencimento",
             (f"{mes}%",),
         )
         db_rows = [dict(r) for r in cur.fetchall()]
+        cur.execute("SELECT value FROM fin_meta WHERE key='siga_migration_version'")
+        ver_row = cur.fetchone()
     finally:
         cur.close(); conn.close()
 
-    db_pagar   = [r for r in db_rows if r['tipo'] == 'pagar']
-    db_receber = [r for r in db_rows if r['tipo'] == 'receber']
+    db_pagar_quit   = [r for r in db_rows if r['tipo'] == 'pagar'   and r['situacao'] == 'quitado']
+    db_receber_quit = [r for r in db_rows if r['tipo'] == 'receber' and r['situacao'] == 'quitado']
 
     return {
         "mes": mes,
-        "migration_ver_atual": SIGA_MIGRATION_VER,
-        "sheet": {
-            "pagar_total":   round(sum(r['valor'] for r in sheet_pagar),   2),
-            "pagar_count":   len(sheet_pagar),
-            "receber_total": round(sum(r['valor'] for r in sheet_receber), 2),
-            "receber_count": len(sheet_receber),
-            "pagar_rows":    [{"contato": r['contato_nome'], "descricao": r['descricao'],
-                               "quitado_em": r['quitado_em'], "valor": r['valor']} for r in sheet_pagar],
+        "migration_ver_codigo": SIGA_MIGRATION_VER,
+        "migration_ver_banco":  ver_row["value"] if ver_row else None,
+        "sheet_header":         header,
+        "sheet_sample_raw":     sample_raw,
+        "sheet_stats": {
+            "total_rows":          len(sheet_rows),
+            "com_quitado_em":      sum(1 for r in sheet_rows if r.get('quitado_em')),
+            "sem_quitado_em":      sum(1 for r in sheet_rows if not r.get('quitado_em')),
+            "pagar_vencimento_mes":   len(sheet_pagar_venc),
+            "receber_vencimento_mes": len(sheet_receber_venc),
+            "pagar_quitado_em_mes":   len(sheet_pagar_mes),
+            "receber_quitado_em_mes": len(sheet_receber_mes),
         },
+        "sheet_pagar_vencimento_mes": [
+            {"contato": r['contato_nome'], "descricao": r['descricao'],
+             "vencimento": r['vencimento'], "quitado_em": r['quitado_em'],
+             "situacao": r['situacao'], "valor": r['valor']}
+            for r in sheet_pagar_venc
+        ],
         "db": {
-            "pagar_total":   round(sum(r['valor_total'] for r in db_pagar),   2),
-            "pagar_count":   len(db_pagar),
-            "receber_total": round(sum(r['valor_total'] for r in db_receber), 2),
-            "receber_count": len(db_receber),
-            "pagar_rows":    [{"contato": r['contato_nome'], "descricao": r['descricao'],
-                               "vencimento": r['vencimento'], "valor_total": r['valor_total']} for r in db_pagar],
+            "pagar_quitado_total":   round(sum(r['valor_total'] for r in db_pagar_quit),   2),
+            "pagar_quitado_count":   len(db_pagar_quit),
+            "receber_quitado_total": round(sum(r['valor_total'] for r in db_receber_quit), 2),
+            "receber_quitado_count": len(db_receber_quit),
         },
     }
