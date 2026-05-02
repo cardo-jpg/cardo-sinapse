@@ -1026,7 +1026,7 @@
           </div>
         </template>
 
-        <template x-if="!dashLoading && dashData">
+        <template x-if="dashData">
           <div x-init="$nextTick(() => initCharts())">
             <!-- KPIs -->
             <div class="dash-kpis">
