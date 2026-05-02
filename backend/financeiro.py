@@ -838,7 +838,7 @@ _MES_PT_MAP = {'Jan':'Jan','Feb':'Fev','Mar':'Mar','Apr':'Abr','May':'Mai',
 # ── SIGA Google Sheets — fonte de verdade ─────────────────────────────────────
 
 SIGA_SHEET_ID        = os.getenv("SIGA_SHEET_ID", "1mcZiIOsI2jLC_A-rSUuVFCEkXIdihyqj2qMRjBiCzjU")
-SIGA_MIGRATION_VER   = "v4"  # bump para forçar reimportação
+SIGA_MIGRATION_VER   = "v5"  # bump para forçar reimportação
 _SIGA_ROWS: list      = []
 _SIGA_ROWS_TS: float  = 0.0
 _SIGA_ROWS_TTL: int   = 300
@@ -1916,10 +1916,13 @@ def _executar_migracao_siga() -> int:
         # Limpa tudo — dá uma base limpa antes de reimportar
         cur.execute("DELETE FROM fin_lancamentos WHERE COALESCE(origem,'manual') NOT IN ('cc')")
 
+        today_iso = date.today().isoformat()
         now = datetime.now().isoformat()
         for r in siga_rows:
             # Para itens quitados, usar quitado_em como vencimento (alinha com o que o SIGA mostra)
             venc_db = r['quitado_em'] if r['situacao'] == 'quitado' and r['quitado_em'] else r['vencimento']
+            emissao_db = r['emissao'] or r['vencimento'] or today_iso
+            venc_db    = venc_db or emissao_db
             cur.execute(
                 """INSERT INTO fin_lancamentos
                    (tipo, emissao, contato_nome, descricao, vencimento,
@@ -1927,8 +1930,8 @@ def _executar_migracao_siga() -> int:
                     documento, situacao, origem, created_at)
                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'siga',%s)""",
                 (
-                    r['tipo'], r['emissao'] or r['vencimento'],
-                    r['contato_nome'], r['descricao'],
+                    r['tipo'], emissao_db,
+                    r['contato_nome'] or '—', r['descricao'] or '—',
                     venc_db, r['valor'], r['valor_total'],
                     conta_map.get((r['conta_nome'] or '').lower()),
                     cat_map.get((r['categoria_nome'] or '').lower()),
@@ -1943,12 +1946,27 @@ def _executar_migracao_siga() -> int:
             "INSERT INTO fin_meta (key, value) VALUES ('siga_migration_version', %s) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value",
             (SIGA_MIGRATION_VER,)
         )
+        # Limpa erro anterior se existia
+        cur.execute("DELETE FROM fin_meta WHERE key='siga_migration_error'")
         conn.commit()
         log.info(f"[migrar-siga] {len(siga_rows)} lançamentos importados (versão {SIGA_MIGRATION_VER})")
         return len(siga_rows)
     except Exception as e:
         conn.rollback()
         log.error(f"[migrar-siga] erro na inserção: {e}")
+        # Grava o erro no banco para diagnóstico
+        try:
+            err_conn = get_conn()
+            err_cur  = err_conn.cursor()
+            err_cur.execute(
+                "INSERT INTO fin_meta (key, value) VALUES ('siga_migration_error', %s) "
+                "ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value",
+                (str(e)[:500],)
+            )
+            err_conn.commit()
+            err_cur.close(); err_conn.close()
+        except Exception:
+            pass
         return 0
     finally:
         cur.close()
@@ -2023,6 +2041,12 @@ async def debug_siga_mes(request: Request, mes: str = "2026-04"):
     sheet_pagar_venc   = [r for r in sheet_rows if r['tipo'] == 'pagar'   and (r.get('vencimento') or '')[:7] == mes]
     sheet_receber_venc = [r for r in sheet_rows if r['tipo'] == 'receber' and (r.get('vencimento') or '')[:7] == mes]
 
+    # 21º item: quitado_em no mês mas vencimento fora do mês
+    sheet_pagar_fora_venc = [
+        r for r in sheet_pagar_mes
+        if (r.get('vencimento') or '')[:7] != mes
+    ]
+
     conn = get_conn()
     cur  = dict_cursor(conn)
     try:
@@ -2034,8 +2058,8 @@ async def debug_siga_mes(request: Request, mes: str = "2026-04"):
             (f"{mes}%",),
         )
         db_rows = [dict(r) for r in cur.fetchall()]
-        cur.execute("SELECT value FROM fin_meta WHERE key='siga_migration_version'")
-        ver_row = cur.fetchone()
+        cur.execute("SELECT key, value FROM fin_meta")
+        meta_rows = {r['key']: r['value'] for r in cur.fetchall()}
     finally:
         cur.close(); conn.close()
 
@@ -2045,23 +2069,21 @@ async def debug_siga_mes(request: Request, mes: str = "2026-04"):
     return {
         "mes": mes,
         "migration_ver_codigo": SIGA_MIGRATION_VER,
-        "migration_ver_banco":  ver_row["value"] if ver_row else None,
-        "sheet_header":         header,
-        "sheet_sample_raw":     sample_raw,
+        "migration_ver_banco":  meta_rows.get('siga_migration_version'),
+        "migration_error":      meta_rows.get('siga_migration_error'),
         "sheet_stats": {
             "total_rows":          len(sheet_rows),
             "com_quitado_em":      sum(1 for r in sheet_rows if r.get('quitado_em')),
-            "sem_quitado_em":      sum(1 for r in sheet_rows if not r.get('quitado_em')),
-            "pagar_vencimento_mes":   len(sheet_pagar_venc),
-            "receber_vencimento_mes": len(sheet_receber_venc),
-            "pagar_quitado_em_mes":   len(sheet_pagar_mes),
-            "receber_quitado_em_mes": len(sheet_receber_mes),
+            "pagar_quitado_em_mes":        len(sheet_pagar_mes),
+            "pagar_vencimento_mes":        len(sheet_pagar_venc),
+            "pagar_quitado_em_mes_total":  round(sum(r['valor'] for r in sheet_pagar_mes), 2),
+            "receber_quitado_em_mes":      len(sheet_receber_mes),
+            "receber_quitado_em_mes_total":round(sum(r['valor'] for r in sheet_receber_mes), 2),
         },
-        "sheet_pagar_vencimento_mes": [
+        "item_extra_quitado_em_abril_vencimento_outro_mes": [
             {"contato": r['contato_nome'], "descricao": r['descricao'],
-             "vencimento": r['vencimento'], "quitado_em": r['quitado_em'],
-             "situacao": r['situacao'], "valor": r['valor']}
-            for r in sheet_pagar_venc
+             "vencimento": r['vencimento'], "quitado_em": r['quitado_em'], "valor": r['valor']}
+            for r in sheet_pagar_fora_venc
         ],
         "db": {
             "pagar_quitado_total":   round(sum(r['valor_total'] for r in db_pagar_quit),   2),
