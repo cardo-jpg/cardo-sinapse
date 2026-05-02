@@ -971,7 +971,7 @@
 
     <!-- ═══════════════════════════════ ANÁLISE ════════════════════════════════ -->
     <template x-if="currentSection==='analise'">
-      <div class="dash-wrap" x-init="$nextTick(() => initDashboard())" x-effect="dashData && !dashLoading && $nextTick(() => $nextTick(() => initCharts()))">
+      <div class="dash-wrap" x-init="$nextTick(() => initDashboard())">
 
         <div class="sec-header" style="margin-bottom:20px; flex-wrap:wrap; gap:10px;">
           <span class="sec-title">Análise Financeira</span>
@@ -1027,7 +1027,7 @@
         </template>
 
         <template x-if="!dashLoading && dashData">
-          <div>
+          <div x-init="$nextTick(() => initCharts())">
             <!-- KPIs -->
             <div class="dash-kpis">
               <div class="dash-kpi">
@@ -2603,6 +2603,8 @@ window.finApp = function() {
 
     async applyDashFilter() {
       await this.loadDashboard(this.dashDe, this.dashAte);
+      await this.$nextTick();
+      this.initCharts();
     },
 
     initDashboard() {
