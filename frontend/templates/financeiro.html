@@ -971,7 +971,7 @@
 
     <!-- ═══════════════════════════════ ANÁLISE ════════════════════════════════ -->
     <template x-if="currentSection==='analise'">
-      <div class="dash-wrap" x-init="$nextTick(() => initDashboard())" x-effect="dashData && $nextTick(() => $nextTick(() => initCharts()))">
+      <div class="dash-wrap" x-init="$nextTick(() => initDashboard())" x-effect="dashData && !dashLoading && $nextTick(() => $nextTick(() => initCharts()))">
 
         <div class="sec-header" style="margin-bottom:20px; flex-wrap:wrap; gap:10px;">
           <span class="sec-title">Análise Financeira</span>
