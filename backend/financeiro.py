@@ -175,6 +175,8 @@ def init_db():
         """)
         conn.commit()
 
+        cur.execute("ALTER TABLE fin_importacoes ADD COLUMN IF NOT EXISTS mes_referencia TEXT")
+
         # Seed clientes/fornecedores if tables are empty (first deploy)
         dcur = dict_cursor(conn)
         dcur.execute("SELECT COUNT(*) FROM fin_clientes")
@@ -1458,6 +1460,7 @@ async def importar_extrato(
     request: Request,
     arquivo: UploadFile = File(...),
     conta_id: str = Form(None),
+    mes_referencia: str = Form(None),
 ):
     _require(request)
     content  = await arquivo.read()
@@ -1483,8 +1486,8 @@ async def importar_extrato(
     cur = dict_cursor(conn)
     try:
         cur.execute(
-            "INSERT INTO fin_importacoes (nome_arquivo, tipo_arquivo, conta_id, total_itens) VALUES (%s,%s,%s,%s) RETURNING id",
-            (filename, tipo_arquivo, cid, len(lancamentos)),
+            "INSERT INTO fin_importacoes (nome_arquivo, tipo_arquivo, conta_id, total_itens, mes_referencia) VALUES (%s,%s,%s,%s,%s) RETURNING id",
+            (filename, tipo_arquivo, cid, len(lancamentos), mes_referencia or None),
         )
         imp_id = cur.fetchone()["id"]
         for l in lancamentos:
@@ -1668,36 +1671,28 @@ async def cartao_analise(request: Request, de: str = None, ate: str = None):
     conn = get_conn()
     cur = dict_cursor(conn)
     try:
-        filters = ["i.status = 'aprovado'", "i.tipo = 'despesa'"]
-        params: list = []
-        if de:
-            filters.append("i.data_lancamento >= %s")
-            params.append(de)
-        if ate:
-            filters.append("i.data_lancamento <= %s")
-            params.append(ate + "-31")
-        where = " AND ".join(filters)
         cur.execute(f"""
             SELECT i.data_lancamento, i.descricao, i.valor, i.tipo,
                    i.categoria_id, c.nome AS categoria_nome,
                    i.importacao_id,
-                   imp.nome_arquivo, imp.created_at AS imp_created_at
+                   imp.nome_arquivo, imp.mes_referencia,
+                   imp.created_at AS imp_created_at
             FROM fin_importacao_itens i
             JOIN fin_importacoes imp ON imp.id = i.importacao_id
             LEFT JOIN fin_categorias c ON c.id = i.categoria_id
-            WHERE {where}
-            ORDER BY i.data_lancamento
-        """, params)
+            WHERE i.status = 'aprovado' AND i.tipo = 'despesa'
+            ORDER BY COALESCE(imp.mes_referencia, LEFT(i.data_lancamento,7)), i.data_lancamento
+        """)
         itens = [dict(r) for r in cur.fetchall()]
 
         cur.execute("""
-            SELECT imp.id, imp.nome_arquivo, imp.created_at,
+            SELECT imp.id, imp.nome_arquivo, imp.created_at, imp.mes_referencia,
                    imp.total_itens, imp.itens_aprovados,
                    COALESCE(SUM(CASE WHEN i.tipo='despesa' AND i.status='aprovado' THEN i.valor ELSE 0 END),0) AS total
             FROM fin_importacoes imp
             LEFT JOIN fin_importacao_itens i ON i.importacao_id = imp.id
             GROUP BY imp.id
-            ORDER BY imp.created_at DESC
+            ORDER BY COALESCE(imp.mes_referencia, imp.created_at::text) DESC
         """)
         faturas = [dict(r) for r in cur.fetchall()]
     finally:
@@ -1713,9 +1708,18 @@ async def cartao_analise(request: Request, de: str = None, ate: str = None):
         except Exception:
             return yyyymm
 
+    def _item_mes(it):
+        return it.get('mes_referencia') or (it['data_lancamento'] or '')[:7]
+
+    # Apply de/ate filter based on mes_referencia
+    if de or ate:
+        itens = [it for it in itens if
+                 (not de or _item_mes(it) >= de) and
+                 (not ate or _item_mes(it) <= ate)]
+
     by_month: dict = defaultdict(float)
     for it in itens:
-        raw = (it['data_lancamento'] or '')[:7]
+        raw = _item_mes(it)
         if raw:
             by_month[raw] += it['valor'] or 0
     mensal = [{'mes': _ym_label(k), 'total': round(v, 2)} for k, v in sorted(by_month.items())]

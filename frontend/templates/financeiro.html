@@ -1260,6 +1260,8 @@
                     <option :value="c.id" x-text="c.nome"></option>
                   </template>
                 </select>
+                <span style="font-size:.75rem; color:var(--muted);">Mês da fatura:</span>
+                <input type="month" class="form-input" style="width:160px; font-size:.8rem;" x-model="impMesReferencia">
               </div>
             </div>
             <input type="file" x-ref="impFileInput" accept=".pdf,.csv,.ofx,.txt,.ret" style="display:none"
@@ -1274,7 +1276,7 @@
                     <span style="font-size:1.1rem;">📄</span>
                     <span class="imp-history-name" x-text="imp.nome_arquivo"></span>
                     <span class="imp-history-meta" x-text="imp.itens_aprovados + '/' + imp.total_itens + ' aprovados'"></span>
-                    <span class="imp-history-meta" x-text="imp.created_at ? imp.created_at.slice(0,10) : ''"></span>
+                    <span class="imp-history-meta" x-text="imp.mes_referencia || (imp.created_at ? imp.created_at.slice(0,7) : '')"></span>
                   </div>
                 </template>
               </div>
@@ -1988,6 +1990,7 @@ window.finApp = function() {
 
     /* ── importar ── */
     impStep: 'upload',
+    impMesReferencia: new Date().toISOString().slice(0,7),
     impDragOver: false,
     impFileName: '',
     impContaId: '',
@@ -2903,6 +2906,7 @@ window.finApp = function() {
       const fd = new FormData();
       fd.append('arquivo', file);
       if (this.impContaId) fd.append('conta_id', this.impContaId);
+      if (this.impMesReferencia) fd.append('mes_referencia', this.impMesReferencia);
       try {
         const resp = await fetch('/api/fin/importar', {
           method: 'POST',
