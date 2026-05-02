@@ -1053,33 +1053,27 @@
               </div>
             </div>
 
-            <!-- Gráfico 1: P&L histórico (full width) -->
-            <template x-if="dashData.top_clientes?.length">
-              <div class="dash-row cols-2">
-                <div class="dash-box">
-                  <div class="dash-box-title">Top Clientes — Total Recebido</div>
-                  <div style="height:260px;"><canvas id="chart-top-cli"></canvas></div>
-                </div>
-                <div class="dash-box">
-                  <div class="dash-box-title">Top Fornecedores — Total Pago</div>
-                  <div style="height:260px;"><canvas id="chart-top-forn"></canvas></div>
-                </div>
+            <div class="dash-row cols-2" x-show="dashData.top_clientes?.length">
+              <div class="dash-box">
+                <div class="dash-box-title">Top Clientes — Total Recebido</div>
+                <div style="height:260px;"><canvas id="chart-top-cli"></canvas></div>
               </div>
-            </template>
+              <div class="dash-box">
+                <div class="dash-box-title">Top Fornecedores — Total Pago</div>
+                <div style="height:260px;"><canvas id="chart-top-forn"></canvas></div>
+              </div>
+            </div>
 
-            <!-- Centro de custos donut -->
-            <template x-if="dashData.centros?.length">
-              <div class="dash-row cols-2">
-                <div class="dash-box">
-                  <div class="dash-box-title">Centros de Custo — Total Gasto</div>
-                  <div style="height:260px;"><canvas id="chart-centros"></canvas></div>
-                </div>
-                <div class="dash-box">
-                  <div class="dash-box-title">Evolução</div>
-                  <div style="height:260px;"><canvas id="chart-siga-hist"></canvas></div>
-                </div>
+            <div class="dash-row cols-2" x-show="dashData.centros?.length || dashData.siga_mensal?.length">
+              <div class="dash-box">
+                <div class="dash-box-title">Centros de Custo — Total Gasto</div>
+                <div style="height:260px;"><canvas id="chart-centros"></canvas></div>
               </div>
-            </template>
+              <div class="dash-box">
+                <div class="dash-box-title">Evolução</div>
+                <div style="height:260px;"><canvas id="chart-siga-hist"></canvas></div>
+              </div>
+            </div>
 
 
           </div>
@@ -1977,8 +1971,8 @@ window.finApp = function() {
     dashData: null,
     dashLoading: false,
     _dashCharts: {},
-    dashDe: '',
-    dashAte: '',
+    dashDe: (() => { const n = new Date(); const q = Math.floor(n.getMonth()/3); return `${n.getFullYear()}-${String(q*3+1).padStart(2,'0')}`; })(),
+    dashAte: (() => { const n = new Date(); const q = Math.floor(n.getMonth()/3); return `${n.getFullYear()}-${String(q*3+3).padStart(2,'0')}`; })(),
     dashAllMonths: [],
 
     /* ── faturas cartão ── */
@@ -2616,7 +2610,7 @@ window.finApp = function() {
 
     initDashboard() {
       if (this.dashData) this.initCharts();
-      else this.loadDashboard();
+      else this.loadDashboard(this.dashDe, this.dashAte);
     },
 
     /* ── Month picker helpers ── */
