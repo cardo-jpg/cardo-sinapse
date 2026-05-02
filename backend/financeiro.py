@@ -838,7 +838,7 @@ _MES_PT_MAP = {'Jan':'Jan','Feb':'Fev','Mar':'Mar','Apr':'Abr','May':'Mai',
 # ── SIGA Google Sheets — fonte de verdade ─────────────────────────────────────
 
 SIGA_SHEET_ID        = os.getenv("SIGA_SHEET_ID", "1mcZiIOsI2jLC_A-rSUuVFCEkXIdihyqj2qMRjBiCzjU")
-SIGA_MIGRATION_VER   = "v3"  # bump para forçar reimportação
+SIGA_MIGRATION_VER   = "v4"  # bump para forçar reimportação
 _SIGA_ROWS: list      = []
 _SIGA_ROWS_TS: float  = 0.0
 _SIGA_ROWS_TTL: int   = 300
@@ -1952,3 +1952,55 @@ async def migrar_siga(request: Request):
     global _SIGA_ROWS, _SIGA_ROWS_TS
     _SIGA_ROWS = []; _SIGA_ROWS_TS = 0.0
     return {"ok": True, "importados": n}
+
+
+@router.get("/api/fin/debug-siga")
+async def debug_siga_mes(request: Request, mes: str = "2026-04"):
+    """Debug: compara Sheet vs DB para um mês (quitados). Ex: ?mes=2026-04"""
+    _require(request)
+    try:
+        sheet_rows = _fetch_siga_rows()
+    except Exception as e:
+        return {"error": str(e)}
+
+    sheet_pagar   = [r for r in sheet_rows if r['tipo'] == 'pagar'   and (r.get('quitado_em') or '')[:7] == mes]
+    sheet_receber = [r for r in sheet_rows if r['tipo'] == 'receber' and (r.get('quitado_em') or '')[:7] == mes]
+
+    conn = get_conn()
+    cur  = dict_cursor(conn)
+    try:
+        cur.execute(
+            "SELECT tipo, vencimento, contato_nome, descricao, valor_total "
+            "FROM fin_lancamentos "
+            "WHERE situacao='quitado' AND vencimento LIKE %s "
+            "  AND COALESCE(origem,'manual') != 'cc' "
+            "ORDER BY tipo, vencimento",
+            (f"{mes}%",),
+        )
+        db_rows = [dict(r) for r in cur.fetchall()]
+    finally:
+        cur.close(); conn.close()
+
+    db_pagar   = [r for r in db_rows if r['tipo'] == 'pagar']
+    db_receber = [r for r in db_rows if r['tipo'] == 'receber']
+
+    return {
+        "mes": mes,
+        "migration_ver_atual": SIGA_MIGRATION_VER,
+        "sheet": {
+            "pagar_total":   round(sum(r['valor'] for r in sheet_pagar),   2),
+            "pagar_count":   len(sheet_pagar),
+            "receber_total": round(sum(r['valor'] for r in sheet_receber), 2),
+            "receber_count": len(sheet_receber),
+            "pagar_rows":    [{"contato": r['contato_nome'], "descricao": r['descricao'],
+                               "quitado_em": r['quitado_em'], "valor": r['valor']} for r in sheet_pagar],
+        },
+        "db": {
+            "pagar_total":   round(sum(r['valor_total'] for r in db_pagar),   2),
+            "pagar_count":   len(db_pagar),
+            "receber_total": round(sum(r['valor_total'] for r in db_receber), 2),
+            "receber_count": len(db_receber),
+            "pagar_rows":    [{"contato": r['contato_nome'], "descricao": r['descricao'],
+                               "vencimento": r['vencimento'], "valor_total": r['valor_total']} for r in db_pagar],
+        },
+    }
