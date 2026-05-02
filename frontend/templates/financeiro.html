@@ -474,7 +474,7 @@
       <button class="fin-nav-item" :class="currentSection==='fluxo' && 'active'" @click="currentSection='fluxo'; loadFluxo()">
         <span>📈</span> Fluxo de Caixa
       </button>
-      <button class="fin-nav-item" :class="currentSection==='analise' && 'active'" @click="currentSection='analise'; loadDashboard()">
+      <button class="fin-nav-item" :class="currentSection==='analise' && 'active'" @click="currentSection='analise'; initDashboard()">
         <span>📊</span> Análise
       </button>
       <button class="fin-nav-item" :class="currentSection==='cartao' && 'active'" @click="currentSection='cartao'; loadCartaoAnalise()">
@@ -2597,8 +2597,7 @@ window.finApp = function() {
             this.mp.viewYear = parseInt(this.dashDe.split('-')[0]);
           }
         }
-        await this.$nextTick();
-        await this.$nextTick();
+        await new Promise(r => setTimeout(r, 120));
         this.initCharts();
       } catch(e) { this.showToast('Erro ao carregar dados: ' + e.message, 'error'); }
       finally { this.dashLoading = false; }
