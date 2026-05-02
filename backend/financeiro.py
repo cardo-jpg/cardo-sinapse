@@ -825,15 +825,7 @@ _LANCAMENTO_JOIN = """
     LEFT JOIN fin_centros_custo cc  ON cc.id   = l.centro_custo_id
 """
 
-_DASH_CACHE: dict = {}
-_DASH_CACHE_TS: dict = {}
-_DASH_CACHE_TTL = 300
 _MESES_ABBR_LIST = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
-
-_SIGA_DIR = BASE_DIR / 'Financeiro'
-_MES_PT_MAP = {'Jan':'Jan','Feb':'Fev','Mar':'Mar','Apr':'Abr','May':'Mai',
-               'Jun':'Jun','Jul':'Jul','Aug':'Ago','Sep':'Set','Oct':'Out',
-               'Nov':'Nov','Dec':'Dez'}
 
 # ── SIGA Google Sheets — fonte de verdade ─────────────────────────────────────
 
@@ -944,23 +936,6 @@ def _fetch_siga_rows() -> list[dict]:
     _SIGA_ROWS_TS = now
     return rows
 
-
-def _siga_summary_for_mes(mes_yyyymm: str) -> dict:
-    try:
-        year, month = mes_yyyymm.split('-')
-        mes_label = f"{_MESES_ABBR_LIST[int(month)-1]}/{year[2:]}"
-    except Exception:
-        return {'receber': 0.0, 'pagar': 0.0}
-    siga_mensal = _DASH_CACHE.get(('', ''), {}).get('siga_mensal') or []
-    if not siga_mensal:
-        try:
-            siga_mensal = _parse_siga().get('siga_mensal', [])
-        except Exception:
-            return {'receber': 0.0, 'pagar': 0.0}
-    for e in siga_mensal:
-        if e['mes'] == mes_label:
-            return {'receber': e['receber'], 'pagar': e['pagar']}
-    return {'receber': 0.0, 'pagar': 0.0}
 
 
 @router.get("/api/fin/lancamentos")
@@ -1618,110 +1593,6 @@ async def rejeitar_item(item_id: int, request: Request):
 
 
 # ── Dashboard Analytics ────────────────────────────────────────────────────────
-
-def _mes_to_ym(mes: str):
-    if '-' in mes:
-        y, m = mes.split('-')
-        return (int(y), int(m))
-    abbr, yy = mes.split('/')
-    return (2000 + int(yy), _MESES_ABBR_LIST.index(abbr) + 1)
-
-
-def _parse_siga(de: str = None, ate: str = None):
-    import openpyxl as _xl
-    from collections import defaultdict
-    from datetime import datetime as _dt
-
-    siga_files = sorted(p for p in _SIGA_DIR.glob('*.xlsx') if 'Financeiro' in p.name)
-    if not siga_files:
-        return {}
-
-    def _pd(v):
-        if not v: return None
-        try: return _dt.strptime(str(v).strip(), '%d/%m/%Y').date()
-        except: return None
-    def _pv(v):
-        if v is None or v == '': return 0.0
-        try: return float(v)
-        except: return 0.0
-    def _mes(d):
-        return f"{_MES_PT_MAP.get(d.strftime('%b'), d.strftime('%b'))}/{d.strftime('%y')}"
-    def _sort_key(mes):
-        abbr, yy = mes.split('/')
-        meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
-        return (int(yy), meses.index(abbr) if abbr in meses else 0)
-
-    seen = set()
-    rows = []
-    for path in siga_files:
-        wb = _xl.load_workbook(str(path), data_only=True, read_only=True)
-        ws = wb.active
-        for row in ws.iter_rows(min_row=6, values_only=True):
-            if not row[0] or str(row[0]).strip() in ('Total', ''): continue
-            emissao   = _pd(row[0])
-            quitado   = _pd(row[2])
-            contato   = str(row[5] or '').strip()
-            descricao = str(row[6] or '').strip()
-            centro    = str(row[8] or '').strip()
-            conta     = str(row[9] or '').strip()
-            receber   = _pv(row[13])
-            pagar     = _pv(row[14])
-            key = (emissao, quitado, contato, descricao, receber, pagar)
-            if key in seen: continue
-            seen.add(key)
-            rows.append({'emissao': emissao, 'quitado': quitado, 'contato': contato,
-                         'descricao': descricao, 'centro': centro, 'conta': conta,
-                         'receber': receber, 'pagar': pagar})
-        wb.close()
-
-    ym_de  = _mes_to_ym(de)  if de  else None
-    ym_ate = _mes_to_ym(ate) if ate else None
-
-    def _in_range(d):
-        ym = (d.year, d.month)
-        if ym_de  and ym < ym_de:  return False
-        if ym_ate and ym > ym_ate: return False
-        return True
-
-    from collections import defaultdict
-    quitadas = [r for r in rows if r['quitado'] and _in_range(r['quitado'])]
-    by_month: dict = defaultdict(lambda: {'receber': 0.0, 'pagar': 0.0, 'n': 0})
-    for r in quitadas:
-        k = _mes(r['quitado'])
-        by_month[k]['receber'] += r['receber']
-        by_month[k]['pagar']   += r['pagar']
-        by_month[k]['n']       += 1
-
-    siga_mensal = [{'mes': k, 'receber': round(v['receber'],2), 'pagar': round(v['pagar'],2),
-                    'lucro': round(v['receber'] - v['pagar'], 2), 'n': v['n']}
-                   for k, v in sorted(by_month.items(), key=lambda x: _sort_key(x[0]))]
-
-    cli: dict = defaultdict(float)
-    for r in quitadas:
-        if r['receber'] > 0: cli[r['contato']] += r['receber']
-    top_clientes = [{'nome': k, 'total': round(v,2)}
-                    for k, v in sorted(cli.items(), key=lambda x: -x[1])[:12]]
-
-    forn: dict = defaultdict(float)
-    for r in quitadas:
-        if r['pagar'] > 0: forn[r['contato']] += r['pagar']
-    top_fornecedores = [{'nome': k, 'total': round(v,2)}
-                        for k, v in sorted(forn.items(), key=lambda x: -x[1])[:12]]
-
-    cc: dict = defaultdict(float)
-    for r in quitadas:
-        if r['pagar'] > 0 and r['centro'] and r['centro'] not in ('Sem Centro de Custos',''):
-            cc[r['centro']] += r['pagar']
-    centros = [{'nome': k, 'total': round(v,2)}
-               for k, v in sorted(cc.items(), key=lambda x: -x[1])]
-
-    return {'siga_mensal': siga_mensal, 'top_clientes': top_clientes,
-            'top_fornecedores': top_fornecedores, 'centros': centros}
-
-
-def _fetch_dashboard(de: str = None, ate: str = None):
-    return _parse_siga(de=de, ate=ate)
-
 
 @router.get("/api/fin/cartao-analise")
 async def cartao_analise(request: Request, de: str = None, ate: str = None):
