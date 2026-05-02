@@ -1054,15 +1054,14 @@
             </div>
 
             <!-- Gráfico 1: P&L histórico (full width) -->
-            <!-- Gráficos SiGA: Top clientes + Top fornecedores -->
             <template x-if="dashData.top_clientes?.length">
               <div class="dash-row cols-2">
                 <div class="dash-box">
-                  <div class="dash-box-title">Top Clientes — Total Recebido (SiGA)</div>
+                  <div class="dash-box-title">Top Clientes — Total Recebido</div>
                   <div style="height:260px;"><canvas id="chart-top-cli"></canvas></div>
                 </div>
                 <div class="dash-box">
-                  <div class="dash-box-title">Top Fornecedores — Total Pago (SiGA)</div>
+                  <div class="dash-box-title">Top Fornecedores — Total Pago</div>
                   <div style="height:260px;"><canvas id="chart-top-forn"></canvas></div>
                 </div>
               </div>
@@ -1072,11 +1071,11 @@
             <template x-if="dashData.centros?.length">
               <div class="dash-row cols-2">
                 <div class="dash-box">
-                  <div class="dash-box-title">Centros de Custo — Total Gasto (SiGA)</div>
+                  <div class="dash-box-title">Centros de Custo — Total Gasto</div>
                   <div style="height:260px;"><canvas id="chart-centros"></canvas></div>
                 </div>
                 <div class="dash-box">
-                  <div class="dash-box-title">Evolução SiGA — Mai/25 a Abr/26</div>
+                  <div class="dash-box-title" x-text="'Evolução — ' + dashPeriodLabel"></div>
                   <div style="height:260px;"><canvas id="chart-siga-hist"></canvas></div>
                 </div>
               </div>
@@ -2006,7 +2005,7 @@ window.finApp = function() {
 
     get dashPeriodLabel() {
       const s = this.dashData?.siga_mensal || [];
-      if (!s.length) return 'SiGA';
+      if (!s.length) return '—';
       const de  = this.dashDe  ? this.mpFmtLabel(this.dashDe)  : (s[0]?.mes || '');
       const ate = this.dashAte ? this.mpFmtLabel(this.dashAte) : (s[s.length-1]?.mes || '');
       return de === ate ? de : `${de} – ${ate}`;
