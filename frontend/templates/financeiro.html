@@ -1031,23 +1031,23 @@
             <!-- KPIs -->
             <div class="dash-kpis">
               <div class="dash-kpi">
-                <div class="dash-kpi-label" x-text="'Receita · ' + dashPeriodLabel"></div>
+                <div class="dash-kpi-label">Receita</div>
                 <div class="dash-kpi-value" x-text="formatBRL(dashKpis.fat25)"></div>
                 <div class="dash-kpi-sub">recebido (quitado)</div>
               </div>
               <div class="dash-kpi">
-                <div class="dash-kpi-label" x-text="'Despesas · ' + dashPeriodLabel"></div>
+                <div class="dash-kpi-label">Despesas</div>
                 <div class="dash-kpi-value red" x-text="formatBRL(dashKpis.desp25)"></div>
                 <div class="dash-kpi-sub">pago (quitado)</div>
               </div>
               <div class="dash-kpi">
-                <div class="dash-kpi-label" x-text="'Lucro · ' + dashPeriodLabel"></div>
+                <div class="dash-kpi-label">Lucro</div>
                 <div class="dash-kpi-value" :class="dashKpis.luc25 >= 0 ? 'green' : 'red'"
                   x-text="formatBRL(dashKpis.luc25)"></div>
                 <div class="dash-kpi-sub" x-text="'margem média ' + dashKpis.avgMargem25.toFixed(1) + '%'"></div>
               </div>
               <div class="dash-kpi">
-                <div class="dash-kpi-label" x-text="'Melhor Mês · ' + dashPeriodLabel"></div>
+                <div class="dash-kpi-label">Melhor Mês</div>
                 <div class="dash-kpi-value green" x-text="dashKpis.bestMes?.mes || '—'"></div>
                 <div class="dash-kpi-sub" x-text="dashKpis.bestMes ? formatBRL(dashKpis.bestMes.lucro) + ' lucro' : ''"></div>
               </div>
@@ -1075,7 +1075,7 @@
                   <div style="height:260px;"><canvas id="chart-centros"></canvas></div>
                 </div>
                 <div class="dash-box">
-                  <div class="dash-box-title" x-text="'Evolução — ' + dashPeriodLabel"></div>
+                  <div class="dash-box-title">Evolução</div>
                   <div style="height:260px;"><canvas id="chart-siga-hist"></canvas></div>
                 </div>
               </div>
@@ -2603,6 +2603,7 @@ window.finApp = function() {
             this.mp.viewYear = parseInt(this.dashDe.split('-')[0]);
           }
         }
+        await this.$nextTick();
         await this.$nextTick();
         this.initCharts();
       } catch(e) { this.showToast('Erro ao carregar dados: ' + e.message, 'error'); }
