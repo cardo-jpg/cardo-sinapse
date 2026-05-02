@@ -247,7 +247,9 @@
       color: var(--text); font-size: .84rem; font-family: inherit;
     }
     .form-input:focus { outline: none; border-color: var(--accent); }
-    .form-input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(.5); }
+    .form-input[type="date"]::-webkit-calendar-picker-indicator,
+    .form-input[type="month"]::-webkit-calendar-picker-indicator { filter: invert(.5); cursor: pointer; }
+    .form-input[type="month"] { color-scheme: dark; }
     .form-select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23666'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; }
     .form-textarea { resize: vertical; min-height: 72px; }
 
@@ -474,10 +476,10 @@
       <button class="fin-nav-item" :class="currentSection==='fluxo' && 'active'" @click="currentSection='fluxo'; loadFluxo()">
         <span>📈</span> Fluxo de Caixa
       </button>
-      <button class="fin-nav-item" :class="currentSection==='analise' && 'active'" @click="currentSection='analise'; initDashboard()">
+      <button class="fin-nav-item" :class="currentSection==='analise' && 'active'" @click="currentSection='analise'; $nextTick(() => initDashboard())">
         <span>📊</span> Análise
       </button>
-      <button class="fin-nav-item" :class="currentSection==='cartao' && 'active'" @click="currentSection='cartao'; loadCartaoAnalise()">
+      <button class="fin-nav-item" :class="currentSection==='cartao' && 'active'" @click="currentSection='cartao'; $nextTick(() => loadCartaoAnalise())">
         <span>💳</span> Análise CC
       </button>
       <button class="fin-nav-item" :class="currentSection==='importar' && 'active'" @click="currentSection='importar'; loadImportacoes()">
@@ -1976,7 +1978,6 @@ window.finApp = function() {
     /* ── análise ── */
     dashData: null,
     dashLoading: false,
-    _dashCharts: {},
     dashDe: (() => { const n = new Date(); const q = Math.floor(n.getMonth()/3); return `${n.getFullYear()}-${String(q*3+1).padStart(2,'0')}`; })(),
     dashAte: (() => { const n = new Date(); const q = Math.floor(n.getMonth()/3); return `${n.getFullYear()}-${String(q*3+3).padStart(2,'0')}`; })(),
     dashAllMonths: [],
@@ -1984,7 +1985,6 @@ window.finApp = function() {
     /* ── faturas cartão ── */
     cartaoData: null,
     cartaoLoading: false,
-    _cartaoCharts: {},
     cartaoDe: '',
     cartaoAte: '',
 
@@ -2606,7 +2606,7 @@ window.finApp = function() {
         }
       } catch(e) { this.showToast('Erro ao carregar dados: ' + e.message, 'error'); }
       finally { this.dashLoading = false; }
-      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      await new Promise(r => setTimeout(r, 100));
       this.initCharts();
     },
 
@@ -2698,21 +2698,20 @@ window.finApp = function() {
         this.cartaoData = await this.api('GET', '/api/fin/cartao-analise' + qs);
       } catch(e) { this.showToast('Erro ao carregar faturas: ' + e.message, 'error'); }
       finally { this.cartaoLoading = false; }
-      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      await new Promise(r => setTimeout(r, 100));
       this.initCartaoCharts();
     },
 
     initCartaoCharts() {
       if (!window.Chart || !this.cartaoData) return;
-      Object.values(this._cartaoCharts).forEach(c => { try { c.destroy(); } catch(_){} });
-      this._cartaoCharts = {};
       const COLORS = ['#ff4d00','#ef5350','#ff9800','#ffd54f','#4caf50','#26c6da','#7986cb','#ab47bc','#8d6e63','#78909c','#ec407a','#66bb6a'];
+      const destroyCanvas = id => { const el = document.getElementById(id); if (el && el._ci) { try { el._ci.destroy(); } catch(_){} el._ci = null; } return el; };
 
       // Mensal
       const mensal = this.cartaoData.mensal || [];
-      const c1 = document.getElementById('chart-cartao-mensal');
+      const c1 = destroyCanvas('chart-cartao-mensal');
       if (c1 && mensal.length) {
-        this._cartaoCharts.mensal = new Chart(c1, {
+        c1._ci = new Chart(c1, {
           type: 'bar',
           data: {
             labels: mensal.map(m => m.mes),
@@ -2733,9 +2732,9 @@ window.finApp = function() {
 
       // Categoria donut
       const cats = this.cartaoData.por_categoria || [];
-      const c2 = document.getElementById('chart-cartao-cat');
+      const c2 = destroyCanvas('chart-cartao-cat');
       if (c2 && cats.length) {
-        this._cartaoCharts.cat = new Chart(c2, {
+        c2._ci = new Chart(c2, {
           type: 'doughnut',
           data: {
             labels: cats.map(c => c.categoria),
@@ -2754,9 +2753,9 @@ window.finApp = function() {
 
       // Top merchants
       const merch = this.cartaoData.top_merchants || [];
-      const c3 = document.getElementById('chart-cartao-merch');
+      const c3 = destroyCanvas('chart-cartao-merch');
       if (c3 && merch.length) {
-        this._cartaoCharts.merch = new Chart(c3, {
+        c3._ci = new Chart(c3, {
           type: 'bar',
           data: {
             labels: merch.map(m => m.nome),
@@ -2778,19 +2777,19 @@ window.finApp = function() {
 
     async initCharts() {
       if (!window.Chart || !this.dashData) return;
-      Object.values(this._dashCharts).forEach(c => { try { c.destroy(); } catch(_){} });
-      this._dashCharts = {};
+      const COLORS = ['#ff4d00','#ef5350','#ff9800','#ffd54f','#4caf50','#26c6da','#7986cb','#ab47bc','#8d6e63','#78909c'];
+      const destroyCanvas = id => { const el = document.getElementById(id); if (el && el._ci) { try { el._ci.destroy(); } catch(_){} el._ci = null; } return el; };
 
       Chart.defaults.color = '#666';
       Chart.defaults.borderColor = '#222';
       Chart.defaults.font.family = 'inherit';
       Chart.defaults.font.size = 11;
 
-      // Chart 1: Top clientes
+      // Top clientes
       const topCli = this.dashData.top_clientes || [];
-      const c5 = document.getElementById('chart-top-cli');
+      const c5 = destroyCanvas('chart-top-cli');
       if (c5 && topCli.length) {
-        this._dashCharts.topCli = new Chart(c5, {
+        c5._ci = new Chart(c5, {
           type: 'bar',
           data: {
             labels: topCli.map(c => c.nome),
@@ -2809,11 +2808,11 @@ window.finApp = function() {
         });
       }
 
-      // Chart 6: Top fornecedores
+      // Top fornecedores
       const topForn = this.dashData.top_fornecedores || [];
-      const c6 = document.getElementById('chart-top-forn');
+      const c6 = destroyCanvas('chart-top-forn');
       if (c6 && topForn.length) {
-        this._dashCharts.topForn = new Chart(c6, {
+        c6._ci = new Chart(c6, {
           type: 'bar',
           data: {
             labels: topForn.map(f => f.nome),
@@ -2832,12 +2831,11 @@ window.finApp = function() {
         });
       }
 
-      // Chart 7: Centros de custo (donut)
+      // Centros de custo (donut)
       const centros = this.dashData.centros || [];
-      const c7 = document.getElementById('chart-centros');
+      const c7 = destroyCanvas('chart-centros');
       if (c7 && centros.length) {
-        const COLORS = ['#ff4d00','#ef5350','#ff9800','#ffd54f','#4caf50','#26c6da','#7986cb','#ab47bc','#8d6e63','#78909c'];
-        this._dashCharts.centros = new Chart(c7, {
+        c7._ci = new Chart(c7, {
           type: 'doughnut',
           data: {
             labels: centros.map(c => c.nome),
@@ -2855,11 +2853,11 @@ window.finApp = function() {
         });
       }
 
-      // Chart 8: SiGA histórico (receber+pagar+lucro)
+      // SiGA histórico (receber+pagar+lucro)
       const siga = this.dashData.siga_mensal || [];
-      const c8 = document.getElementById('chart-siga-hist');
+      const c8 = destroyCanvas('chart-siga-hist');
       if (c8 && siga.length) {
-        this._dashCharts.sigaHist = new Chart(c8, {
+        c8._ci = new Chart(c8, {
           type: 'bar',
           data: {
             labels: siga.map(s => s.mes),
@@ -2885,8 +2883,6 @@ window.finApp = function() {
           },
         });
       }
-      // Força resize em todos os charts para corrigir dimensões após render
-      Object.values(this._dashCharts).forEach(c => { try { c.resize(); } catch(_){} });
     },
 
     /* ══════════════════════════ IMPORTAR ══════════════════════════ */
