@@ -667,6 +667,28 @@
       padding: 5px 10px; border-radius: 6px; outline: none; width: 100%;
     }
 
+    /* ── subtask list inside modal ─────────────────────────────────────────── */
+    .modal-subtasks { margin: 16px 0 6px; border: 1px solid #1e1e1e; border-radius: 10px; overflow: hidden; }
+    .modal-subtasks-header { display: flex; align-items: center; justify-content: space-between;
+                             padding: 9px 13px; background: #111; cursor: pointer; user-select: none; }
+    .modal-subtasks-title { font-size: .78rem; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .04em; display: flex; align-items: center; gap: 6px; }
+    .modal-subtasks-count { font-size: .72rem; color: #555; background: #1e1e1e; padding: 1px 7px; border-radius: 20px; }
+    .modal-subtasks-add { background: none; border: none; color: #555; cursor: pointer; font-size: .88rem; padding: 0 4px; line-height: 1; transition: color .1s; }
+    .modal-subtasks-add:hover { color: var(--accent); }
+    .modal-subtask-row { display: flex; align-items: center; gap: 9px; padding: 7px 13px;
+                         border-top: 1px solid #1a1a1a; cursor: pointer; transition: background .1s; }
+    .modal-subtask-row:hover { background: #ffffff05; }
+    .modal-subtask-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .modal-subtask-title { font-size: .84rem; color: var(--text); flex: 1; min-width: 0;
+                           white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .modal-subtask-badges { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+    .modal-subtask-badge { font-size: .68rem; color: #444; white-space: nowrap; }
+    .modal-subtask-row:hover .modal-subtask-badge { color: #666; }
+    .modal-subtask-badge.done { color: #22c55e; }
+    .modal-subtask-add-row { display: flex; align-items: center; gap: 8px; padding: 7px 13px;
+                              border-top: 1px solid #1a1a1a; cursor: pointer; color: #444; font-size: .83rem; transition: color .1s; }
+    .modal-subtask-add-row:hover { color: #666; background: #ffffff04; }
+
     .checklist-section { margin: 14px 0 4px; }
     .checklist-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
     .checklist-toggle { background: none; border: none; color: var(--muted); cursor: pointer; font-size: .75rem; padding: 0 2px; }
@@ -2495,6 +2517,48 @@
                         <option :value="opt" :selected="(form.extra_data||{})[cf.id]===opt" x-text="opt"></option>
                       </template>
                     </select>
+                  </template>
+                </div>
+              </div>
+            </template>
+
+            <!-- Subtasks -->
+            <template x-if="taskChildren(editTask.id).length || true">
+              <div x-data="{ subtasksOpen: true }" x-show="taskChildren(editTask.id).length">
+                <div class="modal-subtasks">
+                  <div class="modal-subtasks-header" @click="subtasksOpen=!subtasksOpen">
+                    <div class="modal-subtasks-title">
+                      <span x-text="subtasksOpen ? '▼' : '▶'" style="font-size:.55rem;color:#555"></span>
+                      Subtarefas
+                      <span class="modal-subtasks-count" x-text="taskChildren(editTask.id).length + ' disponível'"></span>
+                    </div>
+                    <button class="modal-subtasks-add" @click.stop="modal=false; openNewSubtask(editTask.id)" title="Nova subtarefa">＋</button>
+                  </div>
+                  <template x-if="subtasksOpen">
+                    <div>
+                      <template x-for="sub in taskChildren(editTask.id)" :key="sub.id">
+                        <div class="modal-subtask-row" @click="openEdit(sub)">
+                          <div class="modal-subtask-dot" :style="`background:${statusObj(sub.status).color}`"></div>
+                          <span class="modal-subtask-title" x-text="sub.title"></span>
+                          <div class="modal-subtask-badges">
+                            <template x-if="(sub.description||'').trim()">
+                              <span class="modal-subtask-badge" title="Tem descrição">≡</span>
+                            </template>
+                            <template x-if="taskChecklistStats(sub).total > 0">
+                              <span class="modal-subtask-badge"
+                                    :class="taskChecklistStats(sub).done===taskChecklistStats(sub).total?'done':''"
+                                    x-text="'✓= '+taskChecklistStats(sub).done+'/'+taskChecklistStats(sub).total"></span>
+                            </template>
+                            <template x-if="taskChildren(sub.id).length">
+                              <span class="modal-subtask-badge">🔗 <span x-text="taskChildren(sub.id).length"></span></span>
+                            </template>
+                          </div>
+                        </div>
+                      </template>
+                      <div class="modal-subtask-add-row" @click="modal=false; openNewSubtask(editTask.id)">
+                        <span>＋</span> Adicionar subtarefa
+                      </div>
+                    </div>
                   </template>
                 </div>
               </div>
