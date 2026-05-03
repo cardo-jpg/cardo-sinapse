@@ -568,6 +568,13 @@
     .task-add-sub { background:none; border:none; color:#333; cursor:pointer; font-size:.78rem; padding:1px 5px; border-radius:4px; opacity:0; flex-shrink:0; transition: color .1s, opacity .15s; }
     .task-row:hover .task-add-sub { opacity:1; }
     .task-add-sub:hover { color: var(--accent); background: #ffffff10; }
+    .task-meta-badges { display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; margin-left: 2px; }
+    .task-badge-desc { font-size: .7rem; color: #3d3d3d; line-height: 1; }
+    .task-row:hover .task-badge-desc { color: #666; }
+    .task-badge-cl { font-size: .68rem; color: #3d3d3d; display: inline-flex; align-items: center; gap: 2px; line-height: 1; white-space: nowrap; }
+    .task-row:hover .task-badge-cl { color: #666; }
+    .task-badge-cl.done { color: #22c55e; }
+    .task-row:hover .task-badge-cl.done { color: #22c55e; }
 
     .task-add-inline { display: flex; align-items: center; gap: 8px; padding: 10px 20px; color: var(--muted); font-size: .88rem; cursor: pointer; transition: color .15s; }
     .task-add-inline:hover { color: var(--text); }
@@ -1711,6 +1718,19 @@
                        :title="statusObj(row.task.status).name"
                        @click.stop="openStatusPicker(row.task,$event)"></div>
                   <span class="task-title-text" @click="openEdit(row.task)" x-text="row.task.title"></span>
+                  <span class="task-meta-badges">
+                    <template x-if="(row.task.description||'').trim()">
+                      <span class="task-badge-desc" title="Tem descrição">≡</span>
+                    </template>
+                    <template x-if="taskChecklistStats(row.task).total > 0">
+                      <span class="task-badge-cl"
+                            :class="taskChecklistStats(row.task).done === taskChecklistStats(row.task).total ? 'done' : ''"
+                            title="Checklist">
+                        <span>✓=</span>
+                        <span x-text="taskChecklistStats(row.task).done + '/' + taskChecklistStats(row.task).total"></span>
+                      </span>
+                    </template>
+                  </span>
                   <template x-if="taskChildren(row.task.id).length">
                     <span class="task-subtask-count">🔗 <span x-text="taskChildren(row.task.id).length"></span></span>
                   </template>
@@ -3387,6 +3407,17 @@ document.addEventListener('alpine:init', () => {
     },
     taskChildren(parentId) {
       return this.tasks.filter(t => t.parent_task_id === parentId);
+    },
+    taskChecklistStats(task) {
+      const cls = (task.extra_data && task.extra_data.checklists) ? task.extra_data.checklists : [];
+      let total = 0, done = 0;
+      for (const cl of cls) {
+        for (const item of (cl.items || [])) {
+          total++;
+          if (item.done) done++;
+        }
+      }
+      return { total, done };
     },
     get assigneeCounts() {
       const map = { __none__: 0 };
