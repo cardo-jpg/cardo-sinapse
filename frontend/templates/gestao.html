@@ -1385,6 +1385,20 @@
     .form-color-swatch:hover, .form-color-swatch.sel { border-color: var(--text); transform: scale(1.15); }
     /* preview tab */
     .form-preview-frame { flex: 1; border: none; width: 100%; height: 100%; background: #5b21b6; }
+    /* responses tab */
+    .form-responses-wrap { flex: 1; overflow-y: auto; padding: 28px 40px; }
+    .form-resp-table-head { margin-bottom: 14px; }
+    .form-resp-row { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px; margin-bottom: 12px; overflow: hidden; }
+    .form-resp-row-header { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: #202020; border-bottom: 1px solid #2a2a2a; }
+    .form-resp-num { font-size: .75rem; font-weight: 700; color: var(--muted); }
+    .form-resp-date { font-size: .75rem; color: var(--muted); margin-left: 4px; }
+    .form-resp-task-badge { margin-left: auto; font-size: .72rem; color: #818cf8; cursor: pointer; padding: 2px 8px; border-radius: 6px; border: 1px solid #3730a3; transition: background .1s; }
+    .form-resp-task-badge:hover { background: #1e1b4b; }
+    .form-resp-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0; }
+    .form-resp-field { padding: 10px 16px; border-right: 1px solid #252525; border-bottom: 1px solid #252525; }
+    .form-resp-field:last-child { border-right: none; }
+    .form-resp-label { font-size: .72rem; color: var(--muted); margin-bottom: 3px; }
+    .form-resp-value { font-size: .85rem; color: var(--text); word-break: break-word; }
   </style>
 </head>
 <body>
@@ -2140,11 +2154,16 @@
             <!-- top bar -->
             <div class="form-builder-bar">
               <button class="form-builder-back" @click="activeForm=null; loadForms()">← Voltar</button>
-              <span class="form-resp-badge" x-text="(activeForm.submission_count||0) + ' resposta' + ((activeForm.submission_count||0)!==1?'s':'')"></span>
               <div class="form-tabs">
                 <button class="form-tab-btn" :class="formTab==='create'?'active':''" @click="formTab='create'">Criar</button>
                 <button class="form-tab-btn" :class="formTab==='settings'?'active':''" @click="formTab='settings'">Configurações</button>
                 <button class="form-tab-btn" :class="formTab==='preview'?'active':''" @click="formTab='preview'; reloadPreview()">Pré-visualizar</button>
+                <button class="form-tab-btn" :class="formTab==='responses'?'active':''" @click="formTab='responses'; loadFormResponses()">
+                  Respostas
+                  <template x-if="(activeForm.submission_count||0) > 0">
+                    <span style="margin-left:5px;background:#6d28d9;color:#fff;font-size:.65rem;padding:1px 6px;border-radius:10px" x-text="activeForm.submission_count"></span>
+                  </template>
+                </button>
               </div>
               <button class="form-link-btn" @click="copyFormLink(activeForm.id)">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:middle;margin-right:4px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
@@ -2321,6 +2340,50 @@
             <!-- preview tab -->
             <template x-if="formTab==='preview'">
               <iframe class="form-preview-frame" :id="'form-preview-'+activeForm.id" :src="'/f/'+activeForm.id"></iframe>
+            </template>
+
+            <!-- responses tab -->
+            <template x-if="formTab==='responses'">
+              <div class="form-responses-wrap">
+                <template x-if="formResponses.length === 0 && !formResponsesLoading">
+                  <div class="forms-empty" style="padding:60px 0">
+                    <div class="forms-empty-icon">📭</div>
+                    <div class="forms-empty-title">Nenhuma resposta ainda</div>
+                    <div class="forms-empty-sub">As respostas do formulário aparecerão aqui.</div>
+                  </div>
+                </template>
+                <template x-if="formResponsesLoading">
+                  <div style="text-align:center;padding:60px;color:var(--muted)">Carregando...</div>
+                </template>
+                <template x-if="formResponses.length > 0">
+                  <div>
+                    <div class="form-resp-table-head">
+                      <span style="color:var(--muted);font-size:.8rem" x-text="formResponses.length + ' resposta' + (formResponses.length!==1?'s':'')"></span>
+                    </div>
+                    <template x-for="(sub, si) in formResponses" :key="sub.id">
+                      <div class="form-resp-row">
+                        <div class="form-resp-row-header">
+                          <span class="form-resp-num" x-text="'#' + (formResponses.length - si)"></span>
+                          <span class="form-resp-date" x-text="formatDateTime(sub.submitted_at)"></span>
+                          <template x-if="sub.task_id">
+                            <span class="form-resp-task-badge" @click="openTaskById(sub.task_id)" title="Abrir tarefa criada">
+                              ↗ Ver tarefa
+                            </span>
+                          </template>
+                        </div>
+                        <div class="form-resp-fields">
+                          <template x-for="field in activeForm.fields" :key="field.id">
+                            <div class="form-resp-field">
+                              <div class="form-resp-label" x-text="field.label"></div>
+                              <div class="form-resp-value" x-text="Array.isArray(sub.data[field.id]) ? sub.data[field.id].join(', ') : (sub.data[field.id] || '—')"></div>
+                            </div>
+                          </template>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+              </div>
             </template>
 
           </div>
@@ -3991,6 +4054,7 @@ document.addEventListener('alpine:init', () => {
 
     // forms
     forms: [], activeForm: null, formTab: 'create',
+    formResponses: [], formResponsesLoading: false,
     formFieldMenuOpen: false, formEditingField: null,
     formFieldTypes: [
       { id: 'short_text',    icon: 'T',  label: 'Texto curto' },
@@ -4421,6 +4485,14 @@ document.addEventListener('alpine:init', () => {
       const d = await fetch(`/api/gestao/lists/${this.activeList.id}/forms`).then(r=>r.json());
       this.forms = d.forms || [];
     },
+    async loadFormResponses() {
+      if (!this.activeForm) return;
+      this.formResponsesLoading = true;
+      this.formResponses = [];
+      const d = await fetch(`/api/gestao/forms/${this.activeForm.id}/submissions`).then(r=>r.json());
+      this.formResponses = d.submissions || [];
+      this.formResponsesLoading = false;
+    },
     async createForm() {
       if (!this.activeList) return;
       const d = await fetch(`/api/gestao/lists/${this.activeList.id}/forms`, {
@@ -4539,6 +4611,12 @@ document.addEventListener('alpine:init', () => {
       if(!d) return '';
       const [,m,day]=d.split('-');
       return `${parseInt(day)} ${'jan fev mar abr mai jun jul ago set out nov dez'.split(' ')[parseInt(m)-1]}`;
+    },
+    formatDateTime(dt) {
+      if(!dt) return '';
+      const d = new Date(dt.replace(' ','T'));
+      const pad = n => String(n).padStart(2,'0');
+      return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
     },
     dueCss(d) {
       if(!d) return '';
