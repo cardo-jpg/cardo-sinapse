@@ -3588,14 +3588,21 @@ document.addEventListener('alpine:init', () => {
     async loadTree() {
       const d = await fetch('/api/gestao/tree').then(r=>r.json());
       this.tree = d.spaces;
+      const savedExp = (() => { try { return JSON.parse(localStorage.getItem('sinapse_gestao_expanded')); } catch(e) { return null; } })();
       for (const s of this.tree) {
-        this.expanded[s.id] = true;
-        for (const f of s.folders) this.expanded['f_'+f.id] = true;
+        this.expanded[s.id]       = savedExp ? (savedExp[s.id]       ?? true) : true;
+        for (const f of s.folders) this.expanded['f_'+f.id] = savedExp ? (savedExp['f_'+f.id] ?? true) : true;
       }
     },
 
-    toggleSpace(id) { this.expanded[id] = !this.expanded[id]; },
-    toggleFolder(id) { this.expanded['f_'+id] = !this.expanded['f_'+id]; },
+    toggleSpace(id) {
+      this.expanded[id] = !this.expanded[id];
+      try { localStorage.setItem('sinapse_gestao_expanded', JSON.stringify(this.expanded)); } catch(e) {}
+    },
+    toggleFolder(id) {
+      this.expanded['f_'+id] = !this.expanded['f_'+id];
+      try { localStorage.setItem('sinapse_gestao_expanded', JSON.stringify(this.expanded)); } catch(e) {}
+    },
 
     openEmbed(url) {
       this.mainMode = 'embed'; this.iframeUrl = url;
