@@ -498,6 +498,8 @@
       cursor: pointer; transition: transform .12s, box-shadow .12s;
     }
     .task-status-dot:hover { transform: scale(1.3); box-shadow: 0 0 0 2px rgba(255,255,255,.12); }
+    .task-status-pie { width:16px; height:16px; background:none !important; display:flex; align-items:center; justify-content:center; }
+    .task-status-pie:hover { transform: scale(1.2); }
 
     .status-picker {
       position: fixed; z-index: 9999; background: #1e1e1e;
@@ -1754,10 +1756,18 @@
                   <template x-if="!taskChildren(row.task.id).length">
                     <span class="task-subtask-spacer"></span>
                   </template>
-                  <div class="task-status-dot"
-                       :style="`background:${statusObj(row.task.status).color}`"
-                       :title="statusObj(row.task.status).name"
-                       @click.stop="openStatusPicker(row.task,$event)"></div>
+                  <template x-if="listShowsProgress">
+                    <div class="task-status-dot task-status-pie"
+                         :title="statusObj(row.task.status).name"
+                         @click.stop="openStatusPicker(row.task,$event)"
+                         x-html="statusPieSvg(row.task.status)"></div>
+                  </template>
+                  <template x-if="!listShowsProgress">
+                    <div class="task-status-dot"
+                         :style="`background:${statusObj(row.task.status).color}`"
+                         :title="statusObj(row.task.status).name"
+                         @click.stop="openStatusPicker(row.task,$event)"></div>
+                  </template>
                   <span class="task-title-text" @click="openEdit(row.task)" x-text="row.task.title"></span>
                   <span class="task-meta-badges">
                     <template x-if="(row.task.description||'').trim()">
@@ -2807,9 +2817,18 @@
         </template>
       </div>
 
+      <!-- progress toggle -->
+      <div x-show="!smInherit" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--border)">
+        <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:.84rem; color:var(--text)">
+          <input type="checkbox" x-model="smShowProgress" style="accent-color:var(--accent); width:15px; height:15px">
+          <span>Mostrar progresso de status (ícone de pizza)</span>
+          <span style="font-size:.72rem; color:var(--muted); margin-left:2px">— cada status mostra o avanço no fluxo visualmente</span>
+        </label>
+      </div>
+
       <!-- footer -->
       <div style="display:flex; align-items:center; justify-content:space-between;
-                  margin-top:16px; padding-top:14px; border-top:1px solid var(--border)">
+                  margin-top:14px; padding-top:14px; border-top:1px solid var(--border)">
         <div style="display:flex; gap:12px; align-items:center">
           <button class="sm-reset-btn" x-show="!smInherit" @click="resetSmStatuses()">Restaurar padrão</button>
           <button class="sm-reset-btn" x-show="!smInherit" @click="openSaveTpl()" style="color:var(--muted)">Salvar como modelo</button>
@@ -3661,35 +3680,44 @@ document.addEventListener('alpine:init', () => {
       {id:'done',        label:'Feito',          color:'#3b82f6'},
       {id:'closed',      label:'Finalizado',     color:'#22c55e'},
     ],
+    _parseStatuses(raw_str) {
+      try {
+        const raw = JSON.parse(raw_str || '[]');
+        if (Array.isArray(raw)) return raw.length ? raw : null;
+        if (raw.items?.length) return raw.items;
+      } catch {}
+      return null;
+    },
     get statuses() {
       if (this.activeList) {
         // 1. list's own custom statuses
-        try {
-          const cs = JSON.parse(this.activeList.custom_statuses || '[]');
-          if (cs.length > 0) return cs;
-        } catch {}
+        const s1 = this._parseStatuses(this.activeList.custom_statuses);
+        if (s1) return s1;
         // 2. parent folder's custom statuses
         if (this.activeList.folder_id) {
           for (const space of this.tree) {
             const folder = space.folders?.find(f => f.id === this.activeList.folder_id);
             if (folder) {
-              try {
-                const cs = JSON.parse(folder.custom_statuses || '[]');
-                if (cs.length > 0) return cs;
-              } catch {}
+              const s2 = this._parseStatuses(folder.custom_statuses);
+              if (s2) return s2;
             }
           }
         }
         // 3. space's custom statuses
         const space = this.tree.find(s => s.id === this.activeList.space_id);
         if (space) {
-          try {
-            const cs = JSON.parse(space.custom_statuses || '[]');
-            if (cs.length > 0) return cs;
-          } catch {}
+          const s3 = this._parseStatuses(space.custom_statuses);
+          if (s3) return s3;
         }
       }
       return this.defaultStatuses;
+    },
+    get listShowsProgress() {
+      if (!this.activeList) return false;
+      try {
+        const raw = JSON.parse(this.activeList.custom_statuses || '{}');
+        return !Array.isArray(raw) && raw.show_progress === true;
+      } catch { return false; }
     },
     members: [{id:'victor',name:'Victor'},{id:'jose',name:'José'}],
 
@@ -3698,6 +3726,7 @@ document.addEventListener('alpine:init', () => {
     smEntity: null,
     smEntityType: 'space',
     smInherit: false,
+    smShowProgress: false,
     smStatuses: [],
     statusTemplates: [],
     smTplOpen: false,
@@ -4410,7 +4439,10 @@ document.addEventListener('alpine:init', () => {
       // smSpace = the owning space (needed to resolve inherit chain)
       this.smSpace = type === 'space' ? target : spaceCtx;
 
-      const cs = (() => { try { return JSON.parse(target.custom_statuses || '[]'); } catch { return []; } })();
+      const rawParsed = (() => { try { return JSON.parse(target.custom_statuses || 'null'); } catch { return null; } })();
+      const cs = Array.isArray(rawParsed) ? rawParsed : (rawParsed?.items || []);
+      const showProgress = (!Array.isArray(rawParsed) && rawParsed?.show_progress) || false;
+      this.smShowProgress = showProgress;
 
       if (type === 'space') {
         this.smInherit = false;
@@ -4418,7 +4450,6 @@ document.addEventListener('alpine:init', () => {
           ? cs.map(s => ({...s, group: s.group || 'not_started'}))
           : this.defaultStatuses.map(s => ({...s}));
       } else {
-        // folder/list: inherit when custom_statuses is empty
         this.smInherit = cs.length === 0;
         if (this.smInherit) {
           this.smLoadInheritedStatuses();
@@ -4429,11 +4460,11 @@ document.addEventListener('alpine:init', () => {
       this.statusModal = true;
     },
     smLoadInheritedStatuses() {
-      // preview the space's statuses when in inherit mode
       const space = this.smSpace;
       if (!space) { this.smStatuses = this.defaultStatuses.map(s=>({...s})); return; }
       try {
-        const cs = JSON.parse(space.custom_statuses || '[]');
+        const raw = JSON.parse(space.custom_statuses || 'null');
+        const cs = Array.isArray(raw) ? raw : (raw?.items || []);
         this.smStatuses = cs.length > 0
           ? cs.map(s => ({...s, group: s.group || 'not_started'}))
           : this.defaultStatuses.map(s => ({...s}));
@@ -4446,8 +4477,13 @@ document.addEventListener('alpine:init', () => {
     resetSmStatuses() { this.smStatuses = this.defaultStatuses.map(s => ({...s})); },
     async saveStatuses() {
       const ep = {space:'spaces', folder:'folders', list:'lists'}[this.smEntityType];
-      // if inheriting: save empty string to clear custom statuses
-      const json = this.smInherit ? '' : JSON.stringify(this.smStatuses.filter(s => s.name.trim()));
+      let json = '';
+      if (!this.smInherit) {
+        const items = this.smStatuses.filter(s => s.name.trim());
+        json = this.smShowProgress
+          ? JSON.stringify({show_progress: true, items})
+          : JSON.stringify(items);
+      }
       await fetch(`/api/gestao/${ep}/${this.smEntity.id}`, {
         method: 'PATCH',
         headers: {'Content-Type': 'application/json'},
@@ -4457,6 +4493,31 @@ document.addEventListener('alpine:init', () => {
       this.statusModal = false;
     },
 
+    statusProgress(id) {
+      const groupOrder = ['not_started', 'active', 'done', 'closed'];
+      const all = [...this.statuses].sort((a, b) =>
+        groupOrder.indexOf(a.group || 'active') - groupOrder.indexOf(b.group || 'active')
+      );
+      const idx = all.findIndex(s => s.id === id);
+      if (idx === -1) return 0;
+      return all.length > 1 ? idx / (all.length - 1) : 0.5;
+    },
+    statusPieSvg(id) {
+      const s = this.statusObj(id);
+      const p = this.statusProgress(id);
+      const c = s.color || '#888';
+      if (p <= 0) {
+        return `<svg viewBox="0 0 20 20" width="14" height="14"><circle cx="10" cy="10" r="8" fill="none" stroke="${c}" stroke-width="2.5" stroke-dasharray="3.5 2.5"/></svg>`;
+      }
+      if (p >= 1) {
+        return `<svg viewBox="0 0 20 20" width="14" height="14"><circle cx="10" cy="10" r="10" fill="${c}"/><path d="M5.5,10.5 L8.5,13.5 L14.5,7" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+      }
+      const angle = p * 2 * Math.PI;
+      const x = +(10 + 10 * Math.sin(angle)).toFixed(3);
+      const y = +(10 - 10 * Math.cos(angle)).toFixed(3);
+      const la = p > 0.5 ? 1 : 0;
+      return `<svg viewBox="0 0 20 20" width="14" height="14"><circle cx="10" cy="10" r="9" fill="${c}" opacity="0.22"/><path d="M10,10 L10,1 A9,9 0 ${la},1 ${x},${y} Z" fill="${c}"/><circle cx="10" cy="10" r="9" fill="none" stroke="${c}" stroke-width="1.5" opacity="0.55"/></svg>`;
+    },
     loadStatusTemplates() {
       try { this.statusTemplates = JSON.parse(localStorage.getItem('sinapse_status_tpl') || '[]'); }
       catch { this.statusTemplates = []; }
