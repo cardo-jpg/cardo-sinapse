@@ -1255,6 +1255,7 @@
                @dragover.prevent="dndOver($event,'space',space,space,null)"
                @dragleave="dndLeave($event)"
                @drop.stop="dndDrop($event,'space',space,space,null)"
+               @contextmenu.prevent="openCtxMenu($event,'space',space,space,null)"
                @click="toggleSpace(space.id)">
             <div class="g-space-icon-wrap"
                  :style="`background:${space.color}2e; border:1px solid ${space.color}50`">
@@ -1307,6 +1308,7 @@
                    @dragover.prevent="dndOver($event,'list',lst,space,null)"
                    @dragleave="dndLeave($event)"
                    @drop.stop="dndDrop($event,'list',lst,space,null)"
+                   @contextmenu.prevent="openCtxMenu($event,'list',lst,space,null)"
                    @click="selectList(lst)">
                 <template x-if="lst.icon">
                   <span style="font-size:.75rem; flex-shrink:0" x-text="lst.icon"></span>
@@ -1326,6 +1328,7 @@
             <template x-for="doc in space.documents" :key="doc.id">
               <div class="g-doc-row direct"
                    :class="activeDoc?.id === doc.id ? 'active' : ''"
+                   @contextmenu.prevent="openDocCtxMenu($event, doc, space, null)"
                    @click="openDoc(doc)">
                 <span style="font-size:.8rem; flex-shrink:0">📄</span>
                 <span style="flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis" x-text="doc.title"></span>
@@ -1346,6 +1349,7 @@
                      @dragover.prevent="dndOver($event,'folder',folder,space,null)"
                      @dragleave="dndLeave($event)"
                      @drop.stop="dndDrop($event,'folder',folder,space,null)"
+                     @contextmenu.prevent="openCtxMenu($event,'folder',folder,space,folder)"
                      @click="toggleFolder(folder.id)">
                   <span style="font-size:.7rem; flex-shrink:0; width:10px; text-align:center"
                         :style="`color:${folder.color||'#6b7280'}`"
@@ -1369,6 +1373,7 @@
                          @dragover.prevent="dndOver($event,'list',lst,space,folder)"
                          @dragleave="dndLeave($event)"
                          @drop.stop="dndDrop($event,'list',lst,space,folder)"
+                         @contextmenu.prevent="openCtxMenu($event,'list',lst,space,folder)"
                          @click="selectList(lst)">
                       <template x-if="lst.icon">
                         <span style="font-size:.75rem; flex-shrink:0" x-text="lst.icon"></span>
@@ -1387,6 +1392,7 @@
                   <template x-for="doc in folder.documents" :key="doc.id">
                     <div class="g-doc-row"
                          :class="activeDoc?.id === doc.id ? 'active' : ''"
+                         @contextmenu.prevent="openDocCtxMenu($event, doc, space, folder)"
                          @click="openDoc(doc)">
                       <span style="font-size:.8rem; flex-shrink:0">📄</span>
                       <span style="flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis" x-text="doc.title"></span>
