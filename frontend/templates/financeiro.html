@@ -1179,12 +1179,36 @@
               </div>
             </div>
 
-            <!-- Top merchants -->
+            <!-- Top merchants + categorização -->
             <template x-if="(cartaoData.top_merchants||[]).length">
-              <div class="dash-row cols-1">
+              <div class="dash-row cols-2">
                 <div class="dash-box">
                   <div class="dash-box-title">Top Estabelecimentos</div>
                   <div style="height:300px;"><canvas id="chart-cartao-merch"></canvas></div>
+                </div>
+                <div class="dash-box">
+                  <div class="dash-box-title">Categorizar por Estabelecimento</div>
+                  <div style="overflow-y:auto; max-height:300px;">
+                    <table style="width:100%; border-collapse:collapse; font-size:.78rem;">
+                      <tbody>
+                        <template x-for="m in cartaoData.top_merchants" :key="m.nome">
+                          <tr style="border-bottom:1px solid #1a1a1a;">
+                            <td style="padding:5px 8px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:160px;" :title="m.nome" x-text="m.nome"></td>
+                            <td style="padding:5px 8px; text-align:right; color:#ef5350; white-space:nowrap; flex-shrink:0;" x-text="formatBRL(m.total)"></td>
+                            <td style="padding:5px 8px; min-width:130px;">
+                              <select class="form-input form-select" style="font-size:.72rem; padding:3px 6px; width:100%;"
+                                @change="saveCcRegra(m.nome, $event.target.value)">
+                                <option value="">— sem categoria —</option>
+                                <template x-for="cat in (cartaoData.categorias||[])" :key="cat.id">
+                                  <option :value="cat.id" :selected="m.categoria_id == cat.id" x-text="cat.nome"></option>
+                                </template>
+                              </select>
+                            </td>
+                          </tr>
+                        </template>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </template>
@@ -2883,6 +2907,14 @@ window.finApp = function() {
           },
         });
       }
+    },
+
+    async saveCcRegra(merchant, categoriaId) {
+      await this.api('POST', '/api/fin/cc/regra', {
+        merchant,
+        categoria_id: categoriaId ? parseInt(categoriaId) : null,
+      });
+      await this.loadCartaoAnalise();
     },
 
     /* ══════════════════════════ IMPORTAR ══════════════════════════ */

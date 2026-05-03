@@ -173,6 +173,13 @@ def init_db():
                 value TEXT
             )
         """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS fin_cc_regras (
+                id           SERIAL PRIMARY KEY,
+                merchant     TEXT    NOT NULL UNIQUE,
+                categoria_id INTEGER REFERENCES fin_categorias(id) ON DELETE SET NULL
+            )
+        """)
         conn.commit()
 
         cur.execute("ALTER TABLE fin_importacoes ADD COLUMN IF NOT EXISTS mes_referencia TEXT")
@@ -1715,6 +1722,14 @@ async def cartao_analise(request: Request, de: str = None, ate: str = None):
             ORDER BY COALESCE(imp.mes_referencia, imp.created_at::text) DESC
         """)
         faturas = [dict(r) for r in cur.fetchall()]
+
+        # Fetch rules and categories
+        cur.execute("SELECT merchant, categoria_id FROM fin_cc_regras")
+        regras = {r['merchant']: r['categoria_id'] for r in cur.fetchall()}
+
+        cur.execute("SELECT id, nome FROM fin_categorias WHERE situacao='ativa' ORDER BY nome")
+        cat_map = {r['id']: r['nome'] for r in cur.fetchall()}
+        categorias = [{'id': r_id, 'nome': nome} for r_id, nome in sorted(cat_map.items(), key=lambda x: x[1])]
     finally:
         cur.close()
         conn.close()
@@ -1744,10 +1759,15 @@ async def cartao_analise(request: Request, de: str = None, ate: str = None):
             by_month[raw] += it['valor'] or 0
     mensal = [{'mes': _ym_label(k), 'total': round(v, 2)} for k, v in sorted(by_month.items())]
 
+    def _item_cat_nome(it):
+        if it.get('categoria_id'):
+            return it.get('categoria_nome') or 'Sem categoria'
+        cid = regras.get((it.get('descricao') or '').strip())
+        return cat_map.get(cid, 'Sem categoria') if cid else 'Sem categoria'
+
     by_cat: dict = defaultdict(float)
     for it in itens:
-        cat = it['categoria_nome'] or 'Sem categoria'
-        by_cat[cat] += it['valor'] or 0
+        by_cat[_item_cat_nome(it)] += it['valor'] or 0
     por_categoria = [{'categoria': k, 'total': round(v, 2)}
                      for k, v in sorted(by_cat.items(), key=lambda x: -x[1])]
 
@@ -1755,8 +1775,16 @@ async def cartao_analise(request: Request, de: str = None, ate: str = None):
     for it in itens:
         desc = (it['descricao'] or 'Outros').strip()
         by_merchant[desc] += it['valor'] or 0
-    top_merchants = [{'nome': k, 'total': round(v, 2)}
-                     for k, v in sorted(by_merchant.items(), key=lambda x: -x[1])[:15]]
+
+    top_merchants = []
+    for k, v in sorted(by_merchant.items(), key=lambda x: -x[1])[:15]:
+        cid = regras.get(k)
+        top_merchants.append({
+            'nome': k,
+            'total': round(v, 2),
+            'categoria_id': cid,
+            'categoria_nome': cat_map.get(cid, '') if cid else '',
+        })
 
     total_gasto  = round(sum(v for v in by_month.values()), 2)
     media_mensal = round(total_gasto / len(by_month), 2) if by_month else 0
@@ -1766,7 +1794,33 @@ async def cartao_analise(request: Request, de: str = None, ate: str = None):
         'faturas': faturas, 'mensal': mensal,
         'por_categoria': por_categoria, 'top_merchants': top_merchants,
         'total_gasto': total_gasto, 'media_mensal': media_mensal, 'melhor_mes': melhor_mes,
+        'categorias': categorias,
     }
+
+
+@router.post("/api/fin/cc/regra")
+async def api_cc_regra_upsert(request: Request):
+    _require(request)
+    body = await request.json()
+    merchant = (body.get('merchant') or '').strip()
+    categoria_id = body.get('categoria_id')
+    if not merchant:
+        raise HTTPException(400, "merchant required")
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        if categoria_id:
+            cur.execute("""
+                INSERT INTO fin_cc_regras (merchant, categoria_id) VALUES (%s, %s)
+                ON CONFLICT (merchant) DO UPDATE SET categoria_id = EXCLUDED.categoria_id
+            """, (merchant, int(categoria_id)))
+        else:
+            cur.execute("DELETE FROM fin_cc_regras WHERE merchant = %s", (merchant,))
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
+    return {"ok": True}
 
 
 @router.get("/api/fin/dashboard-sheets")
