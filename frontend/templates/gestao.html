@@ -5297,7 +5297,7 @@ document.addEventListener('alpine:init', () => {
       this.saveStatusTemplatesLS();
     },
     openSaveTpl() { this.smTplName = ''; this.smSaveTplModal = true; },
-    confirmSaveTpl() {
+    async confirmSaveTpl() {
       const name = this.smTplName.trim(); if (!name) return;
       const existing = this.statusTemplates.find(t => t.name === name);
       if (existing) {
