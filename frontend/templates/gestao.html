@@ -555,6 +555,20 @@
     .task-del-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: .85rem; opacity: 0; padding: 4px; border-radius: 4px; transition: color .12s, opacity .15s; }
     .task-del-btn:hover { color: #ef4444; }
 
+    .task-subtask-toggle {
+      background: none; border: none; cursor: pointer; flex-shrink: 0;
+      color: #444; padding: 0; width: 16px; height: 16px;
+      font-size: .52rem; display: flex; align-items: center; justify-content: center;
+      border-radius: 3px; transition: color .1s;
+    }
+    .task-subtask-toggle:hover { color: var(--muted); background: #ffffff12; }
+    .task-subtask-spacer { width: 16px; flex-shrink: 0; }
+    .task-subtask-count { font-size: .7rem; color: #3a3a3a; display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0; margin-left: 4px; user-select: none; }
+    .task-row:hover .task-subtask-count { color: #555; }
+    .task-add-sub { background:none; border:none; color:#333; cursor:pointer; font-size:.78rem; padding:1px 5px; border-radius:4px; opacity:0; flex-shrink:0; transition: color .1s, opacity .15s; }
+    .task-row:hover .task-add-sub { opacity:1; }
+    .task-add-sub:hover { color: var(--accent); background: #ffffff10; }
+
     .task-add-inline { display: flex; align-items: center; gap: 8px; padding: 10px 20px; color: var(--muted); font-size: .88rem; cursor: pointer; transition: color .15s; }
     .task-add-inline:hover { color: var(--text); }
 
@@ -1681,12 +1695,26 @@
             <!-- task row -->
             <template x-if="row.type==='task'">
               <div class="task-row" :style="'grid-template-columns:'+gridCols">
-                <div class="task-title-cell">
+                <div class="task-title-cell" :style="`padding-left:${(row.depth||0)*22}px`">
+                  <template x-if="taskChildren(row.task.id).length">
+                    <button class="task-subtask-toggle"
+                            @click.stop="collapsedTasks={...collapsedTasks,[row.task.id]:!collapsedTasks[row.task.id]}"
+                            :title="collapsedTasks[row.task.id] ? 'Expandir subtarefas' : 'Recolher subtarefas'">
+                      <span x-text="collapsedTasks[row.task.id] ? '▶' : '▼'"></span>
+                    </button>
+                  </template>
+                  <template x-if="!taskChildren(row.task.id).length">
+                    <span class="task-subtask-spacer"></span>
+                  </template>
                   <div class="task-status-dot"
                        :style="`background:${statusObj(row.task.status).color}`"
                        :title="statusObj(row.task.status).name"
                        @click.stop="openStatusPicker(row.task,$event)"></div>
                   <span class="task-title-text" @click="openEdit(row.task)" x-text="row.task.title"></span>
+                  <template x-if="taskChildren(row.task.id).length">
+                    <span class="task-subtask-count">🔗 <span x-text="taskChildren(row.task.id).length"></span></span>
+                  </template>
+                  <button class="task-add-sub" @click.stop="openNewSubtask(row.task.id)" title="Nova subtarefa">+ sub</button>
                 </div>
                 <div x-show="cols.status">
                   <span class="status-badge"
@@ -3334,6 +3362,8 @@ document.addEventListener('alpine:init', () => {
     groupDir: 'asc',
     groupPanel: false,
     collapsedGroups: {},
+    collapsedTasks: {},
+    newTaskParentId: null,
     colMenu: null,
     colMenuPos: { x: 0, y: 0 },
     get filteredTasks() {
@@ -3351,6 +3381,12 @@ document.addEventListener('alpine:init', () => {
       }
       if (!this.filters.length) return list;
       return list.filter(task => this.filters.every(f => this._taskMatchesFilter(task, f)));
+    },
+    get filteredRootTasks() {
+      return this.filteredTasks.filter(t => !t.parent_task_id);
+    },
+    taskChildren(parentId) {
+      return this.tasks.filter(t => t.parent_task_id === parentId);
     },
     get assigneeCounts() {
       const map = { __none__: 0 };
@@ -3377,7 +3413,7 @@ document.addEventListener('alpine:init', () => {
       const key = this.groupBy;
       if (!key) return [];
       const map = new Map();
-      for (const task of this.filteredTasks) {
+      for (const task of this.filteredRootTasks) {
         let gKey, gLabel, gColor = '#6b7280';
         if (key === 'status') {
           const s = this.statusObj(task.status);
@@ -3420,14 +3456,22 @@ document.addEventListener('alpine:init', () => {
     },
     get displayRows() {
       const rows = [];
+      const collapsed = this.collapsedTasks;
+      const addTask = (task, depth) => {
+        rows.push({ type: 'task', task, depth, _key: 't_' + task.id + '_' + depth });
+        const children = this.taskChildren(task.id);
+        if (children.length && !collapsed[task.id]) {
+          for (const child of children) addTask(child, depth + 1);
+        }
+      };
       if (!this.groupBy) {
-        for (const task of this.filteredTasks) rows.push({ type: 'task', task, _key: 't_' + task.id });
+        for (const task of this.filteredRootTasks) addTask(task, 0);
         rows.push({ type: 'add', _key: '__add__' });
       } else {
         for (const g of this.groupedTasks) {
           rows.push({ type: 'group', key: g.key, label: g.label, color: g.color, count: g.tasks.length, _key: 'g_' + g.key });
           if (!this.collapsedGroups[g.key]) {
-            for (const task of g.tasks) rows.push({ type: 'task', task, _key: 't_' + task.id });
+            for (const task of g.tasks) addTask(task, 0);
           }
         }
         rows.push({ type: 'add', _key: '__add__' });
@@ -3806,8 +3850,17 @@ document.addEventListener('alpine:init', () => {
       this.colorIconModal = false;
     },
 
-    openNew() { this.editTask=null; this.form={title:'',description:'',assignees:[],due_date:'',status:'aberto',priority:'normal'}; this.modal=true; this.$nextTick(()=>this.$refs.titleInput?.focus()); },
+    openNew() { this.newTaskParentId=null; this.editTask=null; this.form={title:'',description:'',assignees:[],due_date:'',status:'aberto',priority:'normal'}; this.modal=true; this.$nextTick(()=>this.$refs.titleInput?.focus()); },
     openNewWithStatus(s) { this.openNew(); this.form.status=s; },
+    openNewSubtask(parentId) {
+      this.newTaskParentId = parentId;
+      this.editTask = null;
+      this.form = {title:'',description:'',assignees:[],due_date:'',status:'aberto',priority:'normal'};
+      this.modal = true;
+      // Auto-expand parent so the new subtask is visible
+      this.collapsedTasks = { ...this.collapsedTasks, [parentId]: false };
+      this.$nextTick(() => this.$refs.titleInput?.focus());
+    },
     openEdit(task) {
       this.editTask=task;
       this.form={title:task.title,description:task.description||'',assignees:[...(task.assignees||[])],due_date:task.due_date||'',status:task.status,priority:task.priority,extra_data:{...(task.extra_data||{})}};
@@ -3822,8 +3875,11 @@ document.addEventListener('alpine:init', () => {
         const d=await fetch(`/api/gestao/tasks/${this.editTask.id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(this.form)}).then(r=>r.json());
         const i=this.tasks.findIndex(t=>t.id===this.editTask.id); if(i>=0) this.tasks[i]=d.task;
       } else {
-        const d=await fetch('/api/gestao/tasks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...this.form,list_id:this.activeList.id})}).then(r=>r.json());
+        const body = {...this.form, list_id: this.activeList.id};
+        if (this.newTaskParentId) body.parent_task_id = this.newTaskParentId;
+        const d=await fetch('/api/gestao/tasks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json());
         this.tasks.push(d.task);
+        this.newTaskParentId = null;
       }
       this.modal=false;
     },
