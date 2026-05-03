@@ -274,6 +274,13 @@
     }
     .ctx-sep { height: 1px; background: #272727; margin: 4px 2px; }
     .ctx-icon { width: 16px; text-align: center; flex-shrink: 0; font-size: .8rem; }
+    .ctx-topbar { display: flex; gap: 4px; padding: 4px 4px 6px; border-bottom: 1px solid #272727; margin-bottom: 4px; }
+    .ctx-topbtn { flex: 1; padding: 5px 7px; background: #2a2a2a; border: 1px solid #363636; border-radius: 6px; color: var(--text); font-size: .72rem; cursor: pointer; white-space: nowrap; transition: background .1s; font-family: inherit; }
+    .ctx-topbtn:hover { background: #333; }
+    .ctx-item-sub { position: relative; overflow: visible; }
+    .ctx-submenu { position: absolute; left: calc(100% + 6px); top: -4px; z-index: 601; display: none; }
+    .ctx-item-sub:hover .ctx-submenu { display: block; }
+    .ctx-arrow { margin-left: auto; opacity: .45; font-size: .65rem; flex-shrink: 0; }
 
     /* footer */
     .g-nav-footer {
@@ -1935,7 +1942,8 @@
             </template>
             <!-- task row -->
             <template x-if="row.type==='task'">
-              <div class="task-row" :style="'grid-template-columns:'+gridCols">
+              <div class="task-row" :style="'grid-template-columns:'+gridCols"
+                   @contextmenu.prevent="openTaskCtxMenu($event, row.task)">
                 <div class="task-title-cell" :style="`padding-left:${(row.depth||0)*22}px`">
                   <template x-if="taskChildren(row.task.id).length">
                     <button class="task-subtask-toggle"
@@ -2055,7 +2063,7 @@
               <span class="kanban-col-count" x-text="tasksByStatus(status.id).length"></span>
             </div>
             <template x-for="task in tasksByStatus(status.id)" :key="task.id">
-              <div class="kanban-card" @click="openEdit(task)">
+              <div class="kanban-card" @click="openEdit(task)" @contextmenu.prevent="openTaskCtxMenu($event, task)">
                 <div class="kanban-card-title" x-text="task.title"></div>
                 <div class="kanban-card-meta">
                   <div style="font-size:.72rem; color:var(--muted)">
@@ -3630,10 +3638,10 @@
   <!-- slash menu rendered by vanilla JS in #sinSlashMenu (outside Alpine) -->
 
   <!-- ── overlay to close dropdown menus ───────────────────────────────────── -->
-  <div x-show="ctxMenu.open || plusMenu.open || docCtxMenu.open || pageCtxMenu.open || featCtxMenu.open"
+  <div x-show="ctxMenu.open || plusMenu.open || docCtxMenu.open || pageCtxMenu.open || featCtxMenu.open || taskCtxMenu.open"
        style="position:fixed;inset:0;z-index:599"
-       @click="ctxMenu.open=false;plusMenu.open=false;docCtxMenu.open=false;pageCtxMenu.open=false;featCtxMenu.open=false"
-       @keydown.window.escape="ctxMenu.open=false;plusMenu.open=false;docCtxMenu.open=false;pageCtxMenu.open=false;featCtxMenu.open=false"></div>
+       @click="ctxMenu.open=false;plusMenu.open=false;docCtxMenu.open=false;pageCtxMenu.open=false;featCtxMenu.open=false;taskCtxMenu.open=false"
+       @keydown.window.escape="ctxMenu.open=false;plusMenu.open=false;docCtxMenu.open=false;pageCtxMenu.open=false;featCtxMenu.open=false;taskCtxMenu.open=false"></div>
 
   <!-- ── ··· context menu ──────────────────────────────────────────────────── -->
   <div class="ctx-menu" x-show="ctxMenu.open" x-transition.opacity.duration.100ms
@@ -3671,6 +3679,41 @@
     </div>
     <div class="ctx-sep"></div>
     <div class="ctx-item danger" @click="ctxDelete()">
+      <span class="ctx-icon">🗑</span> Excluir
+    </div>
+  </div>
+
+  <!-- ── task context menu ─────────────────────────────────────────────────── -->
+  <div class="ctx-menu" x-show="taskCtxMenu.open" x-transition.opacity.duration.100ms
+       :style="`top:${taskCtxMenu.y}px;left:${taskCtxMenu.x}px`" @click.stop>
+    <div class="ctx-topbar">
+      <button class="ctx-topbtn" @click="taskCtxCopyLink()">🔗 Copiar link</button>
+      <button class="ctx-topbtn" @click="taskCtxCopyId()">🆔 Copiar ID</button>
+    </div>
+    <div class="ctx-item" @click="openEdit(taskCtxMenu.task); taskCtxMenu.open=false">
+      <span class="ctx-icon">↗</span> Abrir tarefa
+    </div>
+    <div class="ctx-item" @click="openEdit(taskCtxMenu.task); taskCtxMenu.open=false">
+      <span class="ctx-icon">✎</span> Renomear
+    </div>
+    <div class="ctx-item" @click="taskCtxDuplicate()">
+      <span class="ctx-icon">⧉</span> Duplicar
+    </div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item ctx-item-sub">
+      <span class="ctx-icon">→</span> Mover para
+      <span class="ctx-arrow">▶</span>
+      <div class="ctx-menu ctx-submenu">
+        <template x-for="st in statuses" :key="st.id">
+          <div class="ctx-item" @click.stop="taskCtxMoveStatus(st.id)">
+            <span class="ctx-icon" style="font-size:.65rem" :style="`color:${st.color}`">●</span>
+            <span x-text="st.name"></span>
+          </div>
+        </template>
+      </div>
+    </div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item danger" @click="deleteTask(taskCtxMenu.task); taskCtxMenu.open=false">
       <span class="ctx-icon">🗑</span> Excluir
     </div>
   </div>
@@ -4221,6 +4264,7 @@ document.addEventListener('alpine:init', () => {
 
     ctxMenu: {open:false, type:'', target:null, spaceCtx:null, folderCtx:null, x:0, y:0},
     plusMenu: {open:false, spaceId:'', folderId:null, x:0, y:0},
+    taskCtxMenu: {open:false, task:null, x:0, y:0},
 
     // documents
     activeDoc: null, docEditor: null, docEditorTick: 0, _settingContent: false,
@@ -4937,6 +4981,48 @@ document.addEventListener('alpine:init', () => {
       if(!confirm(`Excluir "${task.title}"?`)) return;
       await fetch(`/api/gestao/tasks/${task.id}`,{method:'DELETE'});
       this.tasks=this.tasks.filter(t=>t.id!==task.id);
+    },
+
+    openTaskCtxMenu(e, task) {
+      this.ctxMenu.open = false;
+      const x = Math.min(e.clientX, window.innerWidth - 240);
+      const y = Math.min(e.clientY, window.innerHeight - 320);
+      this.taskCtxMenu = {open: true, task, x, y};
+    },
+    async taskCtxCopyLink() {
+      const t = this.taskCtxMenu.task;
+      this.taskCtxMenu.open = false;
+      await navigator.clipboard.writeText(window.location.origin + '/t/' + t.id);
+    },
+    async taskCtxCopyId() {
+      const t = this.taskCtxMenu.task;
+      this.taskCtxMenu.open = false;
+      await navigator.clipboard.writeText(t.id);
+    },
+    async taskCtxDuplicate() {
+      const t = this.taskCtxMenu.task;
+      this.taskCtxMenu.open = false;
+      const r = await fetch(`/api/gestao/tasks`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          title: t.title + ' (cópia)',
+          list_id: t.list_id,
+          status: t.status,
+          priority: t.priority,
+          assignees: t.assignees || [],
+          description: t.description || '',
+          due_date: t.due_date || null,
+          parent_task_id: t.parent_task_id || null,
+        })
+      });
+      const d = await r.json();
+      this.tasks.push(d.task);
+    },
+    async taskCtxMoveStatus(statusId) {
+      const t = this.taskCtxMenu.task;
+      this.taskCtxMenu.open = false;
+      await this.patchTask(t, {status: statusId});
     },
 
     openNewFolder(sid) { this.newFolderSpaceId=sid; this.newFolderName=''; this.newFolderModal=true; },
