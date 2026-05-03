@@ -203,6 +203,12 @@ def init_db():
         if cur.fetchone()['c'] == 0:
             _seed_features(conn, cur)
 
+        # Ensure CRM feature exists in Comercial (idempotente)
+        cur.execute(
+            "INSERT INTO features (id,space_id,url,label,icon,position) VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING",
+            ("feat_crm", "comercial", "/crm", "CRM", "🎯", 0),
+        )
+
         conn.commit()
     finally:
         cur.close()
@@ -274,6 +280,7 @@ def _seed(conn, cur):
 
 def _seed_features(conn, cur):
     rows = [
+        ("feat_crm",       "comercial",  "/crm",      "CRM",             "🎯", 0),
         ("feat_dashboard", "operacional", "/trafego", "Dashboards",      "📊", 0),
         ("feat_ata",       "operacional", "/ata",      "Gerador de Atas", "📝", 1),
     ]
