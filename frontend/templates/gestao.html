@@ -571,6 +571,7 @@
     .due-cell { font-size: .83rem; }
     .cf-cell { font-size: .8rem; cursor: pointer; padding: 2px 4px; border-radius: 4px; }
     .cf-cell:hover { background: #ffffff0a; }
+    .cf-inline-input { background: transparent; border: none; border-bottom: 1.5px solid var(--accent); outline: none; color: var(--text); font-size: .8rem; font-family: inherit; width: 100%; padding: 0 2px; min-width: 60px; }
     .cf-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: .75rem; font-weight: 500; border: 1px solid transparent; cursor: pointer; }
     .due-normal { color: var(--muted); }
     .due-overdue { color: #ef4444; font-weight: 600; }
@@ -2060,7 +2061,20 @@
                       </span>
                     </template>
                     <template x-if="cf.type!=='dropdown'">
-                      <span x-text="getCfValue(row.task,cf.id)||'—'" style="font-size:.8rem;color:#ccc"></span>
+                      <span>
+                        <template x-if="cfInlineEdit.taskId===row.task.id && cfInlineEdit.cfId===cf.id">
+                          <input class="cf-inline-input" x-model="cfInlineEdit.value"
+                                 x-init="$nextTick(()=>$el.focus())"
+                                 @blur.stop="saveCfInline(row.task,cf)"
+                                 @keydown.enter.prevent="saveCfInline(row.task,cf)"
+                                 @keydown.escape.prevent="cfInlineEdit={taskId:null,cfId:null,value:''}"
+                                 @click.stop>
+                        </template>
+                        <template x-if="!(cfInlineEdit.taskId===row.task.id && cfInlineEdit.cfId===cf.id)">
+                          <span x-text="getCfValue(row.task,cf.id)||'—'"
+                                :style="getCfValue(row.task,cf.id)?'font-size:.8rem;color:#ccc':'font-size:.8rem;color:#444'"></span>
+                        </template>
+                      </span>
                     </template>
                   </div>
                 </template>
@@ -4105,6 +4119,7 @@ document.addEventListener('alpine:init', () => {
     cfPickerTask: null,
     cfPickerCf: null,
     cfPickerPos: { x: 0, y: 0 },
+    cfInlineEdit: {taskId: null, cfId: null, value: ''},
     showClosed: false,
     assigneeFilter: [],
     assigneePanel: false,
@@ -4833,14 +4848,25 @@ document.addEventListener('alpine:init', () => {
       return (cf.options || []).find(o => o.name === name) || null;
     },
     openCfPicker(task, cf, event) {
-      if (cf.type !== 'dropdown') return;
-      const r = event.currentTarget.getBoundingClientRect();
-      let x = r.left, y = r.bottom + 4;
-      if (x + 200 > window.innerWidth) x = window.innerWidth - 210;
-      if (y + 220 > window.innerHeight) y = r.top - 224;
-      this.cfPickerPos = { x, y };
-      this.cfPickerTask = task;
-      this.cfPickerCf = cf;
+      if (cf.type === 'dropdown') {
+        const r = event.currentTarget.getBoundingClientRect();
+        let x = r.left, y = r.bottom + 4;
+        if (x + 200 > window.innerWidth) x = window.innerWidth - 210;
+        if (y + 220 > window.innerHeight) y = r.top - 224;
+        this.cfPickerPos = { x, y };
+        this.cfPickerTask = task;
+        this.cfPickerCf = cf;
+      } else {
+        this.cfInlineEdit = {taskId: task.id, cfId: cf.id, value: this.getCfValue(task, cf.id) || ''};
+      }
+    },
+    async saveCfInline(task, cf) {
+      const value = this.cfInlineEdit.value;
+      this.cfInlineEdit = {taskId: null, cfId: null, value: ''};
+      const newVals = {...(task.cf_values || {}), [cf.id]: value};
+      if (!value) delete newVals[cf.id];
+      await this.patchTask(task, {cf_values: newVals});
+      task.cf_values = newVals;
     },
     async pickCfValue(value) {
       if (!this.cfPickerTask || !this.cfPickerCf) return;
