@@ -203,6 +203,11 @@ def init_db():
         if cur.fetchone()['c'] == 0:
             _seed_features(conn, cur)
 
+        # Ensure "comercial" space exists (idempotente — caso seed não tenha rodado)
+        cur.execute(
+            "INSERT INTO spaces (id,name,color,icon,position,created_at) VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING",
+            ("comercial", "Comercial", "#22c55e", "💼", 2, datetime.now().isoformat()),
+        )
         # Ensure CRM feature exists in Comercial (idempotente)
         cur.execute(
             "INSERT INTO features (id,space_id,url,label,icon,position) VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING",
