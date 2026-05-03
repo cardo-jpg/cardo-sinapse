@@ -1399,6 +1399,8 @@
     .form-resp-field:last-child { border-right: none; }
     .form-resp-label { font-size: .72rem; color: var(--muted); margin-bottom: 3px; }
     .form-resp-value { font-size: .85rem; color: var(--text); word-break: break-word; }
+    .form-resp-del-btn { margin-left: auto; background: none; border: none; color: #444; cursor: pointer; font-size: .82rem; padding: 2px 6px; border-radius: 5px; transition: color .1s, background .1s; }
+    .form-resp-del-btn:hover { color: #ef4444; background: rgba(239,68,68,.1); }
   </style>
 </head>
 <body>
@@ -2370,6 +2372,7 @@
                               ↗ Ver tarefa
                             </span>
                           </template>
+                          <button class="form-resp-del-btn" @click="deleteFormResponse(sub)" title="Excluir resposta">🗑</button>
                         </div>
                         <div class="form-resp-fields">
                           <template x-for="field in activeForm.fields" :key="field.id">
@@ -4492,6 +4495,12 @@ document.addEventListener('alpine:init', () => {
       const d = await fetch(`/api/gestao/forms/${this.activeForm.id}/submissions`).then(r=>r.json());
       this.formResponses = d.submissions || [];
       this.formResponsesLoading = false;
+    },
+    async deleteFormResponse(sub) {
+      if (!confirm('Excluir esta resposta?')) return;
+      await fetch(`/api/gestao/forms/${this.activeForm.id}/submissions/${sub.id}`, {method:'DELETE'});
+      this.formResponses = this.formResponses.filter(s => s.id !== sub.id);
+      if (this.activeForm) this.activeForm.submission_count = Math.max(0, (this.activeForm.submission_count||1) - 1);
     },
     async createForm() {
       if (!this.activeList) return;

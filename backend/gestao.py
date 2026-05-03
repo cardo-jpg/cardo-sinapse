@@ -1533,6 +1533,18 @@ async def api_form_submissions(form_id: str, request: Request):
     return {"submissions": subs, "count": len(subs)}
 
 
+@router.delete("/api/gestao/forms/{form_id}/submissions/{sub_id}")
+async def api_delete_submission(form_id: str, sub_id: str, request: Request):
+    _require(request)
+    conn = get_conn(); cur = dict_cursor(conn)
+    try:
+        cur.execute("DELETE FROM form_submissions WHERE id=%s AND form_id=%s", (sub_id, form_id))
+        conn.commit()
+    finally:
+        cur.close(); conn.close()
+    return {"ok": True}
+
+
 @router.get("/f/{form_id}", response_class=HTMLResponse)
 async def public_form_get(form_id: str, request: Request):
     conn = get_conn(); cur = dict_cursor(conn)
