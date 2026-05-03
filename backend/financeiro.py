@@ -261,6 +261,30 @@ def init_db():
             if nome not in existing:
                 dcur.execute("INSERT INTO fin_centros_custo (nome) VALUES (%s)", (nome,))
 
+        # Seed categorias padrão (idempotente — insere só se nome não existe)
+        _DEFAULT_CATS = [
+            ('Software / Ferramentas',  'despesa'),
+            ('IA e Automação',          'despesa'),
+            ('Serviços e Taxas',        'despesa'),
+            ('Hospedagem / Infra',      'despesa'),
+            ('Honorários',              'despesa'),
+            ('Publicidade / Mídia',     'despesa'),
+            ('Folha de Pagamento',      'despesa'),
+            ('Impostos e Taxas',        'despesa'),
+            ('Alimentação',             'despesa'),
+            ('Transporte',              'despesa'),
+            ('Outros',                  'despesa'),
+            ('Receita de Clientes',     'receita'),
+        ]
+        dcur.execute("SELECT nome FROM fin_categorias")
+        existing_cats = {r['nome'] for r in dcur.fetchall()}
+        for nome, tipo in _DEFAULT_CATS:
+            if nome not in existing_cats:
+                dcur.execute(
+                    "INSERT INTO fin_categorias (nome, tipo, situacao) VALUES (%s,%s,'ativa')",
+                    (nome, tipo),
+                )
+
         dcur.close()
         conn.commit()
     finally:
