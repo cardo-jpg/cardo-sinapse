@@ -25,8 +25,9 @@ SECRET_KEY = os.getenv("SECRET_KEY", "sinapse-secret-2026")
 USERS = {
     "victor": os.getenv("USER_VICTOR_PASSWORD", "C@rdobrain2026"),
     "jose":   os.getenv("USER_JOSE_PASSWORD",   "C@rdosinapse2026"),
+    "jadna":  os.getenv("USER_JADNA_PASSWORD",  "C@rdosinapse2026"),
 }
-USER_DISPLAY = {"victor": "Victor", "jose": "José"}
+USER_DISPLAY = {"victor": "Victor", "jose": "José", "jadna": "Jadna"}
 
 STATUSES = [
     {"id": "aberto",    "name": "Aberto",       "color": "#6b7280"},
@@ -37,6 +38,7 @@ STATUSES = [
 MEMBERS = [
     {"id": "victor", "name": "Victor"},
     {"id": "jose",   "name": "José"},
+    {"id": "jadna",  "name": "Jadna"},
 ]
 
 
