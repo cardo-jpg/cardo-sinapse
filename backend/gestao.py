@@ -163,6 +163,27 @@ def init_db():
                 FOREIGN KEY (doc_id) REFERENCES documents(id) ON DELETE CASCADE
             )
         """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS task_checklists (
+                id         TEXT PRIMARY KEY,
+                task_id    TEXT NOT NULL,
+                name       TEXT NOT NULL DEFAULT 'Checklist',
+                position   INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS task_checklist_items (
+                id           TEXT PRIMARY KEY,
+                checklist_id TEXT NOT NULL,
+                text         TEXT NOT NULL,
+                resolved     INTEGER DEFAULT 0,
+                position     INTEGER DEFAULT 0,
+                created_at   TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (checklist_id) REFERENCES task_checklists(id) ON DELETE CASCADE
+            )
+        """)
 
         # ADD COLUMN migrations — PostgreSQL: use DO blocks to avoid errors on re-run
         migrations = [
@@ -692,13 +713,31 @@ async def api_list_tasks(list_id: str, request: Request):
             "SELECT * FROM tasks WHERE list_id=%s ORDER BY position, created_at", (list_id,)
         )
         tasks = [dict(r) for r in cur.fetchall()]
+        task_ids = [t["id"] for t in tasks]
+        checklists_map: dict = {}
+        if task_ids:
+            placeholders = ",".join(["%s"] * len(task_ids))
+            cur.execute(f"SELECT * FROM task_checklists WHERE task_id IN ({placeholders}) ORDER BY position, created_at", task_ids)
+            cls = [dict(r) for r in cur.fetchall()]
+            cl_ids = [c["id"] for c in cls]
+            items_map: dict = {}
+            if cl_ids:
+                ph2 = ",".join(["%s"] * len(cl_ids))
+                cur.execute(f"SELECT * FROM task_checklist_items WHERE checklist_id IN ({ph2}) ORDER BY position, created_at", cl_ids)
+                for item in cur.fetchall():
+                    item = dict(item)
+                    items_map.setdefault(item["checklist_id"], []).append(item)
+            for cl in cls:
+                cl["items"] = items_map.get(cl["id"], [])
+                checklists_map.setdefault(cl["task_id"], []).append(cl)
     finally:
         cur.close()
         conn.close()
     for t in tasks:
-        t["assignees"]  = json.loads(t.get("assignees") or "[]")
-        t["extra_data"] = json.loads(t.get("extra_data") or "{}")
-        t["cf_values"]  = json.loads(t.get("cf_values")  or "{}")
+        t["assignees"]   = json.loads(t.get("assignees") or "[]")
+        t["extra_data"]  = json.loads(t.get("extra_data") or "{}")
+        t["cf_values"]   = json.loads(t.get("cf_values")  or "{}")
+        t["checklists"]  = checklists_map.get(t["id"], [])
     return {"tasks": tasks}
 
 
@@ -781,6 +820,146 @@ async def api_delete_task(task_id: str, request: Request):
     cur = conn.cursor()
     try:
         cur.execute("DELETE FROM tasks WHERE id=%s", (task_id,))
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
+    return {"ok": True}
+
+
+# ── Checklists ────────────────────────────────────────────────────────────────
+
+@router.get("/api/gestao/tasks/{task_id}/checklists")
+async def api_get_checklists(task_id: str, request: Request):
+    _require(request)
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT * FROM task_checklists WHERE task_id=%s ORDER BY position, created_at", (task_id,))
+        checklists = [dict(r) for r in cur.fetchall()]
+        for cl in checklists:
+            cur.execute("SELECT * FROM task_checklist_items WHERE checklist_id=%s ORDER BY position, created_at", (cl["id"],))
+            cl["items"] = [dict(i) for i in cur.fetchall()]
+    finally:
+        cur.close()
+        conn.close()
+    return {"checklists": checklists}
+
+
+@router.post("/api/gestao/tasks/{task_id}/checklists")
+async def api_create_checklist(task_id: str, request: Request):
+    _require(request)
+    data = await request.json()
+    name = (data.get("name") or "Checklist").strip()
+    cid = str(uuid.uuid4())
+    now = datetime.now().isoformat()
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT COALESCE(MAX(position),0) FROM task_checklists WHERE task_id=%s", (task_id,))
+        pos = (cur.fetchone()["coalesce"] or 0) + 1
+        cur.execute(
+            "INSERT INTO task_checklists (id,task_id,name,position,created_at) VALUES (%s,%s,%s,%s,%s)",
+            (cid, task_id, name, pos, now),
+        )
+        conn.commit()
+        cur.execute("SELECT * FROM task_checklists WHERE id=%s", (cid,))
+        cl = dict(cur.fetchone())
+        cl["items"] = []
+    finally:
+        cur.close()
+        conn.close()
+    return {"checklist": cl}
+
+
+@router.patch("/api/gestao/checklists/{checklist_id}")
+async def api_update_checklist(checklist_id: str, request: Request):
+    _require(request)
+    data = await request.json()
+    name = (data.get("name") or "").strip()
+    if not name:
+        raise HTTPException(400, "name obrigatório")
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("UPDATE task_checklists SET name=%s WHERE id=%s", (name, checklist_id))
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
+    return {"ok": True}
+
+
+@router.delete("/api/gestao/checklists/{checklist_id}")
+async def api_delete_checklist(checklist_id: str, request: Request):
+    _require(request)
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM task_checklists WHERE id=%s", (checklist_id,))
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
+    return {"ok": True}
+
+
+@router.post("/api/gestao/checklists/{checklist_id}/items")
+async def api_create_checklist_item(checklist_id: str, request: Request):
+    _require(request)
+    data = await request.json()
+    text = (data.get("text") or "").strip()
+    if not text:
+        raise HTTPException(400, "text obrigatório")
+    iid = str(uuid.uuid4())
+    now = datetime.now().isoformat()
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT COALESCE(MAX(position),0) FROM task_checklist_items WHERE checklist_id=%s", (checklist_id,))
+        pos = (cur.fetchone()["coalesce"] or 0) + 1
+        cur.execute(
+            "INSERT INTO task_checklist_items (id,checklist_id,text,resolved,position,created_at) VALUES (%s,%s,%s,%s,%s,%s)",
+            (iid, checklist_id, text, 0, pos, now),
+        )
+        conn.commit()
+        cur.execute("SELECT * FROM task_checklist_items WHERE id=%s", (iid,))
+        item = dict(cur.fetchone())
+    finally:
+        cur.close()
+        conn.close()
+    return {"item": item}
+
+
+@router.patch("/api/gestao/checklist_items/{item_id}")
+async def api_update_checklist_item(item_id: str, request: Request):
+    _require(request)
+    data = await request.json()
+    allowed = {"text", "resolved"}
+    fields = {k: v for k, v in data.items() if k in allowed}
+    if not fields:
+        raise HTTPException(400, "Nenhum campo válido")
+    set_clause = ", ".join(f"{k}=%s" for k in fields)
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute(f"UPDATE task_checklist_items SET {set_clause} WHERE id=%s", [*fields.values(), item_id])
+        conn.commit()
+        cur.execute("SELECT * FROM task_checklist_items WHERE id=%s", (item_id,))
+        item = dict(cur.fetchone())
+    finally:
+        cur.close()
+        conn.close()
+    return {"item": item}
+
+
+@router.delete("/api/gestao/checklist_items/{item_id}")
+async def api_delete_checklist_item(item_id: str, request: Request):
+    _require(request)
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM task_checklist_items WHERE id=%s", (item_id,))
         conn.commit()
     finally:
         cur.close()
