@@ -202,6 +202,8 @@ def init_db():
             ("lists",     "custom_fields",  "TEXT DEFAULT '[]'"),
             ("tasks",     "extra_data",     "TEXT DEFAULT '{}'"),
             ("tasks",     "cf_values",      "TEXT DEFAULT '{}'"),
+            ("folders",   "custom_statuses","TEXT DEFAULT ''"),
+            ("lists",     "custom_statuses","TEXT DEFAULT ''"),
         ]
         for table, col, col_def in migrations:
             cur.execute(f"""
@@ -1120,7 +1122,7 @@ async def api_delete_folder(folder_id: str, request: Request):
 async def api_update_folder(folder_id: str, request: Request):
     _require(request)
     data = await request.json()
-    allowed = {"name", "color", "archived", "permissions"}
+    allowed = {"name", "color", "archived", "permissions", "custom_statuses"}
     fields = {k: v for k, v in data.items() if k in allowed and v is not None}
     if "name" in fields:
         fields["name"] = fields["name"].strip()
@@ -1158,7 +1160,7 @@ async def api_delete_list(list_id: str, request: Request):
 async def api_update_list(list_id: str, request: Request):
     _require(request)
     data = await request.json()
-    allowed = {"name", "color", "icon", "archived", "permissions", "custom_fields"}
+    allowed = {"name", "color", "icon", "archived", "permissions", "custom_fields", "custom_statuses"}
     fields = {k: v for k, v in data.items() if k in allowed and v is not None}
     if "custom_fields" in fields and not isinstance(fields["custom_fields"], str):
         fields["custom_fields"] = json.dumps(fields["custom_fields"])

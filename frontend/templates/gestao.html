@@ -2700,15 +2700,30 @@
         <div>
           <div class="mini-title">Status das tarefas</div>
           <div style="font-size:.72rem; color:var(--muted); margin-top:2px">
-            Espaço — <span x-text="smSpace?.name"></span>
+            <span x-text="{space:'Espaço',folder:'Pasta',list:'Lista'}[smEntityType]||'Espaço'"></span>
+            — <span x-text="smEntity?.name"></span>
           </div>
         </div>
         <button style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.1rem;line-height:1"
                 @click="statusModal=false">✕</button>
       </div>
 
+      <!-- inherit toggle (folder / list only) -->
+      <template x-if="smEntityType !== 'space'">
+        <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid var(--border)">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:.85rem">
+            <input type="radio" :checked="smInherit" @change="smInherit=true; smLoadInheritedStatuses()" style="accent-color:var(--accent)">
+            Herdar do espaço
+          </label>
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:.85rem">
+            <input type="radio" :checked="!smInherit" @change="smInherit=false" style="accent-color:var(--accent)">
+            Usar status personalizados
+          </label>
+        </div>
+      </template>
+
       <!-- template picker -->
-      <div style="margin-bottom:16px; padding-bottom:16px; border-bottom:1px solid var(--border)">
+      <div x-show="!smInherit" style="margin-bottom:16px; padding-bottom:16px; border-bottom:1px solid var(--border)">
         <div class="form-label" style="margin-bottom:8px">Modelo de status</div>
         <button class="sm-tpl-trigger" :class="smTplOpen?'open':''"
                 @click="smTplOpen=!smTplOpen; smTplSearch=''">
@@ -2741,8 +2756,28 @@
         </div>
       </div>
 
-      <!-- grouped status list -->
-      <div style="max-height:320px; overflow-y:auto; margin: 0 -4px; padding: 0 4px">
+      <!-- inherit preview (folder/list when inheriting) -->
+      <template x-if="smInherit && smEntityType !== 'space'">
+        <div style="max-height:320px; overflow-y:auto; margin: 0 -4px; padding: 0 4px; opacity:.55; pointer-events:none">
+          <template x-for="group in statusGroups" :key="group.id">
+            <div>
+              <div class="sm-group-header" style="color:#fff">
+                <span x-text="group.label"></span>
+              </div>
+              <template x-for="s in smStatuses.filter(s => s.group === group.id)" :key="s.id">
+                <div class="sm-item">
+                  <span class="sm-drag-handle">⠿</span>
+                  <div class="sm-color-btn" :style="`background:${s.color}`"></div>
+                  <input class="form-input" style="flex:1; font-size:.85rem; padding:6px 10px" :value="s.name" readonly>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <!-- grouped status list (editable) -->
+      <div x-show="!smInherit" style="max-height:320px; overflow-y:auto; margin: 0 -4px; padding: 0 4px">
         <template x-for="group in statusGroups" :key="group.id">
           <div>
             <!-- group header -->
@@ -2776,8 +2811,8 @@
       <div style="display:flex; align-items:center; justify-content:space-between;
                   margin-top:16px; padding-top:14px; border-top:1px solid var(--border)">
         <div style="display:flex; gap:12px; align-items:center">
-          <button class="sm-reset-btn" @click="resetSmStatuses()">Restaurar padrão</button>
-          <button class="sm-reset-btn" @click="openSaveTpl()" style="color:var(--muted)">Salvar como modelo</button>
+          <button class="sm-reset-btn" x-show="!smInherit" @click="resetSmStatuses()">Restaurar padrão</button>
+          <button class="sm-reset-btn" x-show="!smInherit" @click="openSaveTpl()" style="color:var(--muted)">Salvar como modelo</button>
         </div>
         <div style="display:flex; gap:8px">
           <button class="btn-ghost" @click="statusModal=false">Cancelar</button>
@@ -3157,7 +3192,7 @@
     <div class="ctx-item" @click="openColorIcon()">
       <span class="ctx-icon">🎨</span> Cor e Ícone
     </div>
-    <template x-if="ctxMenu.type === 'space'">
+    <template x-if="['space','folder','list'].includes(ctxMenu.type)">
       <div class="ctx-item" @click="openStatusModal()">
         <span class="ctx-icon">⚡</span> Status das tarefas
       </div>
@@ -3628,6 +3663,24 @@ document.addEventListener('alpine:init', () => {
     ],
     get statuses() {
       if (this.activeList) {
+        // 1. list's own custom statuses
+        try {
+          const cs = JSON.parse(this.activeList.custom_statuses || '[]');
+          if (cs.length > 0) return cs;
+        } catch {}
+        // 2. parent folder's custom statuses
+        if (this.activeList.folder_id) {
+          for (const space of this.tree) {
+            const folder = space.folders?.find(f => f.id === this.activeList.folder_id);
+            if (folder) {
+              try {
+                const cs = JSON.parse(folder.custom_statuses || '[]');
+                if (cs.length > 0) return cs;
+              } catch {}
+            }
+          }
+        }
+        // 3. space's custom statuses
         const space = this.tree.find(s => s.id === this.activeList.space_id);
         if (space) {
           try {
@@ -3642,6 +3695,9 @@ document.addEventListener('alpine:init', () => {
 
     statusModal: false,
     smSpace: null,
+    smEntity: null,
+    smEntityType: 'space',
+    smInherit: false,
     smStatuses: [],
     statusTemplates: [],
     smTplOpen: false,
@@ -4347,16 +4403,41 @@ document.addEventListener('alpine:init', () => {
     },
 
     openStatusModal() {
-      const {target} = this.ctxMenu;
+      const {type, target, spaceCtx} = this.ctxMenu;
       this.ctxMenu.open = false;
-      this.smSpace = target;
+      this.smEntityType = type;
+      this.smEntity = target;
+      // smSpace = the owning space (needed to resolve inherit chain)
+      this.smSpace = type === 'space' ? target : spaceCtx;
+
+      const cs = (() => { try { return JSON.parse(target.custom_statuses || '[]'); } catch { return []; } })();
+
+      if (type === 'space') {
+        this.smInherit = false;
+        this.smStatuses = cs.length > 0
+          ? cs.map(s => ({...s, group: s.group || 'not_started'}))
+          : this.defaultStatuses.map(s => ({...s}));
+      } else {
+        // folder/list: inherit when custom_statuses is empty
+        this.smInherit = cs.length === 0;
+        if (this.smInherit) {
+          this.smLoadInheritedStatuses();
+        } else {
+          this.smStatuses = cs.map(s => ({...s, group: s.group || 'not_started'}));
+        }
+      }
+      this.statusModal = true;
+    },
+    smLoadInheritedStatuses() {
+      // preview the space's statuses when in inherit mode
+      const space = this.smSpace;
+      if (!space) { this.smStatuses = this.defaultStatuses.map(s=>({...s})); return; }
       try {
-        const cs = JSON.parse(target.custom_statuses || '[]');
+        const cs = JSON.parse(space.custom_statuses || '[]');
         this.smStatuses = cs.length > 0
           ? cs.map(s => ({...s, group: s.group || 'not_started'}))
           : this.defaultStatuses.map(s => ({...s}));
       } catch { this.smStatuses = this.defaultStatuses.map(s => ({...s})); }
-      this.statusModal = true;
     },
     addSmStatus(group) {
       this.smStatuses.push({id: 'st_' + Date.now(), name: 'Novo status', color: '#6b7280', group});
@@ -4364,14 +4445,15 @@ document.addEventListener('alpine:init', () => {
     removeSmStatusById(id) { this.smStatuses = this.smStatuses.filter(s => s.id !== id); },
     resetSmStatuses() { this.smStatuses = this.defaultStatuses.map(s => ({...s})); },
     async saveStatuses() {
-      const valid = this.smStatuses.filter(s => s.name.trim());
-      const json = JSON.stringify(valid);
-      await fetch(`/api/gestao/spaces/${this.smSpace.id}`, {
+      const ep = {space:'spaces', folder:'folders', list:'lists'}[this.smEntityType];
+      // if inheriting: save empty string to clear custom statuses
+      const json = this.smInherit ? '' : JSON.stringify(this.smStatuses.filter(s => s.name.trim()));
+      await fetch(`/api/gestao/${ep}/${this.smEntity.id}`, {
         method: 'PATCH',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({custom_statuses: json}),
       });
-      this.smSpace.custom_statuses = json;
+      this.smEntity.custom_statuses = json;
       this.statusModal = false;
     },
 
