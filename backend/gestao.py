@@ -376,6 +376,7 @@ async def api_create_document(request: Request):
     now = datetime.now().isoformat()
     doc_id    = str(uuid.uuid4())
     title     = data.get("title", "Sem título").strip() or "Sem título"
+    content   = data.get("content", "")
     space_id  = data["space_id"]
     folder_id = data.get("folder_id") or None
     parent_id = data.get("parent_id") or None
@@ -389,7 +390,7 @@ async def api_create_document(request: Request):
         pos = (cur.fetchone()["coalesce"] or 0) + 1
         cur.execute(
             "INSERT INTO documents (id,title,content,space_id,folder_id,parent_id,position,created_at,updated_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-            (doc_id, title, "", space_id, folder_id, parent_id, pos, now, now),
+            (doc_id, title, content, space_id, folder_id, parent_id, pos, now, now),
         )
         conn.commit()
         cur.execute("SELECT * FROM documents WHERE id=%s", (doc_id,))
