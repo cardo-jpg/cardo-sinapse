@@ -1575,13 +1575,16 @@ async def public_form_submit(form_id: str, request: Request):
                     lines.append(f"**{field['label']}:** {val}")
             desc = "\n".join(lines)
 
+        target_list_id = settings.get("target_list_id") or form["list_id"]
+        assignees = json.dumps(settings.get("default_assignees") or [])
+
         tid = str(uuid.uuid4())
         now = datetime.now().isoformat()
-        cur.execute("SELECT COALESCE(MAX(position),0) FROM tasks WHERE list_id=%s", (form["list_id"],))
+        cur.execute("SELECT COALESCE(MAX(position),0) FROM tasks WHERE list_id=%s", (target_list_id,))
         pos = (cur.fetchone()["coalesce"] or 0) + 1
         cur.execute(
             "INSERT INTO tasks (id,list_id,title,description,assignees,status,priority,position,created_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-            (tid, form["list_id"], title, desc, "[]", "aberto", "normal", pos, now),
+            (tid, target_list_id, title, desc, assignees, "aberto", "normal", pos, now),
         )
         sid = str(uuid.uuid4())
         cur.execute(

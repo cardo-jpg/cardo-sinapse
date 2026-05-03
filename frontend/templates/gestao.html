@@ -1280,7 +1280,7 @@
     /* create tab */
     .form-editor-card {
       background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-      max-width: 720px; margin: 0 auto; overflow: hidden;
+      max-width: 720px; margin: 0 auto;
     }
     .form-editor-header { padding: 28px 32px 20px; border-bottom: 1px solid var(--border); }
     .form-editor-title {
@@ -1344,9 +1344,9 @@
     }
     .form-add-field-btn:hover { border-color: #666; color: var(--text); }
     .form-field-type-menu {
-      position: absolute; top: 0; left: 32px; right: 32px;
+      position: absolute; bottom: 62px; left: 32px; right: 32px;
       background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-      box-shadow: 0 8px 32px rgba(0,0,0,.35); z-index: 100; padding: 8px 0; overflow: hidden;
+      box-shadow: 0 -4px 32px rgba(0,0,0,.35); z-index: 100; padding: 8px 0;
     }
     .form-type-item {
       display: flex; align-items: center; gap: 10px; padding: 8px 16px;
@@ -2228,6 +2228,38 @@
                 <div class="form-settings-wrap">
                   <div class="form-settings-group">
                     <div class="form-settings-group-title">Após enviar o formulário</div>
+                    <div class="form-settings-row">
+                      <div class="form-settings-label">Criar tarefa em</div>
+                      <select class="form-settings-input"
+                              :value="activeForm.settings.target_list_id || activeForm.list_id"
+                              @change="activeForm.settings.target_list_id=$event.target.value; saveFormSettings()">
+                        <template x-for="space in tree" :key="space.id">
+                          <optgroup :label="space.name">
+                            <template x-for="lst in space.direct_lists||[]" :key="lst.id">
+                              <option :value="lst.id" :selected="(activeForm.settings.target_list_id||activeForm.list_id)===lst.id" x-text="lst.name"></option>
+                            </template>
+                            <template x-for="folder in space.folders||[]" :key="folder.id">
+                              <template x-for="lst in folder.lists||[]" :key="lst.id">
+                                <option :value="lst.id" :selected="(activeForm.settings.target_list_id||activeForm.list_id)===lst.id" x-text="folder.name + ' / ' + lst.name"></option>
+                              </template>
+                            </template>
+                          </optgroup>
+                        </template>
+                      </select>
+                    </div>
+                    <div class="form-settings-row">
+                      <div class="form-settings-label">Atribuir tarefas para</div>
+                      <div style="display:flex; flex-direction:column; gap:6px; margin-top:2px">
+                        <template x-for="m in members" :key="m.id">
+                          <label style="display:flex; align-items:center; gap:8px; font-size:.85rem; color:var(--text); cursor:pointer">
+                            <input type="checkbox" style="accent-color:var(--accent)"
+                                   :checked="(activeForm.settings.default_assignees||[]).includes(m.id)"
+                                   @change="toggleFormAssignee(m.id)">
+                            <span x-text="m.name"></span>
+                          </label>
+                        </template>
+                      </div>
+                    </div>
                     <div class="form-settings-row">
                       <div class="form-settings-label">Rótulo do botão</div>
                       <input class="form-settings-input" type="text"
@@ -4409,6 +4441,14 @@ document.addEventListener('alpine:init', () => {
     },
     formTypeIcon(type) {
       return { short_text:'T', long_text:'☰', number:'#', email:'@', date:'📅', single_select:'○', multi_select:'□' }[type] || '?';
+    },
+    toggleFormAssignee(memberId) {
+      if (!this.activeForm) return;
+      const arr = this.activeForm.settings.default_assignees || [];
+      const idx = arr.indexOf(memberId);
+      if (idx === -1) arr.push(memberId); else arr.splice(idx, 1);
+      this.activeForm.settings.default_assignees = arr;
+      this.saveFormSettings();
     },
     copyFormLink(fid) {
       const url = window.location.origin + '/f/' + fid;
