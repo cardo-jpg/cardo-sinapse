@@ -1718,7 +1718,7 @@
                 <div class="task-title-cell" :style="`padding-left:${(row.depth||0)*22}px`">
                   <template x-if="taskChildren(row.task.id).length">
                     <button class="task-subtask-toggle"
-                            @click.stop="collapsedTasks={...collapsedTasks,[row.task.id]:!collapsedTasks[row.task.id]}"
+                            @click.stop="toggleTaskCollapse(row.task.id)"
                             :title="collapsedTasks[row.task.id] ? 'Expandir subtarefas' : 'Recolher subtarefas'">
                       <span x-text="collapsedTasks[row.task.id] ? '▶' : '▼'"></span>
                     </button>
@@ -3692,6 +3692,7 @@ document.addEventListener('alpine:init', () => {
       this.loadFavorites();
       this.loadStatusTemplates();
       this.loadCols();
+      try { this.collapsedTasks = JSON.parse(localStorage.getItem('sinapse_collapsed_tasks') || '{}'); } catch(e) {}
       await this.loadTree();
       const saved = this._loadNavState();
       let restored = false;
@@ -3916,7 +3917,7 @@ document.addEventListener('alpine:init', () => {
       this.form = {title:'',description:'',assignees:[],due_date:'',status:'aberto',priority:'normal'};
       this.modal = true;
       // Auto-expand parent so the new subtask is visible
-      this.collapsedTasks = { ...this.collapsedTasks, [parentId]: false };
+      this._setTaskCollapse(parentId, false);
       this.$nextTick(() => this.$refs.titleInput?.focus());
     },
     openEdit(task) {
@@ -4750,6 +4751,14 @@ document.addEventListener('alpine:init', () => {
     togglePageCollapse(id) {
       this.collapsedPages = { ...this.collapsedPages, [id]: !this.collapsedPages[id] };
       try { localStorage.setItem('sinapse_collapsed_pages', JSON.stringify(this.collapsedPages)); } catch(e) {}
+    },
+
+    toggleTaskCollapse(id) {
+      this._setTaskCollapse(id, !this.collapsedTasks[id]);
+    },
+    _setTaskCollapse(id, val) {
+      this.collapsedTasks = { ...this.collapsedTasks, [id]: val };
+      try { localStorage.setItem('sinapse_collapsed_tasks', JSON.stringify(this.collapsedTasks)); } catch(e) {}
     },
 
     pageHasChildren(id) {
