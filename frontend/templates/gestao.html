@@ -3542,14 +3542,37 @@ document.addEventListener('alpine:init', () => {
       '🔁','♻️','🔄','↩️','↪️',
     ],
 
+    _navStateKey: 'sinapse_gestao_nav',
+    _saveNavState(state) { try { localStorage.setItem(this._navStateKey, JSON.stringify(state)); } catch(e) {} },
+    _loadNavState() { try { return JSON.parse(localStorage.getItem(this._navStateKey)); } catch(e) { return null; } },
+    _findList(listId) {
+      for (const s of this.tree) {
+        for (const f of s.folders) { const l = f.lists.find(l => l.id === listId); if (l) return l; }
+        const l = s.direct_lists.find(l => l.id === listId); if (l) return l;
+      }
+      return null;
+    },
+
     async init() {
       this.loadFavorites();
       this.loadStatusTemplates();
       this.loadCols();
       await this.loadTree();
-      for (const s of this.tree) {
-        if (s.folders.length && s.folders[0].lists.length) { await this.selectList(s.folders[0].lists[0]); break; }
-        if (s.direct_lists.length) { await this.selectList(s.direct_lists[0]); break; }
+      const saved = this._loadNavState();
+      let restored = false;
+      if (saved) {
+        if (saved.mode === 'embed' && saved.url) {
+          this.openEmbed(saved.url); restored = true;
+        } else if (saved.mode === 'tasks' && saved.listId) {
+          const lst = this._findList(saved.listId);
+          if (lst) { await this.selectList(lst); restored = true; }
+        }
+      }
+      if (!restored) {
+        for (const s of this.tree) {
+          if (s.folders.length && s.folders[0].lists.length) { await this.selectList(s.folders[0].lists[0]); break; }
+          if (s.direct_lists.length) { await this.selectList(s.direct_lists[0]); break; }
+        }
       }
       // reactively refresh pages panel whenever the active doc changes
       this.$watch('activeDoc', (doc) => {
@@ -3577,12 +3600,14 @@ document.addEventListener('alpine:init', () => {
     openEmbed(url) {
       this.mainMode = 'embed'; this.iframeUrl = url;
       this.activeList = null; this.tasks = [];
+      this._saveNavState({ mode: 'embed', url });
     },
 
     async selectList(lst) {
       this.mainMode = 'tasks';
       this.activeList = lst; this.loading = true; this.tasks = [];
       this.loadColPrefs(lst.id);
+      this._saveNavState({ mode: 'tasks', listId: lst.id });
       const d = await fetch(`/api/gestao/lists/${lst.id}/tasks`).then(r=>r.json());
       this.tasks = d.tasks; this.loading = false;
     },
