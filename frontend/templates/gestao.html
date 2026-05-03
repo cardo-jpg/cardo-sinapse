@@ -933,6 +933,14 @@
       font-size: .78rem; line-height: 1.4; transition: background .1s, color .1s;
     }
     .doc-page-btn:hover { background: #ffffff18; color: var(--text); }
+    .doc-page-toggle {
+      background: none; border: none; cursor: pointer; flex-shrink: 0;
+      color: #444; padding: 0; width: 14px; height: 14px;
+      font-size: .55rem; line-height: 1; display: flex; align-items: center; justify-content: center;
+      transition: color .1s; border-radius: 3px;
+    }
+    .doc-page-toggle:hover { color: var(--muted); background: #ffffff12; }
+    .doc-page-toggle-spacer { width: 14px; flex-shrink: 0; }
     .doc-pages-add {
       display: flex; align-items: center; gap: 6px;
       padding: 8px 14px; border: none; background: none;
@@ -1813,11 +1821,21 @@
         <div class="doc-pages-panel">
           <div class="doc-pages-header">Páginas</div>
           <div class="doc-pages-tree">
-            <template x-for="pg in docFamily" :key="pg.id">
+            <template x-for="pg in visibleDocPages" :key="pg.id">
               <div class="doc-page-item"
                    :class="activeDoc?.id === pg.id ? 'active' : ''"
                    :style="`padding-left:${10 + pg.depth * 14}px`"
                    @click="openDoc(pg)">
+                <template x-if="pageHasChildren(pg.id)">
+                  <button class="doc-page-toggle"
+                          @click.stop="togglePageCollapse(pg.id)"
+                          :title="collapsedPages[pg.id] ? 'Expandir' : 'Recolher'">
+                    <span x-text="collapsedPages[pg.id] ? '▶' : '▼'"></span>
+                  </button>
+                </template>
+                <template x-if="!pageHasChildren(pg.id)">
+                  <span class="doc-page-toggle-spacer"></span>
+                </template>
                 <span style="font-size:.72rem;flex-shrink:0">📄</span>
                 <span style="flex:1;overflow:hidden;text-overflow:ellipsis;min-width:0"
                       x-text="pg.title || 'Sem título'"></span>
@@ -3513,6 +3531,21 @@ document.addEventListener('alpine:init', () => {
     featCtxMenu: {open:false, feat:null, x:0, y:0},
     _drag: null, _dndOverEl: null,
     docFamily: [],
+    collapsedPages: {},
+
+    get visibleDocPages() {
+      const collapsed = this.collapsedPages;
+      return this.docFamily.filter(pg => {
+        let pid = pg.parent_id;
+        while (pid) {
+          if (collapsed[pid]) return false;
+          const par = this.docFamily.find(p => p.id === pid);
+          if (!par) break;
+          pid = par.parent_id;
+        }
+        return true;
+      });
+    },
 
     dupModal: false, dupType:'', dupTarget:null, dupName:'', dupIncludeTasks:true,
     dupDestSpaceId:'', dupDestFolderId:'', dupLoading:false,
@@ -4597,6 +4630,16 @@ document.addEventListener('alpine:init', () => {
       if (!this.activeDoc) { this.docFamily = []; return; }
       const d = await fetch(`/api/gestao/documents/${this.activeDoc.id}/family`).then(r => r.json());
       this.docFamily = d.family || [];
+      try { this.collapsedPages = JSON.parse(localStorage.getItem('sinapse_collapsed_pages') || '{}'); } catch(e) {}
+    },
+
+    togglePageCollapse(id) {
+      this.collapsedPages = { ...this.collapsedPages, [id]: !this.collapsedPages[id] };
+      try { localStorage.setItem('sinapse_collapsed_pages', JSON.stringify(this.collapsedPages)); } catch(e) {}
+    },
+
+    pageHasChildren(id) {
+      return this.docFamily.some(p => p.parent_id === id);
     },
 
     async addSubpage(parentId = null) {
