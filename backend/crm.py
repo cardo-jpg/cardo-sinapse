@@ -51,7 +51,7 @@ def init_crm_db():
         """)
         # Seed stages
         cur.execute("SELECT id FROM crm_stages")
-        existing = {r[0] for r in cur.fetchall()}
+        existing = {r['id'] for r in cur.fetchall()}
         for sid, name, color, pos in DEFAULT_STAGES:
             if sid not in existing:
                 cur.execute(
