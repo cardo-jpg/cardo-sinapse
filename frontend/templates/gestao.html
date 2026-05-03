@@ -618,6 +618,17 @@
     /* ── modal ───────────────────────────────────────────────────────────────── */
     .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: flex-start; justify-content: center; z-index: 200; padding: 40px 24px; overflow-y: auto; }
     .modal-box { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 520px; display: flex; flex-direction: column; max-height: 85vh; }
+    /* confirm dialog */
+    .confirm-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.65); display: flex; align-items: center; justify-content: center; z-index: 900; padding: 24px; }
+    .confirm-box { background: #1c1c1c; border: 1px solid #2e2e2e; border-radius: 16px; width: 100%; max-width: 480px; padding: 32px 32px 28px; text-align: center; }
+    .confirm-icon { width: 52px; height: 52px; border-radius: 50%; background: rgba(239,68,68,.18); display: flex; align-items: center; justify-content: center; margin: 0 auto 18px; font-size: 1.3rem; }
+    .confirm-title { font-size: 1.05rem; font-weight: 700; color: var(--text); margin-bottom: 10px; }
+    .confirm-msg { font-size: .88rem; color: var(--muted); line-height: 1.55; margin-bottom: 26px; }
+    .confirm-actions { display: flex; gap: 10px; }
+    .confirm-btn-cancel { flex: 1; padding: 11px; background: #2a2a2a; border: 1px solid #3a3a3a; border-radius: 9px; color: var(--text); font-size: .9rem; font-weight: 600; cursor: pointer; font-family: inherit; transition: background .1s; }
+    .confirm-btn-cancel:hover { background: #333; }
+    .confirm-btn-confirm { flex: 1; padding: 11px; background: #dc2626; border: none; border-radius: 9px; color: #fff; font-size: .9rem; font-weight: 600; cursor: pointer; font-family: inherit; transition: background .1s; }
+    .confirm-btn-confirm:hover { background: #b91c1c; }
 
     /* task detail modal */
     .task-detail-box {
@@ -3810,6 +3821,20 @@
     </div>
   </div>
 
+  <!-- ── confirm dialog ────────────────────────────────────────────────────── -->
+  <div class="confirm-backdrop" x-show="confirmModal.open" x-transition.opacity.duration.120ms
+       style="display:none" @keydown.escape.window="confirmModal.resolve && confirmModal.resolve(false); confirmModal.open=false">
+    <div class="confirm-box" @click.stop>
+      <div class="confirm-icon">🗑</div>
+      <div class="confirm-title" x-text="confirmModal.title"></div>
+      <div class="confirm-msg" x-text="confirmModal.message" x-show="confirmModal.message"></div>
+      <div class="confirm-actions">
+        <button class="confirm-btn-cancel" @click="confirmModal.resolve(false); confirmModal.open=false">Cancelar</button>
+        <button class="confirm-btn-confirm" @click="confirmModal.resolve(true);  confirmModal.open=false" x-text="confirmModal.confirmLabel || 'Excluir'"></button>
+      </div>
+    </div>
+  </div>
+
 </div><!-- /g-shell -->
 
 <!-- ── Slash command menu — standalone, zero Alpine dependency ─────────────── -->
@@ -4332,6 +4357,7 @@ document.addEventListener('alpine:init', () => {
     ctxMenu: {open:false, type:'', target:null, spaceCtx:null, folderCtx:null, x:0, y:0},
     plusMenu: {open:false, spaceId:'', folderId:null, x:0, y:0},
     taskCtxMenu: {open:false, task:null, x:0, y:0},
+    confirmModal: {open:false, title:'', message:'', confirmLabel:'Excluir', resolve:null},
 
     // documents
     activeDoc: null, docEditor: null, docEditorTick: 0, _settingContent: false,
@@ -4497,7 +4523,7 @@ document.addEventListener('alpine:init', () => {
       this.formResponsesLoading = false;
     },
     async deleteFormResponse(sub) {
-      if (!confirm('Excluir esta resposta?')) return;
+      if (!await this.showConfirm('Excluir resposta', 'Esta ação não pode ser desfeita.')) return;
       await fetch(`/api/gestao/forms/${this.activeForm.id}/submissions/${sub.id}`, {method:'DELETE'});
       this.formResponses = this.formResponses.filter(s => s.id !== sub.id);
       if (this.activeForm) this.activeForm.submission_count = Math.max(0, (this.activeForm.submission_count||1) - 1);
@@ -4514,7 +4540,7 @@ document.addEventListener('alpine:init', () => {
       this.formTab = 'create';
     },
     async deleteForm(fid) {
-      if (!confirm('Excluir formulário e todas as respostas?')) return;
+      if (!await this.showConfirm('Excluir formulário', 'Todas as respostas também serão excluídas. Esta ação não pode ser desfeita.')) return;
       await fetch(`/api/gestao/forms/${fid}`, { method: 'DELETE' });
       this.forms = this.forms.filter(f => f.id !== fid);
       if (this.activeForm?.id === fid) this.activeForm = null;
@@ -5065,9 +5091,15 @@ document.addEventListener('alpine:init', () => {
     },
 
     async deleteTask(task) {
-      if(!confirm(`Excluir "${task.title}"?`)) return;
+      if(!await this.showConfirm(`Excluir: ${task.title}`, 'Esta tarefa será excluída permanentemente.')) return;
       await fetch(`/api/gestao/tasks/${task.id}`,{method:'DELETE'});
       this.tasks=this.tasks.filter(t=>t.id!==task.id);
+    },
+
+    showConfirm(title, message='', confirmLabel='Excluir') {
+      return new Promise(resolve => {
+        this.confirmModal = {open: true, title, message, confirmLabel, resolve};
+      });
     },
 
     openTaskCtxMenu(e, task) {
@@ -5116,21 +5148,21 @@ document.addEventListener('alpine:init', () => {
     openNewList(sid,fid) { this.newListSpaceId=sid; this.newListFolderId=fid||''; this.newListName=''; this.newListModal=true; },
 
     async deleteSpace(space) {
-      if(!confirm(`Excluir espaço "${space.name}" e tudo dentro dele?`)) return;
+      if(!await this.showConfirm(`Excluir: ${space.name}`, 'Todas as pastas, listas e tarefas dentro deste espaço serão excluídas.')) return;
       const res = await fetch(`/api/gestao/spaces/${space.id}`,{method:'DELETE'});
       if(res.status === 409) { const e = await res.json(); alert(e.detail); return; }
       this.tree=this.tree.filter(s=>s.id!==space.id);
       if(this.activeList?.space_id===space.id){this.activeList=null;this.tasks=[];}
     },
     async deleteFolder(folder,space) {
-      if(!confirm(`Excluir pasta "${folder.name}" e todas as listas dentro dela?`)) return;
+      if(!await this.showConfirm(`Excluir: ${folder.name}`, 'Todas as listas e tarefas dentro desta pasta serão excluídas.')) return;
       const res = await fetch(`/api/gestao/folders/${folder.id}`,{method:'DELETE'});
       if(res.status === 409) { const e = await res.json(); alert(e.detail); return; }
       space.folders=space.folders.filter(f=>f.id!==folder.id);
       if(this.activeList?.folder_id===folder.id){this.activeList=null;this.tasks=[];}
     },
     async deleteList(lst,space,folder) {
-      if(!confirm(`Excluir lista "${lst.name}" e todas as tarefas dentro dela?`)) return;
+      if(!await this.showConfirm(`Excluir: ${lst.name}`, 'Todas as tarefas dentro desta lista serão excluídas.')) return;
       await fetch(`/api/gestao/lists/${lst.id}`,{method:'DELETE'});
       if(folder) folder.lists=folder.lists.filter(l=>l.id!==lst.id);
       else space.direct_lists=space.direct_lists.filter(l=>l.id!==lst.id);
@@ -5269,7 +5301,7 @@ document.addEventListener('alpine:init', () => {
       const name = this.smTplName.trim(); if (!name) return;
       const existing = this.statusTemplates.find(t => t.name === name);
       if (existing) {
-        if (!confirm(`Substituir o modelo "${name}"?`)) return;
+        if (!await this.showConfirm(`Substituir: ${name}`, 'O modelo existente será sobrescrito.', 'Substituir')) return;
         existing.statuses = this.smStatuses.map(s => ({...s}));
       } else {
         this.statusTemplates.push({id:'tpl_'+Date.now(), name, statuses: this.smStatuses.map(s=>({...s}))});
@@ -5391,7 +5423,7 @@ document.addEventListener('alpine:init', () => {
     },
 
     async restoreVersion(vid) {
-      if (!confirm('Restaurar esta versão? O conteúdo atual será salvo como nova versão antes.')) return;
+      if (!await this.showConfirm('Restaurar versão', 'O conteúdo atual será salvo como nova versão antes de restaurar.', 'Restaurar')) return;
       const d = await fetch(`/api/gestao/documents/${this.activeDoc.id}/versions/${vid}/restore`, {method:'POST'}).then(r=>r.json());
       this.activeDoc = d.document;
       window._sinEditor.commands.setContent(d.document.content || '', false);
@@ -5510,7 +5542,7 @@ document.addEventListener('alpine:init', () => {
 
     async deleteActiveDoc() {
       if (!this.activeDoc) return;
-      if (!confirm(`Excluir "${this.activeDoc.title || 'este documento'}"?`)) return;
+      if (!await this.showConfirm(`Excluir: ${this.activeDoc.title || 'este documento'}`, 'Este documento e todas as suas páginas serão excluídos.')) return;
       const id = this.activeDoc.id;
       await fetch(`/api/gestao/documents/${id}`, {method:'DELETE'});
       // remove from tree
@@ -5548,7 +5580,7 @@ document.addEventListener('alpine:init', () => {
     async deleteDoc() {
       const {doc, spaceCtx, folderCtx} = this.docCtxMenu;
       this.docCtxMenu.open = false;
-      if (!confirm(`Excluir "${doc.title}"?`)) return;
+      if (!await this.showConfirm(`Excluir: ${doc.title}`, 'Este documento será excluído permanentemente.')) return;
       await fetch(`/api/gestao/documents/${doc.id}`, {method:'DELETE'});
       if (folderCtx) folderCtx.documents = folderCtx.documents.filter(d => d.id !== doc.id);
       else if (spaceCtx) spaceCtx.documents = spaceCtx.documents.filter(d => d.id !== doc.id);
@@ -5738,7 +5770,7 @@ document.addEventListener('alpine:init', () => {
     async deletePageDoc() {
       const doc = this.pageCtxMenu.doc;
       this.pageCtxMenu.open = false;
-      if (!confirm(`Excluir "${doc.title}"?`)) return;
+      if (!await this.showConfirm(`Excluir: ${doc.title}`, 'Este documento será excluído permanentemente.')) return;
       await fetch(`/api/gestao/documents/${doc.id}`, { method: 'DELETE' });
       if (this.activeDoc?.id === doc.id) { this.activeDoc = null; this.mainMode = 'tasks'; }
       else await this.loadDocFamily();
