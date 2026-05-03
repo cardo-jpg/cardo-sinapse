@@ -1737,8 +1737,12 @@
               <div class="group-header" @click="toggleGroup(row.key)">
                 <span class="group-arrow" :class="collapsedGroups[row.key] ? 'collapsed' : ''">▼</span>
                 <span class="group-badge"
-                      :style="`background:${row.color}22; color:${row.color}; border-color:${row.color}44`"
-                      x-text="row.label"></span>
+                      :style="`background:${row.color}22; color:${row.color}; border-color:${row.color}44`">
+                  <template x-if="listShowsProgress && groupBy==='status'">
+                    <span x-html="statusPieSvg(row.key)" style="display:inline-flex;align-items:center;margin-right:5px;vertical-align:middle"></span>
+                  </template>
+                  <span x-text="row.label"></span>
+                </span>
                 <span class="group-count" x-text="row.count"></span>
               </div>
             </template>
@@ -1791,7 +1795,12 @@
                   <span class="status-badge"
                         :style="`background:${statusObj(row.task.status).color}22; color:${statusObj(row.task.status).color}; border-color:${statusObj(row.task.status).color}44`"
                         @click.stop="openStatusPicker(row.task,$event)">
-                    <span class="status-dot" :style="`background:${statusObj(row.task.status).color}`"></span>
+                    <template x-if="listShowsProgress">
+                      <span x-html="statusPieSvg(row.task.status)" style="display:inline-flex;align-items:center;margin-right:4px"></span>
+                    </template>
+                    <template x-if="!listShowsProgress">
+                      <span class="status-dot" :style="`background:${statusObj(row.task.status).color}`"></span>
+                    </template>
                     <span x-text="statusObj(row.task.status).name"></span>
                   </span>
                 </div>
@@ -2800,8 +2809,15 @@
             <template x-for="s in smStatuses.filter(s => s.group === group.id)" :key="s.id">
               <div class="sm-item">
                 <span class="sm-drag-handle">⠿</span>
-                <div class="sm-color-btn" :style="`background:${s.color}`"
-                     @click.stop="openSmColorPicker(s.id,$event)"></div>
+                <template x-if="smShowProgress">
+                  <div class="sm-color-btn" style="background:none; display:flex; align-items:center; justify-content:center; cursor:pointer"
+                       @click.stop="openSmColorPicker(s.id,$event)"
+                       x-html="smPreviewPieSvg(s)"></div>
+                </template>
+                <template x-if="!smShowProgress">
+                  <div class="sm-color-btn" :style="`background:${s.color}`"
+                       @click.stop="openSmColorPicker(s.id,$event)"></div>
+                </template>
                 <input class="form-input" style="flex:1; font-size:.85rem; padding:6px 10px"
                        x-model="s.name" placeholder="Nome do status">
                 <button class="sm-del-btn" @click="removeSmStatusById(s.id)"
@@ -4502,21 +4518,27 @@ document.addEventListener('alpine:init', () => {
       if (idx === -1) return 0;
       return all.length > 1 ? idx / (all.length - 1) : 0.5;
     },
-    statusPieSvg(id) {
-      const s = this.statusObj(id);
-      const p = this.statusProgress(id);
-      const c = s.color || '#888';
-      if (p <= 0) {
-        return `<svg viewBox="0 0 20 20" width="14" height="14"><circle cx="10" cy="10" r="8" fill="none" stroke="${c}" stroke-width="2.5" stroke-dasharray="3.5 2.5"/></svg>`;
-      }
-      if (p >= 1) {
-        return `<svg viewBox="0 0 20 20" width="14" height="14"><circle cx="10" cy="10" r="10" fill="${c}"/><path d="M5.5,10.5 L8.5,13.5 L14.5,7" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-      }
+    _pieSvg(p, color) {
+      const c = color || '#888';
+      if (p <= 0) return `<svg viewBox="0 0 20 20" width="16" height="16"><circle cx="10" cy="10" r="8" fill="none" stroke="${c}" stroke-width="2.5" stroke-dasharray="3.5 2.5"/></svg>`;
+      if (p >= 1) return `<svg viewBox="0 0 20 20" width="16" height="16"><circle cx="10" cy="10" r="10" fill="${c}"/><path d="M5.5,10.5 L8.5,13.5 L14.5,7" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
       const angle = p * 2 * Math.PI;
       const x = +(10 + 10 * Math.sin(angle)).toFixed(3);
       const y = +(10 - 10 * Math.cos(angle)).toFixed(3);
       const la = p > 0.5 ? 1 : 0;
-      return `<svg viewBox="0 0 20 20" width="14" height="14"><circle cx="10" cy="10" r="9" fill="${c}" opacity="0.22"/><path d="M10,10 L10,1 A9,9 0 ${la},1 ${x},${y} Z" fill="${c}"/><circle cx="10" cy="10" r="9" fill="none" stroke="${c}" stroke-width="1.5" opacity="0.55"/></svg>`;
+      return `<svg viewBox="0 0 20 20" width="16" height="16"><circle cx="10" cy="10" r="9" fill="${c}" opacity="0.22"/><path d="M10,10 L10,1 A9,9 0 ${la},1 ${x},${y} Z" fill="${c}"/><circle cx="10" cy="10" r="9" fill="none" stroke="${c}" stroke-width="1.5" opacity="0.55"/></svg>`;
+    },
+    statusPieSvg(id) {
+      return this._pieSvg(this.statusProgress(id), this.statusObj(id).color);
+    },
+    smPreviewPieSvg(s) {
+      const groupOrder = ['not_started', 'active', 'done', 'closed'];
+      const sorted = [...this.smStatuses].sort((a, b) =>
+        groupOrder.indexOf(a.group || 'active') - groupOrder.indexOf(b.group || 'active')
+      );
+      const idx = sorted.findIndex(x => x.id === s.id);
+      const p = sorted.length > 1 ? idx / (sorted.length - 1) : 0.5;
+      return this._pieSvg(p, s.color);
     },
     loadStatusTemplates() {
       try { this.statusTemplates = JSON.parse(localStorage.getItem('sinapse_status_tpl') || '[]'); }
