@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ form.name }}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: {{ form.settings.get('bg_color', '#5b21b6') }};
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 16px 80px;
+    }
+    .form-card {
+      background: #f5f5f5;
+      border-radius: 16px;
+      width: 100%;
+      max-width: 700px;
+      overflow: hidden;
+      box-shadow: 0 24px 64px rgba(0,0,0,.35);
+    }
+    .form-header { padding: 40px 48px 28px; background: #fff; border-bottom: 1px solid #eee; }
+    .form-title { font-size: 1.9rem; font-weight: 700; color: #111; margin-bottom: 8px; line-height: 1.2; }
+    .form-desc { color: #666; font-size: .95rem; line-height: 1.6; }
+    .form-body { padding: 32px 48px 40px; }
+    .field-group { margin-bottom: 26px; }
+    .field-label { font-weight: 600; font-size: .88rem; color: #222; margin-bottom: 8px; display: flex; align-items: center; gap: 4px; }
+    .req { color: #ef4444; }
+    .field-input {
+      width: 100%; padding: 10px 14px;
+      border: 1.5px solid #ddd; border-radius: 8px;
+      font-size: .95rem; font-family: inherit;
+      background: #fff; color: #111;
+      transition: border-color .15s, box-shadow .15s;
+      outline: none; appearance: none;
+    }
+    .field-input:focus { border-color: var(--btn, #7c3aed); box-shadow: 0 0 0 3px color-mix(in srgb, var(--btn, #7c3aed) 15%, transparent); }
+    textarea.field-input { resize: vertical; min-height: 100px; }
+    .option-group { display: flex; flex-direction: column; gap: 8px; }
+    .option-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; border: 1.5px solid #ddd; border-radius: 8px;
+      cursor: pointer; background: #fff; transition: border-color .15s, background .15s;
+    }
+    .option-item:hover { border-color: var(--btn, #7c3aed); background: #f9f7ff; }
+    .option-item input { width: 16px; height: 16px; accent-color: var(--btn, #7c3aed); cursor: pointer; flex-shrink: 0; }
+    .option-item span { font-size: .92rem; color: #333; }
+    .submit-btn {
+      width: 100%; padding: 14px;
+      background: var(--btn, #7c3aed); color: #fff;
+      border: none; border-radius: 10px;
+      font-size: 1rem; font-weight: 600; font-family: inherit;
+      cursor: pointer; margin-top: 8px;
+      transition: opacity .15s, transform .1s;
+    }
+    .submit-btn:hover { opacity: .9; }
+    .submit-btn:active { transform: scale(.99); }
+    .submit-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .err-msg {
+      background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c;
+      border-radius: 8px; padding: 10px 14px; margin-bottom: 20px;
+      font-size: .88rem; display: none;
+    }
+    .success-wrap { padding: 64px 48px; text-align: center; }
+    .success-icon { font-size: 3.5rem; margin-bottom: 20px; }
+    .success-title { font-size: 1.6rem; font-weight: 700; color: #111; margin-bottom: 10px; }
+    .success-sub { color: #666; font-size: .95rem; }
+    @media (max-width: 600px) {
+      .form-header, .form-body { padding-left: 24px; padding-right: 24px; }
+      .success-wrap { padding: 48px 24px; }
+    }
+  </style>
+  <style>:root { --btn: {{ form.settings.get('button_color', '#7c3aed') }}; }</style>
+</head>
+<body>
+  <div class="form-card">
+
+    <div id="success-wrap" class="success-wrap" style="display:none">
+      <div class="success-icon">✅</div>
+      <div class="success-title">Resposta enviada!</div>
+      <div class="success-sub">Obrigado pelo preenchimento.</div>
+    </div>
+
+    <div id="form-wrap">
+      <div class="form-header">
+        <div class="form-title">{{ form.name }}</div>
+        {% if form.description %}
+        <div class="form-desc">{{ form.description }}</div>
+        {% endif %}
+      </div>
+      <div class="form-body">
+        <div class="err-msg" id="err-msg"></div>
+        <form id="sf" novalidate>
+
+          {% for field in form.fields %}
+          <div class="field-group">
+            <div class="field-label">
+              {{ field.label }}
+              {% if field.required %}<span class="req">*</span>{% endif %}
+            </div>
+
+            {% if field.type == 'short_text' %}
+            <input class="field-input" type="text" name="{{ field.id }}"
+                   placeholder="{{ field.placeholder or 'Inserir texto' }}"
+                   {% if field.required %}data-required="1"{% endif %}>
+
+            {% elif field.type == 'long_text' %}
+            <textarea class="field-input" name="{{ field.id }}"
+                      placeholder="{{ field.placeholder or 'Inserir texto' }}"
+                      {% if field.required %}data-required="1"{% endif %}></textarea>
+
+            {% elif field.type == 'number' %}
+            <input class="field-input" type="number" name="{{ field.id }}"
+                   placeholder="{{ field.placeholder or '0' }}"
+                   {% if field.required %}data-required="1"{% endif %}>
+
+            {% elif field.type == 'email' %}
+            <input class="field-input" type="email" name="{{ field.id }}"
+                   placeholder="{{ field.placeholder or 'email@exemplo.com' }}"
+                   {% if field.required %}data-required="1"{% endif %}>
+
+            {% elif field.type == 'date' %}
+            <input class="field-input" type="date" name="{{ field.id }}"
+                   {% if field.required %}data-required="1"{% endif %}>
+
+            {% elif field.type == 'single_select' %}
+            <div class="option-group" role="radiogroup">
+              {% for opt in field.options %}
+              <label class="option-item">
+                <input type="radio" name="{{ field.id }}" value="{{ opt }}"
+                       {% if field.required %}data-required-group="{{ field.id }}"{% endif %}>
+                <span>{{ opt }}</span>
+              </label>
+              {% endfor %}
+            </div>
+
+            {% elif field.type == 'multi_select' %}
+            <div class="option-group">
+              {% for opt in field.options %}
+              <label class="option-item">
+                <input type="checkbox" name="{{ field.id }}" value="{{ opt }}">
+                <span>{{ opt }}</span>
+              </label>
+              {% endfor %}
+            </div>
+            {% endif %}
+
+          </div>
+          {% endfor %}
+
+          <button type="submit" class="submit-btn" id="submit-btn">
+            {{ form.settings.get('button_label', 'Enviar') }}
+          </button>
+        </form>
+      </div>
+    </div>
+
+  </div>
+  <script>
+  (function () {
+    const form   = document.getElementById('sf');
+    const errEl  = document.getElementById('err-msg');
+    const btn    = document.getElementById('submit-btn');
+    const origLbl = btn.textContent;
+    const REDIRECT = {{ (form.settings.get('redirect_url') or '')|tojson }};
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errEl.style.display = 'none';
+
+      // Collect data
+      const data = {};
+      {% for field in form.fields %}
+      {% if field.type == 'multi_select' %}
+      data[{{ field.id|tojson }}] = [...form.querySelectorAll('[name={{ field.id|tojson }}]:checked')].map(el => el.value);
+      {% elif field.type == 'single_select' %}
+      const _r{{ loop.index }} = form.querySelector('[name={{ field.id|tojson }}]:checked');
+      data[{{ field.id|tojson }}] = _r{{ loop.index }} ? _r{{ loop.index }}.value : '';
+      {% else %}
+      data[{{ field.id|tojson }}] = (form.querySelector('[name={{ field.id|tojson }}]') || {}).value || '';
+      {% endif %}
+      {% endfor %}
+
+      // Validate required
+      {% for field in form.fields %}
+      {% if field.required %}
+      {% if field.type == 'single_select' %}
+      if (!data[{{ field.id|tojson }}]) { errEl.textContent = 'Por favor, preencha o campo obrigatório: {{ field.label }}'; errEl.style.display='block'; return; }
+      {% elif field.type == 'multi_select' %}
+      {% else %}
+      if (!String(data[{{ field.id|tojson }}]).trim()) { errEl.textContent = 'Por favor, preencha o campo obrigatório: {{ field.label }}'; errEl.style.display='block'; return; }
+      {% endif %}
+      {% endif %}
+      {% endfor %}
+
+      btn.disabled = true;
+      btn.textContent = 'Enviando...';
+      try {
+        const r = await fetch('/f/{{ form.id }}', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        if (!r.ok) throw new Error('err');
+        const res = await r.json();
+        if (REDIRECT) { window.location.href = REDIRECT; return; }
+        document.getElementById('form-wrap').style.display = 'none';
+        document.getElementById('success-wrap').style.display = 'block';
+      } catch {
+        errEl.textContent = 'Erro ao enviar. Tente novamente.';
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = origLbl;
+      }
+    });
+  })();
+  </script>
+</body>
+</html>

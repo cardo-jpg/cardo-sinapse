@@ -1204,6 +1204,180 @@
       border: 1px solid var(--border); cursor: pointer;
     }
     .perm-user-row input[type=checkbox] { accent-color: var(--accent); flex-shrink: 0; }
+
+    /* ── Forms view ────────────────────────────────────────────────────────── */
+    .forms-view { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+    .forms-list-wrap { flex: 1; overflow-y: auto; padding: 32px 40px; }
+    .forms-list-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+    .forms-list-title { font-size: 1.1rem; font-weight: 600; color: var(--text); }
+    .forms-new-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 7px 14px; background: var(--accent); color: #fff;
+      border: none; border-radius: 7px; font-size: .82rem; font-weight: 600;
+      cursor: pointer; font-family: inherit; transition: opacity .15s;
+    }
+    .forms-new-btn:hover { opacity: .88; }
+    .forms-empty {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 80px 20px; text-align: center; gap: 12px;
+    }
+    .forms-empty-icon { font-size: 2.8rem; opacity: .35; }
+    .forms-empty-title { font-size: 1.1rem; font-weight: 600; color: var(--text); }
+    .forms-empty-sub { font-size: .85rem; color: var(--muted); }
+    .forms-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+    .form-card-item {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 18px; cursor: pointer; transition: border-color .15s;
+    }
+    .form-card-item:hover { border-color: #444; }
+    .form-card-icon { width: 40px; height: 40px; border-radius: 8px; background: #7c3aed22; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; margin-bottom: 12px; }
+    .form-card-name { font-weight: 600; font-size: .9rem; color: var(--text); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .form-card-count { font-size: .78rem; color: var(--muted); margin-bottom: 12px; }
+    .form-card-actions { display: flex; gap: 6px; }
+    .form-card-btn {
+      flex: 1; padding: 5px 8px; border: 1px solid var(--border); border-radius: 5px;
+      background: none; color: var(--muted); font-size: .74rem; cursor: pointer; font-family: inherit;
+      transition: border-color .15s, color .15s;
+    }
+    .form-card-btn:hover { border-color: #555; color: var(--text); }
+    .form-card-btn.danger:hover { border-color: #ef4444; color: #ef4444; }
+    /* form builder */
+    .form-builder { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .form-builder-bar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 20px; border-bottom: 1px solid var(--border);
+      background: var(--bg); flex-shrink: 0; flex-wrap: wrap;
+    }
+    .form-builder-back {
+      background: none; border: 1px solid var(--border); color: var(--muted);
+      padding: 4px 10px; border-radius: 6px; font-size: .78rem; cursor: pointer; font-family: inherit;
+    }
+    .form-builder-back:hover { color: var(--text); border-color: #555; }
+    .form-resp-badge {
+      background: var(--surface); border: 1px solid var(--border);
+      padding: 4px 10px; border-radius: 20px; font-size: .78rem; color: var(--muted);
+      cursor: pointer;
+    }
+    .form-tabs { display: flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+    .form-tab-btn {
+      padding: 5px 14px; background: none; border: none; color: var(--muted);
+      font-size: .82rem; cursor: pointer; font-family: inherit; transition: background .12s, color .12s;
+    }
+    .form-tab-btn.active { background: var(--accent); color: #fff; }
+    .form-tab-btn:not(:last-child) { border-right: 1px solid var(--border); }
+    .form-link-btn {
+      margin-left: auto; padding: 5px 12px; background: none; border: 1px solid var(--border);
+      color: var(--muted); border-radius: 6px; font-size: .78rem; cursor: pointer; font-family: inherit;
+      transition: border-color .15s, color .15s;
+    }
+    .form-link-btn:hover { border-color: #555; color: var(--text); }
+    .form-del-btn {
+      padding: 5px 8px; background: none; border: 1px solid transparent;
+      color: var(--muted); border-radius: 6px; font-size: .78rem; cursor: pointer; font-family: inherit;
+    }
+    .form-del-btn:hover { border-color: #ef4444; color: #ef4444; }
+    .form-builder-body { flex: 1; overflow-y: auto; padding: 32px 40px; }
+    /* create tab */
+    .form-editor-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      max-width: 720px; margin: 0 auto; overflow: hidden;
+    }
+    .form-editor-header { padding: 28px 32px 20px; border-bottom: 1px solid var(--border); }
+    .form-editor-title {
+      font-size: 1.5rem; font-weight: 700; color: var(--text); background: none; border: none;
+      outline: none; width: 100%; font-family: inherit;
+    }
+    .form-editor-title::placeholder { color: var(--muted); opacity: .5; }
+    .form-editor-desc {
+      font-size: .9rem; color: var(--muted); background: none; border: none;
+      outline: none; width: 100%; font-family: inherit; margin-top: 8px; resize: none;
+    }
+    .form-editor-desc::placeholder { color: var(--muted); opacity: .4; }
+    .form-fields-list { padding: 16px 32px; display: flex; flex-direction: column; gap: 8px; }
+    .form-field-item {
+      border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
+      overflow: hidden; transition: border-color .15s;
+    }
+    .form-field-item:hover { border-color: #444; }
+    .form-field-row {
+      display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer;
+    }
+    .form-field-type-icon {
+      width: 26px; height: 26px; border-radius: 5px; background: #7c3aed22;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .75rem; font-weight: 700; color: #7c3aed; flex-shrink: 0;
+    }
+    .form-field-label-input {
+      flex: 1; background: none; border: none; outline: none; color: var(--text);
+      font-size: .88rem; font-weight: 500; font-family: inherit;
+    }
+    .form-field-actions { display: flex; align-items: center; gap: 4px; }
+    .form-field-action-btn {
+      background: none; border: none; color: var(--muted); cursor: pointer; padding: 3px 5px;
+      border-radius: 4px; font-size: .75rem; transition: color .12s;
+    }
+    .form-field-action-btn:hover { color: var(--text); }
+    .form-field-action-btn.del:hover { color: #ef4444; }
+    .form-field-expand { padding: 0 14px 12px 50px; display: flex; flex-direction: column; gap: 10px; }
+    .form-field-expand label { font-size: .78rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+    .form-field-expand input[type=text], .form-field-expand input[type=number] {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 5px;
+      padding: 5px 8px; color: var(--text); font-family: inherit; font-size: .82rem; outline: none;
+    }
+    .form-field-req { display: flex; align-items: center; gap: 6px; font-size: .78rem; color: var(--muted); cursor: pointer; }
+    .form-field-req input { accent-color: var(--accent); cursor: pointer; }
+    .form-options-list { display: flex; flex-direction: column; gap: 5px; }
+    .form-option-row { display: flex; gap: 5px; align-items: center; }
+    .form-option-input {
+      flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 5px;
+      padding: 4px 8px; color: var(--text); font-family: inherit; font-size: .82rem; outline: none;
+    }
+    .form-option-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: .85rem; padding: 2px 4px; }
+    .form-option-del:hover { color: #ef4444; }
+    .form-option-add { background: none; border: 1px dashed var(--border); color: var(--muted); border-radius: 5px; padding: 4px 10px; font-size: .78rem; cursor: pointer; font-family: inherit; }
+    .form-option-add:hover { border-color: #555; color: var(--text); }
+    .form-add-field-wrap { padding: 14px 32px 24px; position: relative; }
+    .form-add-field-btn {
+      width: 100%; padding: 10px; border: 1.5px dashed var(--border); border-radius: 8px;
+      background: none; color: var(--muted); font-size: .85rem; cursor: pointer; font-family: inherit;
+      transition: border-color .15s, color .15s;
+    }
+    .form-add-field-btn:hover { border-color: #666; color: var(--text); }
+    .form-field-type-menu {
+      position: absolute; top: 0; left: 32px; right: 32px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.35); z-index: 100; padding: 8px 0; overflow: hidden;
+    }
+    .form-type-item {
+      display: flex; align-items: center; gap: 10px; padding: 8px 16px;
+      cursor: pointer; transition: background .1s;
+    }
+    .form-type-item:hover { background: var(--bg); }
+    .form-type-icon { width: 24px; height: 24px; border-radius: 5px; background: #7c3aed22; display: flex; align-items: center; justify-content: center; font-size: .72rem; font-weight: 700; color: #7c3aed; flex-shrink: 0; }
+    .form-type-name { font-size: .85rem; color: var(--text); }
+    /* settings tab */
+    .form-settings-wrap { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+    .form-settings-group { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+    .form-settings-group-title { font-weight: 600; font-size: .85rem; color: var(--text); margin-bottom: 16px; }
+    .form-settings-row { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+    .form-settings-row:last-child { margin-bottom: 0; }
+    .form-settings-label { font-size: .8rem; color: var(--muted); }
+    .form-settings-input {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+      padding: 7px 10px; color: var(--text); font-family: inherit; font-size: .88rem; outline: none;
+    }
+    .form-settings-toggle { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .form-settings-toggle:last-child { border-bottom: none; padding-bottom: 0; }
+    .form-settings-toggle span { font-size: .85rem; color: var(--text); }
+    .form-settings-toggle input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; }
+    .form-color-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .form-color-swatch {
+      width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent;
+      cursor: pointer; transition: transform .1s, border-color .1s;
+    }
+    .form-color-swatch:hover, .form-color-swatch.sel { border-color: var(--text); transform: scale(1.15); }
+    /* preview tab */
+    .form-preview-frame { flex: 1; border: none; width: 100%; height: 100%; background: #5b21b6; }
   </style>
 </head>
 <body>
@@ -1516,6 +1690,17 @@
             <rect x="9.5" y="0" width="3.5" height="6"  rx="1"/>
           </svg>
           Quadro
+        </button>
+        <button class="view-btn" :class="view==='forms'?'active':''" @click="switchToForms()">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="currentColor" style="flex-shrink:0">
+            <rect x="1" y="0" width="11" height="2.2" rx="1"/>
+            <rect x="1" y="4" width="8"  height="2.2" rx="1"/>
+            <rect x="1" y="8" width="5.5" height="2.2" rx="1"/>
+          </svg>
+          Formulários
+          <template x-if="forms.length > 0">
+            <span style="background:#7c3aed;color:white;font-size:.62rem;padding:0 5px;border-radius:10px;min-width:16px;text-align:center;line-height:16px" x-text="forms.length"></span>
+          </template>
         </button>
       </div>
       <div x-show="activeList && view==='list'" style="position:relative;margin-left:4px">
@@ -1896,6 +2081,214 @@
         </template>
       </div>
     </template>
+
+    <!-- ── forms view ─────────────────────────────────────────────────────────── -->
+    <template x-if="mainMode === 'tasks' && activeList && !loading && view==='forms'">
+      <div class="forms-view">
+
+        <!-- forms list (no active form) -->
+        <template x-if="!activeForm">
+          <div class="forms-list-wrap">
+            <div class="forms-list-header">
+              <span class="forms-list-title">Formulários</span>
+              <button class="forms-new-btn" @click="createForm()">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                Novo formulário
+              </button>
+            </div>
+            <template x-if="forms.length === 0">
+              <div class="forms-empty">
+                <div class="forms-empty-icon">📋</div>
+                <div class="forms-empty-title">Nenhum formulário ainda</div>
+                <div class="forms-empty-sub">Crie um formulário para coletar respostas e gerar tarefas automaticamente.</div>
+                <button class="forms-new-btn" style="margin-top:12px" @click="createForm()">+ Criar formulário</button>
+              </div>
+            </template>
+            <template x-if="forms.length > 0">
+              <div class="forms-grid">
+                <template x-for="f in forms" :key="f.id">
+                  <div class="form-card-item" @click="activeForm = f; formTab='create'">
+                    <div class="form-card-icon">📋</div>
+                    <div class="form-card-name" x-text="f.name"></div>
+                    <div class="form-card-count" x-text="f.submission_count + ' resposta' + (f.submission_count !== 1 ? 's' : '')"></div>
+                    <div class="form-card-actions" @click.stop>
+                      <button class="form-card-btn" @click="activeForm = f; formTab='create'">Editar</button>
+                      <button class="form-card-btn" @click="copyFormLink(f.id)" title="Copiar link público">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                        Link
+                      </button>
+                      <button class="form-card-btn danger" @click="deleteForm(f.id)">Excluir</button>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <!-- form builder (active form) -->
+        <template x-if="activeForm">
+          <div class="form-builder">
+            <!-- top bar -->
+            <div class="form-builder-bar">
+              <button class="form-builder-back" @click="activeForm=null; loadForms()">← Voltar</button>
+              <span class="form-resp-badge" x-text="(activeForm.submission_count||0) + ' resposta' + ((activeForm.submission_count||0)!==1?'s':'')"></span>
+              <div class="form-tabs">
+                <button class="form-tab-btn" :class="formTab==='create'?'active':''" @click="formTab='create'">Criar</button>
+                <button class="form-tab-btn" :class="formTab==='settings'?'active':''" @click="formTab='settings'">Configurações</button>
+                <button class="form-tab-btn" :class="formTab==='preview'?'active':''" @click="formTab='preview'; reloadPreview()">Pré-visualizar</button>
+              </div>
+              <button class="form-link-btn" @click="copyFormLink(activeForm.id)">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:middle;margin-right:4px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                Copiar link
+              </button>
+              <a :href="'/f/' + activeForm.id" target="_blank" class="form-link-btn" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                Abrir
+              </a>
+              <button class="form-del-btn" @click="deleteForm(activeForm.id)">🗑</button>
+            </div>
+
+            <!-- create tab -->
+            <template x-if="formTab==='create'">
+              <div class="form-builder-body">
+                <div class="form-editor-card">
+                  <div class="form-editor-header">
+                    <input class="form-editor-title" type="text" x-model="activeForm.name"
+                           placeholder="Título do formulário" @change="saveFormMeta()">
+                    <textarea class="form-editor-desc" rows="2" x-model="activeForm.description"
+                              placeholder="Descrição (opcional)" @change="saveFormMeta()"></textarea>
+                  </div>
+                  <div class="form-fields-list">
+                    <template x-for="(field, idx) in activeForm.fields" :key="field.id">
+                      <div class="form-field-item">
+                        <div class="form-field-row" @click="formEditingField = (formEditingField===field.id ? null : field.id)">
+                          <div class="form-field-type-icon" x-text="formTypeIcon(field.type)"></div>
+                          <input class="form-field-label-input" type="text" x-model="field.label"
+                                 placeholder="Nome do campo" @click.stop @change="saveFormFields()">
+                          <div class="form-field-actions">
+                            <label class="form-field-req" @click.stop title="Obrigatório">
+                              <input type="checkbox" x-model="field.required" @change="saveFormFields()">
+                              <span style="font-size:.7rem">Req.</span>
+                            </label>
+                            <button class="form-field-action-btn" @click.stop="moveFormField(idx,-1)" title="Mover para cima" :disabled="idx===0">↑</button>
+                            <button class="form-field-action-btn" @click.stop="moveFormField(idx,1)" title="Mover para baixo" :disabled="idx===activeForm.fields.length-1">↓</button>
+                            <button class="form-field-action-btn del" @click.stop="removeFormField(idx)" title="Remover">✕</button>
+                          </div>
+                        </div>
+                        <template x-if="formEditingField===field.id">
+                          <div class="form-field-expand">
+                            <template x-if="!['single_select','multi_select'].includes(field.type)">
+                              <label>
+                                Placeholder:
+                                <input type="text" x-model="field.placeholder" @change="saveFormFields()" style="margin-left:6px;width:200px">
+                              </label>
+                            </template>
+                            <template x-if="['single_select','multi_select'].includes(field.type)">
+                              <div>
+                                <div style="font-size:.78rem;color:var(--muted);margin-bottom:6px">Opções:</div>
+                                <div class="form-options-list">
+                                  <template x-for="(opt, oi) in field.options" :key="oi">
+                                    <div class="form-option-row">
+                                      <input class="form-option-input" type="text"
+                                             :value="opt"
+                                             @input="field.options[oi]=$event.target.value"
+                                             @change="saveFormFields()"
+                                             :placeholder="'Opção ' + (oi+1)">
+                                      <button class="form-option-del" @click="field.options.splice(oi,1); saveFormFields()">✕</button>
+                                    </div>
+                                  </template>
+                                </div>
+                                <button class="form-option-add" style="margin-top:6px" @click="field.options.push(''); saveFormFields()">+ Adicionar opção</button>
+                              </div>
+                            </template>
+                          </div>
+                        </template>
+                      </div>
+                    </template>
+                  </div>
+                  <div class="form-add-field-wrap">
+                    <button class="form-add-field-btn" @click.stop="formFieldMenuOpen=!formFieldMenuOpen">⊕ Adicionar pergunta</button>
+                    <div class="form-field-type-menu" x-show="formFieldMenuOpen" x-cloak @click.outside="formFieldMenuOpen=false">
+                      <template x-for="ft in formFieldTypes" :key="ft.id">
+                        <div class="form-type-item" @click="addFormField(ft.id); formFieldMenuOpen=false">
+                          <div class="form-type-icon" x-text="ft.icon"></div>
+                          <span class="form-type-name" x-text="ft.label"></span>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <!-- settings tab -->
+            <template x-if="formTab==='settings'">
+              <div class="form-builder-body">
+                <div class="form-settings-wrap">
+                  <div class="form-settings-group">
+                    <div class="form-settings-group-title">Após enviar o formulário</div>
+                    <div class="form-settings-row">
+                      <div class="form-settings-label">Rótulo do botão</div>
+                      <input class="form-settings-input" type="text"
+                             :value="activeForm.settings.button_label||'Enviar'"
+                             @input="activeForm.settings.button_label=$event.target.value"
+                             @change="saveFormSettings()">
+                    </div>
+                    <div class="form-settings-row">
+                      <div class="form-settings-label">URL de redirecionamento (após envio)</div>
+                      <input class="form-settings-input" type="text" placeholder="https://"
+                             :value="activeForm.settings.redirect_url||''"
+                             @input="activeForm.settings.redirect_url=$event.target.value"
+                             @change="saveFormSettings()">
+                    </div>
+                    <div class="form-settings-toggle">
+                      <span>Adicionar respostas à descrição da tarefa</span>
+                      <input type="checkbox"
+                             :checked="activeForm.settings.add_to_description!==false"
+                             @change="activeForm.settings.add_to_description=$event.target.checked; saveFormSettings()">
+                    </div>
+                  </div>
+                  <div class="form-settings-group">
+                    <div class="form-settings-group-title">Aparência</div>
+                    <div class="form-settings-row">
+                      <div class="form-settings-label">Cor do botão</div>
+                      <div class="form-color-row">
+                        <template x-for="c in ['#7c3aed','#2563eb','#0891b2','#16a34a','#ca8a04','#dc2626','#db2777','#ea580c','#374151']" :key="c">
+                          <div class="form-color-swatch"
+                               :style="`background:${c}`"
+                               :class="(activeForm.settings.button_color||'#7c3aed')===c?'sel':''"
+                               @click="activeForm.settings.button_color=c; saveFormSettings()"></div>
+                        </template>
+                      </div>
+                    </div>
+                    <div class="form-settings-row">
+                      <div class="form-settings-label">Cor de fundo da página</div>
+                      <div class="form-color-row">
+                        <template x-for="c in ['#5b21b6','#1e3a5f','#14532d','#7f1d1d','#1c1c1c','#374151','#0f172a','#064e3b']" :key="c">
+                          <div class="form-color-swatch"
+                               :style="`background:${c}`"
+                               :class="(activeForm.settings.bg_color||'#5b21b6')===c?'sel':''"
+                               @click="activeForm.settings.bg_color=c; saveFormSettings()"></div>
+                        </template>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <!-- preview tab -->
+            <template x-if="formTab==='preview'">
+              <iframe class="form-preview-frame" :id="'form-preview-'+activeForm.id" :src="'/f/'+activeForm.id"></iframe>
+            </template>
+
+          </div>
+        </template>
+
+      </div>
+    </template>
+
     <!-- ── document editor — always in DOM, shown/hidden via x-show ──────────── -->
     <div class="doc-shell" x-show="mainMode === 'doc'" style="display:none">
       <!-- topbar -->
@@ -3521,6 +3914,19 @@ document.addEventListener('alpine:init', () => {
     mainMode: 'tasks', iframeUrl: '',
     favorites: [],
 
+    // forms
+    forms: [], activeForm: null, formTab: 'create',
+    formFieldMenuOpen: false, formEditingField: null,
+    formFieldTypes: [
+      { id: 'short_text',    icon: 'T',  label: 'Texto curto' },
+      { id: 'long_text',     icon: '☰', label: 'Texto longo' },
+      { id: 'number',        icon: '#',  label: 'Número' },
+      { id: 'email',         icon: '@',  label: 'E-mail' },
+      { id: 'date',          icon: '📅', label: 'Data' },
+      { id: 'single_select', icon: '○',  label: 'Opção única' },
+      { id: 'multi_select',  icon: '□',  label: 'Múltipla escolha' },
+    ],
+
     colsPanel: false,
     cols: { status: true, responsavel: true, prioridade: true, prazo: true },
     colWidths: { tarefa: 0, status: 140, responsavel: 120, prioridade: 110, prazo: 100 },
@@ -3922,10 +4328,98 @@ document.addEventListener('alpine:init', () => {
     async selectList(lst) {
       this.mainMode = 'tasks';
       this.activeList = lst; this.loading = true; this.tasks = [];
+      this.forms = []; this.activeForm = null;
       this.loadColPrefs(lst.id);
       this._saveNavState({ mode: 'tasks', listId: lst.id });
       const d = await fetch(`/api/gestao/lists/${lst.id}/tasks`).then(r=>r.json());
       this.tasks = d.tasks; this.loading = false;
+    },
+
+    // ── Forms ──────────────────────────────────────────────────────────────
+    switchToForms() {
+      this.view = 'forms';
+      if (this.activeList) this.loadForms();
+    },
+    async loadForms() {
+      if (!this.activeList) return;
+      const d = await fetch(`/api/gestao/lists/${this.activeList.id}/forms`).then(r=>r.json());
+      this.forms = d.forms || [];
+    },
+    async createForm() {
+      if (!this.activeList) return;
+      const d = await fetch(`/api/gestao/lists/${this.activeList.id}/forms`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ name: 'Novo formulário', fields: [], settings: { button_label: 'Enviar', add_to_description: true, button_color: '#7c3aed', bg_color: '#5b21b6' } }),
+      }).then(r=>r.json());
+      this.forms.push(d.form);
+      this.activeForm = d.form;
+      this.formTab = 'create';
+    },
+    async deleteForm(fid) {
+      if (!confirm('Excluir formulário e todas as respostas?')) return;
+      await fetch(`/api/gestao/forms/${fid}`, { method: 'DELETE' });
+      this.forms = this.forms.filter(f => f.id !== fid);
+      if (this.activeForm?.id === fid) this.activeForm = null;
+    },
+    async saveFormMeta() {
+      if (!this.activeForm) return;
+      await fetch(`/api/gestao/forms/${this.activeForm.id}`, {
+        method: 'PATCH',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ name: this.activeForm.name, description: this.activeForm.description }),
+      });
+    },
+    async saveFormFields() {
+      if (!this.activeForm) return;
+      await fetch(`/api/gestao/forms/${this.activeForm.id}`, {
+        method: 'PATCH',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ fields: this.activeForm.fields }),
+      });
+    },
+    async saveFormSettings() {
+      if (!this.activeForm) return;
+      await fetch(`/api/gestao/forms/${this.activeForm.id}`, {
+        method: 'PATCH',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ settings: this.activeForm.settings }),
+      });
+    },
+    addFormField(type) {
+      if (!this.activeForm) return;
+      const id = 'f_' + Math.random().toString(36).slice(2, 10);
+      const labels = { short_text:'Texto curto', long_text:'Texto longo', number:'Número', email:'E-mail', date:'Data', single_select:'Opção única', multi_select:'Múltipla escolha' };
+      this.activeForm.fields.push({ id, type, label: labels[type] || 'Campo', placeholder: '', required: false, options: ['single_select','multi_select'].includes(type) ? ['Opção 1', 'Opção 2'] : [] });
+      this.formEditingField = id;
+      this.saveFormFields();
+    },
+    removeFormField(idx) {
+      if (!this.activeForm) return;
+      this.activeForm.fields.splice(idx, 1);
+      this.saveFormFields();
+    },
+    moveFormField(idx, dir) {
+      if (!this.activeForm) return;
+      const fields = this.activeForm.fields;
+      const newIdx = idx + dir;
+      if (newIdx < 0 || newIdx >= fields.length) return;
+      const tmp = fields[idx]; fields[idx] = fields[newIdx]; fields[newIdx] = tmp;
+      this.saveFormFields();
+    },
+    formTypeIcon(type) {
+      return { short_text:'T', long_text:'☰', number:'#', email:'@', date:'📅', single_select:'○', multi_select:'□' }[type] || '?';
+    },
+    copyFormLink(fid) {
+      const url = window.location.origin + '/f/' + fid;
+      navigator.clipboard.writeText(url).catch(() => prompt('Copie o link:', url));
+    },
+    reloadPreview() {
+      if (!this.activeForm) return;
+      this.$nextTick(() => {
+        const iframe = document.getElementById('form-preview-' + this.activeForm.id);
+        if (iframe) iframe.src = '/f/' + this.activeForm.id;
+      });
     },
     _colPrefsKey(listId) { return `sinapse_cols_${listId}`; },
     saveColPrefs() {

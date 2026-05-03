@@ -184,6 +184,29 @@ def init_db():
                 FOREIGN KEY (checklist_id) REFERENCES task_checklists(id) ON DELETE CASCADE
             )
         """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS forms (
+                id          TEXT PRIMARY KEY,
+                list_id     TEXT NOT NULL,
+                name        TEXT NOT NULL DEFAULT 'Formulário',
+                description TEXT DEFAULT '',
+                fields      TEXT DEFAULT '[]',
+                settings    TEXT DEFAULT '{}',
+                cover_url   TEXT DEFAULT '',
+                created_at  TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (list_id) REFERENCES lists(id) ON DELETE CASCADE
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS form_submissions (
+                id           TEXT PRIMARY KEY,
+                form_id      TEXT NOT NULL,
+                data         TEXT DEFAULT '{}',
+                task_id      TEXT,
+                submitted_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (form_id) REFERENCES forms(id) ON DELETE CASCADE
+            )
+        """)
 
         # ADD COLUMN migrations — PostgreSQL: use DO blocks to avoid errors on re-run
         migrations = [
@@ -1400,3 +1423,173 @@ async def api_duplicate_list(list_id: str, request: Request):
         cur.close()
         conn.close()
     return {"ok": True}
+
+
+# ── Forms ─────────────────────────────────────────────────────────────────────
+
+def _form_parse(form: dict) -> dict:
+    form["fields"]   = json.loads(form.get("fields")   or "[]")
+    form["settings"] = json.loads(form.get("settings") or "{}")
+    form["submission_count"] = int(form.get("submission_count") or 0)
+    return form
+
+
+@router.get("/api/gestao/lists/{list_id}/forms")
+async def api_list_forms(list_id: str, request: Request):
+    _require(request)
+    conn = get_conn(); cur = dict_cursor(conn)
+    try:
+        cur.execute("""
+            SELECT f.*, COUNT(s.id) AS submission_count
+            FROM forms f
+            LEFT JOIN form_submissions s ON s.form_id = f.id
+            WHERE f.list_id = %s
+            GROUP BY f.id
+            ORDER BY f.created_at ASC
+        """, (list_id,))
+        forms = [_form_parse(dict(r)) for r in cur.fetchall()]
+    finally:
+        cur.close(); conn.close()
+    return {"forms": forms}
+
+
+@router.post("/api/gestao/lists/{list_id}/forms")
+async def api_create_form(list_id: str, request: Request):
+    _require(request)
+    data = await request.json()
+    fid  = str(uuid.uuid4())
+    now  = datetime.now().isoformat()
+    conn = get_conn(); cur = dict_cursor(conn)
+    try:
+        cur.execute(
+            "INSERT INTO forms (id,list_id,name,description,fields,settings,created_at) VALUES (%s,%s,%s,%s,%s,%s,%s)",
+            (fid, list_id,
+             data.get("name", "Formulário"),
+             data.get("description", ""),
+             json.dumps(data.get("fields", [])),
+             json.dumps(data.get("settings", {})),
+             now),
+        )
+        conn.commit()
+        cur.execute("SELECT * FROM forms WHERE id=%s", (fid,))
+        form = _form_parse(dict(cur.fetchone()))
+    finally:
+        cur.close(); conn.close()
+    return {"form": form}
+
+
+@router.patch("/api/gestao/forms/{form_id}")
+async def api_update_form(form_id: str, request: Request):
+    _require(request)
+    data = await request.json()
+    allowed = {"name", "description", "fields", "settings", "cover_url"}
+    upd = {k: v for k, v in data.items() if k in allowed}
+    if not upd:
+        raise HTTPException(400, "Nenhum campo válido")
+    for k in ("fields", "settings"):
+        if k in upd and not isinstance(upd[k], str):
+            upd[k] = json.dumps(upd[k])
+    sets = ", ".join(f"{k}=%s" for k in upd)
+    vals = list(upd.values()) + [form_id]
+    conn = get_conn(); cur = dict_cursor(conn)
+    try:
+        cur.execute(f"UPDATE forms SET {sets} WHERE id=%s", vals)
+        conn.commit()
+        cur.execute("SELECT * FROM forms WHERE id=%s", (form_id,))
+        form = _form_parse(dict(cur.fetchone()))
+    finally:
+        cur.close(); conn.close()
+    return {"form": form}
+
+
+@router.delete("/api/gestao/forms/{form_id}")
+async def api_delete_form(form_id: str, request: Request):
+    _require(request)
+    conn = get_conn(); cur = dict_cursor(conn)
+    try:
+        cur.execute("DELETE FROM forms WHERE id=%s", (form_id,))
+        conn.commit()
+    finally:
+        cur.close(); conn.close()
+    return {"ok": True}
+
+
+@router.get("/api/gestao/forms/{form_id}/submissions")
+async def api_form_submissions(form_id: str, request: Request):
+    _require(request)
+    conn = get_conn(); cur = dict_cursor(conn)
+    try:
+        cur.execute(
+            "SELECT * FROM form_submissions WHERE form_id=%s ORDER BY submitted_at DESC",
+            (form_id,),
+        )
+        subs = [dict(r) for r in cur.fetchall()]
+    finally:
+        cur.close(); conn.close()
+    for s in subs:
+        s["data"] = json.loads(s.get("data") or "{}")
+    return {"submissions": subs, "count": len(subs)}
+
+
+@router.get("/f/{form_id}", response_class=HTMLResponse)
+async def public_form_get(form_id: str, request: Request):
+    conn = get_conn(); cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT * FROM forms WHERE id=%s", (form_id,))
+        row = cur.fetchone()
+    finally:
+        cur.close(); conn.close()
+    if not row:
+        return HTMLResponse("<h1 style='font-family:sans-serif;padding:40px'>Formulário não encontrado</h1>", status_code=404)
+    form = _form_parse(dict(row))
+    return templates.TemplateResponse("form_public.html", {"request": request, "form": form})
+
+
+@router.post("/f/{form_id}")
+async def public_form_submit(form_id: str, request: Request):
+    conn = get_conn(); cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT * FROM forms WHERE id=%s", (form_id,))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, "Formulário não encontrado")
+        form     = _form_parse(dict(row))
+        settings = form["settings"]
+        body     = await request.json()
+
+        title = f"Resposta — {form['name']}"
+        for field in form["fields"]:
+            val = body.get(field["id"], "")
+            if val and field["type"] in ("short_text", "long_text", "email"):
+                title = str(val)[:100]
+                break
+
+        desc = ""
+        if settings.get("add_to_description", True):
+            lines = []
+            for field in form["fields"]:
+                val = body.get(field["id"])
+                if val is not None and val != "" and val != []:
+                    if isinstance(val, list):
+                        val = ", ".join(str(v) for v in val)
+                    lines.append(f"**{field['label']}:** {val}")
+            desc = "\n".join(lines)
+
+        tid = str(uuid.uuid4())
+        now = datetime.now().isoformat()
+        cur.execute("SELECT COALESCE(MAX(position),0) FROM tasks WHERE list_id=%s", (form["list_id"],))
+        pos = (cur.fetchone()["coalesce"] or 0) + 1
+        cur.execute(
+            "INSERT INTO tasks (id,list_id,title,description,assignees,status,priority,position,created_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+            (tid, form["list_id"], title, desc, "[]", "aberto", "normal", pos, now),
+        )
+        sid = str(uuid.uuid4())
+        cur.execute(
+            "INSERT INTO form_submissions (id,form_id,data,task_id,submitted_at) VALUES (%s,%s,%s,%s,%s)",
+            (sid, form_id, json.dumps(body), tid, now),
+        )
+        conn.commit()
+        redirect_url = settings.get("redirect_url", "")
+    finally:
+        cur.close(); conn.close()
+    return {"ok": True, "task_id": tid, "redirect_url": redirect_url}
