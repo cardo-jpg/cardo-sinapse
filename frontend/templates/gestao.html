@@ -532,6 +532,7 @@
     .col-header-resizable { position: relative; user-select: none; }
     .cf-col-header-label { cursor: pointer; display: flex; align-items: center; gap: 4px; }
     .cf-col-header-label:hover { color: #fff; }
+    .cf-col-header-label.col-sorted { color: #fff; }
     .cf-header-menu {
       position: fixed; z-index: 9999; background: #1a1a1a; border: 1px solid #2e2e2e;
       border-radius: 8px; min-width: 200px; padding: 6px 0; box-shadow: 0 8px 24px #000a;
@@ -1911,43 +1912,43 @@
     <template x-if="mainMode === 'tasks' && activeList && !loading && view==='list'">
       <div class="task-list">
         <div class="task-list-header" :style="'grid-template-columns:'+gridCols">
-          <span class="col-header-resizable">
+          <span class="col-header-resizable" data-col-key="tarefa" data-col-label="Tarefa">
             <span class="cf-col-header-label" @click.stop="openColMenu('tarefa','Tarefa',$event)">
               <span>Tarefa</span><span style="opacity:.4;font-size:.65rem">⌄</span>
             </span>
-            <div class="col-resizer" @mousedown.prevent="startColResize('tarefa',$event)"></div>
+            <div class="col-resizer" @mousedown.left.prevent="startColResize('tarefa',$event)"></div>
           </span>
-          <span x-show="cols.status" class="col-header-resizable">
+          <span x-show="cols.status" class="col-header-resizable" data-col-key="status" data-col-label="Status">
             <span class="cf-col-header-label" @click.stop="openColMenu('status','Status',$event)">
               <span>Status</span><span style="opacity:.4;font-size:.65rem">⌄</span>
             </span>
-            <div class="col-resizer" @mousedown.prevent="startColResize('status',$event)"></div>
+            <div class="col-resizer" @mousedown.left.prevent="startColResize('status',$event)"></div>
           </span>
-          <span x-show="cols.responsavel" class="col-header-resizable">
+          <span x-show="cols.responsavel" class="col-header-resizable" data-col-key="responsavel" data-col-label="Responsável">
             <span class="cf-col-header-label" @click.stop="openColMenu('responsavel','Responsável',$event)">
               <span>Responsável</span><span style="opacity:.4;font-size:.65rem">⌄</span>
             </span>
-            <div class="col-resizer" @mousedown.prevent="startColResize('responsavel',$event)"></div>
+            <div class="col-resizer" @mousedown.left.prevent="startColResize('responsavel',$event)"></div>
           </span>
-          <span x-show="cols.prioridade" class="col-header-resizable">
+          <span x-show="cols.prioridade" class="col-header-resizable" data-col-key="prioridade" data-col-label="Prioridade">
             <span class="cf-col-header-label" @click.stop="openColMenu('prioridade','Prioridade',$event)">
               <span>Prioridade</span><span style="opacity:.4;font-size:.65rem">⌄</span>
             </span>
-            <div class="col-resizer" @mousedown.prevent="startColResize('prioridade',$event)"></div>
+            <div class="col-resizer" @mousedown.left.prevent="startColResize('prioridade',$event)"></div>
           </span>
-          <span x-show="cols.prazo" class="col-header-resizable">
+          <span x-show="cols.prazo" class="col-header-resizable" data-col-key="prazo" data-col-label="Prazo">
             <span class="cf-col-header-label" @click.stop="openColMenu('prazo','Prazo',$event)">
               <span>Prazo</span><span style="opacity:.4;font-size:.65rem">⌄</span>
             </span>
-            <div class="col-resizer" @mousedown.prevent="startColResize('prazo',$event)"></div>
+            <div class="col-resizer" @mousedown.left.prevent="startColResize('prazo',$event)"></div>
           </span>
           <template x-for="cf in (activeList?.custom_fields||[])" :key="cf.id">
-            <span x-show="cfCols[cf.id]" class="col-header-resizable">
+            <span x-show="cfCols[cf.id]" class="col-header-resizable" :data-cf-id="cf.id">
               <span class="cf-col-header-label" @click.stop="openCfHeaderMenu(cf,$event)">
                 <span x-text="cf.name"></span>
                 <span style="opacity:.4;font-size:.65rem">⌄</span>
               </span>
-              <div class="col-resizer" @mousedown.prevent="startCfColResize(cf.id,$event)"></div>
+              <div class="col-resizer" @mousedown.left.prevent="startCfColResize(cf.id,$event)"></div>
             </span>
           </template>
           <span></span>
@@ -2642,11 +2643,16 @@
          :style="`top:${colMenuPos.y}px; left:${colMenuPos.x}px`"
          @click.outside="colMenu=null" x-cloak>
       <div class="cf-header-menu-item" @click="sortByCol(colMenu,'asc'); colMenu=null">
-        <span>↑</span><span>Ordenar A → Z</span>
+        <span>↑</span><span>Classificar A → Z</span>
       </div>
       <div class="cf-header-menu-item" @click="sortByCol(colMenu,'desc'); colMenu=null">
-        <span>↓</span><span>Ordenar Z → A</span>
+        <span>↓</span><span>Classificar Z → A</span>
       </div>
+      <template x-if="sortCol && sortCol.key === colMenu.key">
+        <div class="cf-header-menu-item" @click="sortCol=null; colMenu=null">
+          <span style="opacity:.5">✕</span><span>Remover ordenação</span>
+        </div>
+      </template>
       <template x-if="colMenu.key !== 'tarefa'">
         <div>
           <div class="cf-header-menu-sep"></div>
@@ -2657,6 +2663,13 @@
       </template>
       <template x-if="colMenu.cf">
         <div>
+          <div class="cf-header-menu-sep"></div>
+          <div class="cf-header-menu-item" @click="moveCfToStart(colMenu.cf.id); colMenu=null">
+            <span>⇤</span><span>Mover para o início</span>
+          </div>
+          <div class="cf-header-menu-item" @click="moveCfToEnd(colMenu.cf.id); colMenu=null">
+            <span>⇥</span><span>Mover para o final</span>
+          </div>
           <div class="cf-header-menu-sep"></div>
           <div class="cf-header-menu-item danger" @click="deleteCustomField(colMenu.cf.id); colMenu=null">
             <span>🗑</span><span>Excluir campo</span>
@@ -4120,6 +4133,7 @@ document.addEventListener('alpine:init', () => {
     cfPickerCf: null,
     cfPickerPos: { x: 0, y: 0 },
     cfInlineEdit: {taskId: null, cfId: null, value: ''},
+    sortCol: null,
     showClosed: false,
     assigneeFilter: [],
     assigneePanel: false,
@@ -4481,6 +4495,24 @@ document.addEventListener('alpine:init', () => {
       // Ctrl+K / Cmd+K global shortcut
       document.addEventListener('keydown', e => {
         if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); this.openSearch(); }
+      });
+      // Right-click on column headers
+      document.addEventListener('contextmenu', e => {
+        const col = e.target.closest('[data-col-key]');
+        const cfCol = !col && e.target.closest('[data-cf-id]');
+        if (!col && !cfCol) return;
+        e.preventDefault();
+        const anchor = (col || cfCol).getBoundingClientRect();
+        let x = anchor.left, y = anchor.bottom + 4;
+        if (x + 210 > window.innerWidth) x = window.innerWidth - 215;
+        if (col) {
+          this.colMenu = { key: col.dataset.colKey, label: col.dataset.colLabel };
+        } else {
+          const cf = (this.activeList?.custom_fields || []).find(f => f.id === cfCol.dataset.cfId);
+          if (!cf) return;
+          this.colMenu = { key: cf.id, label: cf.name, cf };
+        }
+        this.colMenuPos = { x, y };
       });
     },
 
@@ -4940,14 +4972,16 @@ document.addEventListener('alpine:init', () => {
       this.collapsedGroups = { ...this.collapsedGroups, [key]: !this.collapsedGroups[key] };
     },
     openColMenu(key, label, e) {
-      const r = e.currentTarget.getBoundingClientRect();
+      const t = e.currentTarget || e.target;
+      const r = t.closest('.col-header-resizable')?.getBoundingClientRect() || t.getBoundingClientRect();
       let x = r.left, y = r.bottom + 4;
       if (x + 210 > window.innerWidth) x = window.innerWidth - 215;
       this.colMenu = { key, label };
       this.colMenuPos = { x, y };
     },
     openCfHeaderMenu(cf, e) {
-      const r = e.currentTarget.getBoundingClientRect();
+      const t = e.currentTarget || e.target;
+      const r = t.closest('.col-header-resizable')?.getBoundingClientRect() || t.getBoundingClientRect();
       let x = r.left, y = r.bottom + 4;
       if (x + 210 > window.innerWidth) x = window.innerWidth - 215;
       this.colMenu = { key: cf.id, label: cf.name, cf };
@@ -4958,10 +4992,21 @@ document.addEventListener('alpine:init', () => {
       else { this.cols[colMenu.key] = false; }
       this.saveColPrefs();
     },
-    sortByCol(colMenu, dir) {
-      const key = colMenu.key;
+    sortByCol(col, dir) {
+      const key = col.key;
+      if (dir === 'toggle') {
+        if (this.sortCol?.key === key) {
+          dir = this.sortCol.dir === 'asc' ? 'desc' : 'asc';
+        } else {
+          dir = 'asc';
+        }
+      }
+      this.sortCol = { key, dir, cf: col.cf || null };
       const valOf = task => {
-        if (colMenu.cf) return (task.cf_values?.[key] || '').toLowerCase();
+        if (col.cf || key.startsWith('cf_')) {
+          const cfId = col.cf?.id || key.replace('cf_', '');
+          return (task.cf_values?.[cfId] || '').toLowerCase();
+        }
         if (key === 'status')      return (this.statusObj(task.status)?.name || '').toLowerCase();
         if (key === 'responsavel') return (task.assignees?.[0] || '').toLowerCase();
         if (key === 'prioridade')  return (task.priority || '').toLowerCase();
@@ -4975,6 +5020,35 @@ document.addEventListener('alpine:init', () => {
         if (!vb) return -1;
         return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
       });
+    },
+    async moveCfToStart(cfId) {
+      const fields = [...(this.activeList?.custom_fields || [])];
+      const idx = fields.findIndex(f => f.id === cfId);
+      if (idx <= 0) return;
+      const [field] = fields.splice(idx, 1);
+      fields.unshift(field);
+      await this._saveCfOrder(fields);
+    },
+    async moveCfToEnd(cfId) {
+      const fields = [...(this.activeList?.custom_fields || [])];
+      const idx = fields.findIndex(f => f.id === cfId);
+      if (idx < 0 || idx === fields.length - 1) return;
+      const [field] = fields.splice(idx, 1);
+      fields.push(field);
+      await this._saveCfOrder(fields);
+    },
+    async _saveCfOrder(fields) {
+      const r = await fetch(`/api/gestao/lists/${this.activeList.id}`, {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ custom_fields: fields }),
+      });
+      if (!r.ok) return;
+      this.activeList.custom_fields = fields;
+      const s = this.tree.find(sp => sp.id === this.activeList.space_id);
+      const lst = s?.direct_lists?.find(l => l.id === this.activeList.id)
+               || s?.folders?.flatMap(f => f.lists).find(l => l.id === this.activeList.id);
+      if (lst) lst.custom_fields = fields;
     },
     startCfColResize(cfId, e) {
       if (this.colWidths.tarefa === 0) {
