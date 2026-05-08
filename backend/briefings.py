@@ -450,28 +450,23 @@ async def briefing_submit(request: Request):
     })
 
 
-@router.get("/api/briefing/responses/{response_id}/pdf")
-async def briefing_response_pdf(response_id: str):
-    """Public PDF download — anyone with the response_id can grab it."""
+@router.get("/api/briefing/responses/{response_id}/pdf", response_class=HTMLResponse)
+async def briefing_response_pdf(response_id: str, request: Request):
+    """
+    Tela print-friendly que dispara window.print() automaticamente.
+    Cliente salva como PDF pelo dialog nativo do browser — sem libs nativas.
+    Pública: qualquer um com o response_id consegue baixar.
+    """
     resp = _get_response(response_id)
     if not resp:
         raise HTTPException(404, "Briefing não encontrado")
-    try:
-        from weasyprint import HTML  # type: ignore
-    except Exception as e:
-        raise HTTPException(500, f"Geração de PDF indisponível: {e}")
-
-    html = templates.get_template("briefing_pdf.html").render(
-        request=None,
-        definition=BRIEFING_DEFINITION,
-        response=resp,
-    )
-    pdf_bytes = HTML(string=html, base_url=str(BASE_DIR)).write_pdf()
-    safe_name = (resp.get("client_name") or "briefing").replace(" ", "_")
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename="briefing-{safe_name}.pdf"'},
+    return templates.TemplateResponse(
+        "briefing_pdf.html",
+        {
+            "request":    request,
+            "definition": BRIEFING_DEFINITION,
+            "response":   resp,
+        },
     )
 
 

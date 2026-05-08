@@ -46,10 +46,8 @@
       backdrop-filter: blur(8px);
       position: sticky; top: 0; z-index: 50;
     }
-    .brand { display: flex; align-items: center; gap: 10px; }
-    .brand-mark { width: 32px; height: 32px; flex-shrink: 0; }
-    .brand-name { font-weight: 700; font-size: 1.05rem; letter-spacing: .02em; color: var(--navy); }
-    .brand-name em { font-style: normal; color: var(--orange); }
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .brand-logo { height: 36px; width: auto; display: block; }
     .progress-wrap { flex: 1; max-width: 380px; margin: 0 24px; }
     .progress-meta { display: flex; justify-content: space-between; font-size: .72rem; font-weight: 600; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .08em; }
     .progress-bar { height: 4px; background: var(--border); border-radius: 99px; overflow: hidden; }
@@ -193,6 +191,7 @@
     }
     .opt-text { font-size: .95rem; line-height: 1.4; color: var(--text); }
     .opt-card.opt-selected .opt-text { color: var(--navy); font-weight: 500; }
+    .opt-other-input { margin-top: 4px; }
 
     /* ── Audio button on long_text fields ─────────────────────────────────── */
     .audio-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
@@ -287,18 +286,9 @@
 
   <!-- Topbar -->
   <header class="topbar">
-    <div class="brand">
-      <svg class="brand-mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#E97919"/>
-            <stop offset="100%" stop-color="#19196C"/>
-          </linearGradient>
-        </defs>
-        <path fill="url(#g)" d="M50 10c-22 0-40 18-40 40s18 40 40 40c12 0 22-5 30-13l-9-9c-5 5-12 9-21 9-15 0-27-12-27-27s12-27 27-27c8 0 15 3 21 9l9-9c-8-8-18-13-30-13z"/>
-      </svg>
-      <span class="brand-name">card<em>ō</em></span>
-    </div>
+    <a class="brand" href="/briefing/novo" aria-label="Cardō Marketing">
+      <img src="/static/brand/cardo-logo-horizontal.png" alt="Cardō Marketing" class="brand-logo">
+    </a>
     <div class="progress-wrap" x-show="step > 0 && step <= sectionsLen">
       <div class="progress-meta">
         <span x-text="`Etapa ${step} de ${sectionsLen}`"></span>
@@ -390,6 +380,11 @@
                       <span class="opt-text" x-text="opt"></span>
                     </label>
                   </template>
+                  <template x-if="responses[field.id] === 'Outro'">
+                    <input class="field-input opt-other-input" type="text"
+                           placeholder="Especifique seu nicho…"
+                           x-model="responses[field.id + '__other']">
+                  </template>
                 </div>
               </template>
 
@@ -435,8 +430,11 @@
             próximo passo do seu onboarding.
           </p>
           <div class="sent-actions">
-            <a class="btn btn-primary" :href="pdfUrl" target="_blank" rel="noopener">
+            <a class="btn btn-primary" :href="pdfUrl + '?print=1'" target="_blank" rel="noopener">
               Baixar respostas em PDF
+            </a>
+            <a class="btn btn-secondary" :href="pdfUrl" target="_blank" rel="noopener">
+              Visualizar resposta
             </a>
           </div>
         </div>

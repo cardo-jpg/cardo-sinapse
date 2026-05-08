@@ -3,92 +3,176 @@
 <head>
   <meta charset="UTF-8">
   <title>Briefing — {{ response.client_name or 'Cliente' }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap">
   <style>
-    @page { size: A4; margin: 22mm 18mm; @bottom-right { content: counter(page) " / " counter(pages); font-family: sans-serif; font-size: 9pt; color: #888; } }
-
     :root {
       --navy: #19196C;
+      --navy-deep: #0e0e44;
       --orange: #E97919;
       --text: #1d1d2e;
       --muted: #6b6878;
       --border: #e9e3da;
-      --bg: #fdfbf7;
+      --bg: #f6f1ea;
+      --paper: #fffdf9;
     }
 
-    body { font-family: 'Helvetica', Arial, sans-serif; color: var(--text); font-size: 10.5pt; line-height: 1.55; background: #fff; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg); color: var(--text);
+      font-size: 14px; line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .display { font-family: 'Fraunces', 'Inter', serif; font-weight: 600; letter-spacing: -.01em; }
+
+    /* Toolbar (não imprime) */
+    .toolbar {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(255,253,249,.95);
+      backdrop-filter: blur(8px);
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    }
+    .toolbar-info { font-size: .85rem; color: var(--muted); }
+    .btn-print {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 18px; border-radius: 99px;
+      background: var(--orange); color: #fff;
+      border: none; font-weight: 600; font-size: .9rem;
+      cursor: pointer; font-family: inherit;
+      transition: all .15s;
+    }
+    .btn-print:hover { background: #d56b14; transform: translateY(-1px); }
+
+    /* Sheet */
+    .sheet {
+      max-width: 780px;
+      margin: 32px auto;
+      background: #fff;
+      box-shadow: 0 24px 48px -16px rgba(25,25,108,.15);
+      border-radius: 8px;
+      padding: 56px 64px;
+    }
+
+    /* Cover */
     .cover {
-      page-break-after: always;
-      padding: 60px 0;
+      padding-bottom: 36px;
       border-bottom: 4px solid var(--orange);
-      margin-bottom: 40px;
+      margin-bottom: 36px;
     }
-    .cover-eyebrow { font-size: 9pt; text-transform: uppercase; letter-spacing: 4px; color: var(--orange); font-weight: 700; margin-bottom: 14px; }
-    .cover-title { font-size: 32pt; line-height: 1.1; color: var(--navy); font-weight: 700; margin-bottom: 24px; }
-    .cover-meta { color: var(--muted); font-size: 10pt; line-height: 1.8; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border); }
-    .cover-meta strong { color: var(--navy); display: inline-block; min-width: 100px; }
+    .cover-logo { height: 36px; width: auto; margin-bottom: 28px; }
+    .cover-eyebrow { font-size: .72rem; text-transform: uppercase; letter-spacing: .25em; color: var(--orange); font-weight: 600; margin-bottom: 14px; }
+    .cover-title { font-size: 2.4rem; line-height: 1.1; color: var(--navy); margin-bottom: 24px; }
+    .cover-meta { color: var(--muted); font-size: .9rem; line-height: 1.9; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border); }
+    .cover-meta strong { color: var(--navy); display: inline-block; min-width: 110px; }
 
     h2.section {
-      font-size: 16pt;
+      font-size: 1.3rem;
       color: var(--navy);
-      margin-top: 28px;
+      margin-top: 36px;
       margin-bottom: 4px;
-      padding-bottom: 6px;
+      padding-bottom: 8px;
       border-bottom: 2px solid var(--navy);
       page-break-after: avoid;
     }
-    .section-sub { color: var(--muted); font-size: 9.5pt; margin-bottom: 18px; font-style: italic; }
+    .section-sub { color: var(--muted); font-size: .85rem; margin-bottom: 22px; font-style: italic; }
 
-    .qa { margin-bottom: 16px; page-break-inside: avoid; }
-    .q { font-size: 10pt; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
+    .qa { margin-bottom: 18px; page-break-inside: avoid; }
+    .q { font-size: .82rem; color: var(--muted); font-weight: 600; margin-bottom: 6px; }
     .a {
       background: var(--bg);
       border-left: 3px solid var(--orange);
-      padding: 10px 14px;
-      border-radius: 0 6px 6px 0;
+      padding: 12px 16px;
+      border-radius: 0 8px 8px 0;
       white-space: pre-wrap;
       color: var(--text);
+      font-size: .92rem;
+      line-height: 1.65;
     }
     .a.empty { color: #b8b3c0; font-style: italic; background: #f5f3ee; border-left-color: #d8d2c8; }
 
-    .footer-mark { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--muted); font-size: 9pt; }
+    .footer-mark {
+      text-align: center;
+      margin-top: 48px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: .82rem;
+    }
     .footer-mark strong { color: var(--orange); }
+
+    /* ── Print rules ─────────────────────────────────────────────────────── */
+    @page { size: A4; margin: 18mm 14mm; }
+    @media print {
+      body { background: #fff; font-size: 11pt; }
+      .toolbar { display: none !important; }
+      .sheet { max-width: none; margin: 0; box-shadow: none; padding: 0; border-radius: 0; }
+      .cover-title { font-size: 24pt; }
+      h2.section { font-size: 13pt; margin-top: 18pt; }
+      .a { background: #faf5ee; }
+      .qa { page-break-inside: avoid; }
+    }
   </style>
 </head>
 <body>
 
-  <div class="cover">
-    <div class="cover-eyebrow">Briefing inicial · Cardō</div>
-    <div class="cover-title">{{ response.client_name or 'Briefing de novo cliente' }}</div>
-    <div class="cover-meta">
-      {% if response.client_email %}<div><strong>E-mail:</strong> {{ response.client_email }}</div>{% endif %}
-      {% if response.responses.get('empresa_nome') %}<div><strong>Empresa:</strong> {{ response.responses.empresa_nome }}</div>{% endif %}
-      {% if response.responses.get('whatsapp') %}<div><strong>WhatsApp:</strong> {{ response.responses.whatsapp }}</div>{% endif %}
-      <div><strong>Enviado em:</strong> {{ response.submitted_at }}</div>
-      <div><strong>ID:</strong> {{ response.id }}</div>
-    </div>
+  <div class="toolbar">
+    <span class="toolbar-info">Use o botão à direita ou <kbd>Ctrl/⌘ + P</kbd> e escolha "Salvar como PDF".</span>
+    <button class="btn-print" onclick="window.print()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      Imprimir / Salvar PDF
+    </button>
   </div>
 
-  {% for section in definition.sections %}
-    <h2 class="section">{{ section.title }}</h2>
-    <div class="section-sub">{{ section.subtitle }}</div>
-
-    {% for field in section.fields %}
-      {% set val = response.responses.get(field.id) %}
-      <div class="qa">
-        <div class="q">{{ field.label }}</div>
-        {% if val %}
-          <div class="a">{{ val }}</div>
-        {% else %}
-          <div class="a empty">— Não respondido —</div>
+  <article class="sheet">
+    <div class="cover">
+      <img src="/static/brand/cardo-logo-horizontal.png" alt="Cardō Marketing" class="cover-logo">
+      <div class="cover-eyebrow">Briefing inicial</div>
+      <h1 class="cover-title display">{{ response.client_name or 'Briefing de novo cliente' }}</h1>
+      <div class="cover-meta">
+        {% if response.client_email %}<div><strong>E-mail:</strong> {{ response.client_email }}</div>{% endif %}
+        {% if response.responses.get('empresa_nome') %}<div><strong>Empresa:</strong> {{ response.responses.empresa_nome }}</div>{% endif %}
+        {% if response.responses.get('whatsapp') %}<div><strong>WhatsApp:</strong> {{ response.responses.whatsapp }}</div>{% endif %}
+        {% if response.responses.get('nicho') %}
+          <div><strong>Nicho:</strong> {{ response.responses.nicho }}{% if response.responses.get('nicho__other') %} — {{ response.responses['nicho__other'] }}{% endif %}</div>
         {% endif %}
+        <div><strong>Enviado em:</strong> {{ response.submitted_at }}</div>
       </div>
-    {% endfor %}
-  {% endfor %}
+    </div>
 
-  <div class="footer-mark">
-    Briefing gerado pela <strong>Cardō Marketing</strong> · cardomarketing.com.br
-  </div>
+    {% for section in definition.sections %}
+      <h2 class="section">{{ section.title }}</h2>
+      <div class="section-sub">{{ section.subtitle }}</div>
+
+      {% for field in section.fields %}
+        {% set val = response.responses.get(field.id) %}
+        <div class="qa">
+          <div class="q">{{ field.label }}</div>
+          {% if val %}
+            <div class="a">{% if field.type == 'currency' %}R$ {{ val }}{% else %}{{ val }}{% if field.id == 'nicho' and val == 'Outro' and response.responses.get('nicho__other') %} — {{ response.responses['nicho__other'] }}{% endif %}{% endif %}</div>
+          {% else %}
+            <div class="a empty">— Não respondido —</div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    {% endfor %}
+
+    <div class="footer-mark">
+      Briefing gerado pela <strong>Cardō Marketing</strong> · cardomarketing.com.br
+    </div>
+  </article>
+
+  <script>
+    // Auto-trigger print dialog on first load if "?print=1"
+    if (window.location.search.includes('print=1')) {
+      window.addEventListener('load', () => setTimeout(() => window.print(), 400));
+    }
+  </script>
 
 </body>
 </html>
