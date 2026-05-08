@@ -27,6 +27,7 @@ from backend.gestao import router as gestao_router, init_db as gestao_init_db, p
 from backend.financeiro import router as financeiro_router, init_db as financeiro_init_db, migrar_siga_startup
 from backend.fin_pessoais import router as fp_router, init_db as fp_init_db
 from backend.crm import router as crm_router, init_crm_db
+from backend.briefings import router as briefings_router, init_briefings_db
 
 load_dotenv()
 
@@ -633,6 +634,7 @@ async def lifespan(app: FastAPI):
     financeiro_init_db()
     fp_init_db()
     init_crm_db()
+    init_briefings_db()
     start_sync_scheduler()
     _schedule_cpa_monitor()
     await migrar_siga_startup()
@@ -649,6 +651,7 @@ app.include_router(gestao_router)
 app.include_router(financeiro_router)
 app.include_router(fp_router)
 app.include_router(crm_router)
+app.include_router(briefings_router)
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))

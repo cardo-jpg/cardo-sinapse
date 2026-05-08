@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Briefing — Cardō</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    :root {
+      --navy:        #19196C;
+      --navy-deep:   #0e0e44;
+      --orange:      #E97919;
+      --orange-soft: #f59854;
+      --bg:          #f6f1ea;
+      --paper:       #fffdf9;
+      --text:        #1d1d2e;
+      --muted:       #6b6878;
+      --border:      #e9e3da;
+      --accent-soft: #fbe7d4;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { min-height: 100vh; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 16px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .display { font-family: 'Fraunces', 'Inter', serif; font-weight: 600; letter-spacing: -.01em; }
+
+    /* ── App shell ────────────────────────────────────────────────────────── */
+    .app { min-height: 100vh; display: flex; flex-direction: column; }
+    .topbar {
+      padding: 22px 32px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,253,249,.85);
+      backdrop-filter: blur(8px);
+      position: sticky; top: 0; z-index: 50;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand-mark { width: 32px; height: 32px; flex-shrink: 0; }
+    .brand-name { font-weight: 700; font-size: 1.05rem; letter-spacing: .02em; color: var(--navy); }
+    .brand-name em { font-style: normal; color: var(--orange); }
+    .progress-wrap { flex: 1; max-width: 380px; margin: 0 24px; }
+    .progress-meta { display: flex; justify-content: space-between; font-size: .72rem; font-weight: 600; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .08em; }
+    .progress-bar { height: 4px; background: var(--border); border-radius: 99px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--navy), var(--orange)); border-radius: 99px; transition: width .4s cubic-bezier(.2,.8,.2,1); }
+    .save-status { font-size: .75rem; color: var(--muted); }
+
+    /* ── Stage container ──────────────────────────────────────────────────── */
+    .stage { flex: 1; display: flex; flex-direction: column; padding: 48px 24px 96px; }
+    .stage-inner { max-width: 720px; width: 100%; margin: 0 auto; }
+
+    /* ── Hero / Ritual ────────────────────────────────────────────────────── */
+    .hero-eyebrow { font-size: .78rem; font-weight: 600; text-transform: uppercase; letter-spacing: .25em; color: var(--orange); margin-bottom: 20px; display: flex; align-items: center; gap: 12px; }
+    .hero-eyebrow::before, .hero-eyebrow::after { content: ''; flex: 1; max-width: 40px; height: 1px; background: var(--orange); opacity: .5; }
+    .hero-headline { font-size: clamp(2.2rem, 4.5vw, 3.4rem); line-height: 1.1; color: var(--navy); margin-bottom: 28px; }
+    .hero-headline em { color: var(--orange); font-style: italic; }
+    .hero-lead { font-size: 1.05rem; color: var(--muted); max-width: 580px; margin-bottom: 40px; }
+
+    .ritual-card {
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-deep) 100%);
+      color: #fff;
+      border-radius: 20px;
+      padding: 32px 36px;
+      margin-bottom: 32px;
+      box-shadow: 0 24px 48px -16px rgba(25,25,108,.35);
+      position: relative;
+      overflow: hidden;
+    }
+    .ritual-card::before {
+      content: '';
+      position: absolute;
+      top: -40%; right: -10%;
+      width: 280px; height: 280px;
+      background: radial-gradient(circle, var(--orange) 0%, transparent 70%);
+      opacity: .25;
+      pointer-events: none;
+    }
+    .ritual-title { font-size: .8rem; text-transform: uppercase; letter-spacing: .18em; opacity: .7; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    .ritual-title::before { content: '✦'; color: var(--orange); }
+    .ritual-headline { font-size: 1.4rem; margin-bottom: 18px; line-height: 1.3; }
+    .ritual-list { list-style: none; display: flex; flex-direction: column; gap: 10px; position: relative; z-index: 1; }
+    .ritual-list li {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 10px 0;
+      font-size: .92rem;
+      border-bottom: 1px dashed rgba(255,255,255,.12);
+    }
+    .ritual-list li:last-child { border-bottom: none; }
+    .ritual-list li::before {
+      content: '';
+      flex-shrink: 0;
+      width: 18px; height: 18px;
+      margin-top: 2px;
+      border-radius: 50%;
+      border: 1.5px solid var(--orange);
+      background: transparent;
+      transition: background .15s, border-color .15s;
+    }
+    .ritual-list li.checked::before {
+      background: var(--orange);
+      border-color: var(--orange);
+      box-shadow: inset 0 0 0 4px var(--navy);
+    }
+    .ritual-list li { cursor: pointer; user-select: none; }
+    .ritual-list li:hover { color: var(--orange-soft); }
+
+    /* ── Section header ───────────────────────────────────────────────────── */
+    .section-eyebrow { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .25em; color: var(--orange); margin-bottom: 12px; }
+    .section-title { font-size: clamp(1.7rem, 3vw, 2.2rem); line-height: 1.2; color: var(--navy); margin-bottom: 12px; }
+    .section-subtitle { font-size: 1rem; color: var(--muted); margin-bottom: 36px; max-width: 540px; }
+
+    /* ── Field ────────────────────────────────────────────────────────────── */
+    .field { margin-bottom: 32px; }
+    .field-label {
+      display: block;
+      font-size: .98rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 12px;
+      line-height: 1.4;
+    }
+    .field-required { color: var(--orange); margin-left: 4px; }
+    .field-input, .field-textarea {
+      width: 100%;
+      background: var(--paper);
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-family: inherit;
+      font-size: 1rem;
+      color: var(--text);
+      transition: border-color .15s, box-shadow .15s, background .15s;
+      outline: none;
+    }
+    .field-textarea { resize: vertical; min-height: 120px; line-height: 1.6; }
+    .field-input:focus, .field-textarea:focus {
+      border-color: var(--navy);
+      box-shadow: 0 0 0 4px rgba(25,25,108,.08);
+      background: #fff;
+    }
+    .field-input::placeholder, .field-textarea::placeholder { color: #b0acba; }
+
+    /* ── Audio button on long_text fields ─────────────────────────────────── */
+    .audio-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+    .audio-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 14px;
+      background: var(--navy);
+      color: #fff;
+      border: none;
+      border-radius: 99px;
+      font-family: inherit;
+      font-size: .82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s, transform .1s;
+    }
+    .audio-btn:hover { background: var(--navy-deep); }
+    .audio-btn.recording { background: var(--orange); animation: pulse 1.4s infinite; }
+    .audio-btn[disabled] { opacity: .55; cursor: not-allowed; }
+    .audio-hint { font-size: .78rem; color: var(--muted); }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(233,121,25,.5); }
+      50%      { box-shadow: 0 0 0 10px rgba(233,121,25,0); }
+    }
+
+    /* ── Nav buttons ──────────────────────────────────────────────────────── */
+    .nav { display: flex; justify-content: space-between; align-items: center; margin-top: 56px; gap: 16px; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 14px 24px;
+      border-radius: 99px;
+      font-family: inherit;
+      font-size: .95rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1.5px solid transparent;
+      transition: all .15s;
+      letter-spacing: .01em;
+    }
+    .btn-primary { background: var(--navy); color: #fff; border-color: var(--navy); }
+    .btn-primary:hover:not([disabled]) { background: var(--navy-deep); transform: translateY(-1px); box-shadow: 0 8px 24px -8px rgba(25,25,108,.5); }
+    .btn-primary[disabled] { opacity: .5; cursor: not-allowed; }
+    .btn-secondary { background: transparent; color: var(--navy); border-color: var(--border); }
+    .btn-secondary:hover { background: var(--paper); border-color: var(--navy); }
+    .btn-ghost { background: transparent; color: var(--muted); border-color: transparent; }
+    .btn-ghost:hover { color: var(--navy); }
+
+    .err-banner {
+      background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c;
+      border-radius: 12px; padding: 12px 16px; margin-bottom: 20px;
+      font-size: .9rem;
+    }
+
+    /* ── Final / sent screen ──────────────────────────────────────────────── */
+    .sent-card {
+      background: var(--paper);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 48px 40px;
+      text-align: center;
+      box-shadow: 0 24px 48px -16px rgba(25,25,108,.12);
+    }
+    .sent-icon {
+      width: 88px; height: 88px;
+      margin: 0 auto 24px;
+      background: linear-gradient(135deg, var(--orange), var(--orange-soft));
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff;
+      font-size: 2.4rem;
+      box-shadow: 0 16px 32px -8px rgba(233,121,25,.45);
+    }
+    .sent-title { font-size: 1.8rem; color: var(--navy); margin-bottom: 12px; }
+    .sent-sub { color: var(--muted); margin-bottom: 32px; max-width: 440px; margin-left: auto; margin-right: auto; }
+    .sent-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+    /* ── Mobile ───────────────────────────────────────────────────────────── */
+    @media (max-width: 640px) {
+      .topbar { padding: 14px 18px; flex-wrap: wrap; gap: 10px; }
+      .progress-wrap { order: 99; max-width: 100%; margin: 6px 0 0; flex-basis: 100%; }
+      .stage { padding: 32px 20px 80px; }
+      .ritual-card { padding: 24px; }
+      .ritual-headline { font-size: 1.2rem; }
+      .nav { flex-direction: column; }
+      .nav .btn { width: 100%; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app" x-data="briefingWizard()" x-init="init()">
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#E97919"/>
+            <stop offset="100%" stop-color="#19196C"/>
+          </linearGradient>
+        </defs>
+        <path fill="url(#g)" d="M50 10c-22 0-40 18-40 40s18 40 40 40c12 0 22-5 30-13l-9-9c-5 5-12 9-21 9-15 0-27-12-27-27s12-27 27-27c8 0 15 3 21 9l9-9c-8-8-18-13-30-13z"/>
+      </svg>
+      <span class="brand-name">card<em>ō</em></span>
+    </div>
+    <div class="progress-wrap" x-show="step > 0 && step <= sectionsLen">
+      <div class="progress-meta">
+        <span x-text="`Etapa ${step} de ${sectionsLen}`"></span>
+        <span x-text="currentSection?.title"></span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" :style="`width: ${(step/sectionsLen)*100}%`"></div></div>
+    </div>
+    <span class="save-status" x-show="step > 0 && step <= sectionsLen">
+      <span x-show="!autoSaved">●</span><span x-show="autoSaved" style="color:#22c55e">✓</span>
+      <span x-text="autoSaved ? 'Salvo no navegador' : 'Não salvo'"></span>
+    </span>
+  </header>
+
+  <!-- Stage -->
+  <main class="stage">
+    <div class="stage-inner">
+
+      <!-- ────────────────────────── STEP 0: HERO / RITUAL ────────────────── -->
+      <template x-if="step === 0">
+        <div>
+          <div class="hero-eyebrow">Briefing inicial</div>
+          <h1 class="hero-headline display" x-text="def.ritual.headline"></h1>
+          <p class="hero-lead" x-text="def.ritual.lead"></p>
+
+          <div class="ritual-card">
+            <div class="ritual-title">Ritual de foco — checklist do briefing</div>
+            <div class="ritual-headline display" x-text="def.subtitle"></div>
+            <ul class="ritual-list">
+              <template x-for="(item, idx) in def.ritual.checklist" :key="idx">
+                <li :class="ritualChecks[idx] ? 'checked' : ''" @click="toggleRitual(idx)">
+                  <span x-text="item"></span>
+                </li>
+              </template>
+            </ul>
+          </div>
+
+          <div class="nav" style="justify-content: flex-end">
+            <button class="btn btn-primary" @click="step = 1">
+              Vamos começar
+              <span style="font-size:1.1em">→</span>
+            </button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ────────────────────────── STEP 1..N: SECTIONS ──────────────────── -->
+      <template x-if="step > 0 && step <= sectionsLen">
+        <div>
+          <div class="section-eyebrow" x-text="`Etapa ${step}/${sectionsLen}`"></div>
+          <h2 class="section-title display" x-text="currentSection.title"></h2>
+          <p class="section-subtitle" x-text="currentSection.subtitle"></p>
+
+          <div class="err-banner" x-show="errorMsg" x-text="errorMsg"></div>
+
+          <template x-for="field in currentSection.fields" :key="field.id">
+            <div class="field">
+              <label class="field-label">
+                <span x-text="field.label"></span><template x-if="field.required"><span class="field-required">*</span></template>
+              </label>
+
+              <template x-if="field.type === 'short_text'">
+                <input class="field-input" type="text"
+                       :placeholder="field.placeholder || 'Digite sua resposta'"
+                       x-model="responses[field.id]">
+              </template>
+
+              <template x-if="field.type === 'email'">
+                <input class="field-input" type="email"
+                       placeholder="seu@email.com"
+                       x-model="responses[field.id]">
+              </template>
+
+              <template x-if="field.type === 'long_text'">
+                <div>
+                  <textarea class="field-textarea"
+                            :placeholder="field.placeholder || 'Você pode responder em texto ou usar o microfone para gravar áudio (em breve)…'"
+                            x-model="responses[field.id]"></textarea>
+                  <template x-if="field.audio">
+                    <div class="audio-row">
+                      <button type="button" class="audio-btn" disabled title="Em breve — disponível na próxima fase">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                        Gravar áudio
+                      </button>
+                      <span class="audio-hint">Disponível em breve — você poderá gravar e o texto aparece transcrito automaticamente.</span>
+                    </div>
+                  </template>
+                </div>
+              </template>
+            </div>
+          </template>
+
+          <div class="nav">
+            <button class="btn btn-ghost" @click="prev()" x-show="step > 1">
+              <span style="font-size:1.1em">←</span> Anterior
+            </button>
+            <span x-show="step === 1"></span>
+            <button class="btn btn-primary" @click="next()" :disabled="submitting">
+              <span x-text="step === sectionsLen ? (submitting ? 'Enviando...' : 'Enviar briefing') : 'Próximo'"></span>
+              <span style="font-size:1.1em" x-show="!submitting">→</span>
+            </button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ────────────────────────── STEP DONE ────────────────────────────── -->
+      <template x-if="step === 'done'">
+        <div class="sent-card">
+          <div class="sent-icon">✓</div>
+          <h2 class="sent-title display">Briefing enviado!</h2>
+          <p class="sent-sub">
+            Recebemos suas respostas. Em breve nosso time entra em contato pra agendar o
+            próximo passo do seu onboarding.
+          </p>
+          <div class="sent-actions">
+            <a class="btn btn-primary" :href="pdfUrl" target="_blank" rel="noopener">
+              Baixar respostas em PDF
+            </a>
+          </div>
+        </div>
+      </template>
+
+    </div>
+  </main>
+
+</div>
+
+<script>
+function briefingWizard() {
+  const definition = {{ definition|tojson }};
+  const SAVE_KEY = 'cardo_briefing_draft_v1';
+
+  return {
+    def: definition,
+    step: 0,
+    responses: {},
+    ritualChecks: {},
+    sectionsLen: definition.sections.length,
+    errorMsg: '',
+    submitting: false,
+    autoSaved: false,
+    pdfUrl: '',
+
+    get currentSection() {
+      const idx = this.step - 1;
+      return this.def.sections[idx] || null;
+    },
+
+    init() {
+      // restore draft
+      try {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (raw) {
+          const saved = JSON.parse(raw);
+          this.responses    = saved.responses    || {};
+          this.ritualChecks = saved.ritualChecks || {};
+          if (Object.keys(this.responses).length) this.step = saved.step || 0;
+        }
+      } catch (e) {}
+      // auto-save
+      this.$watch('responses',    () => this.saveDraft(), { deep: true });
+      this.$watch('ritualChecks', () => this.saveDraft(), { deep: true });
+      this.$watch('step',         () => this.saveDraft());
+    },
+
+    saveDraft() {
+      try {
+        localStorage.setItem(SAVE_KEY, JSON.stringify({
+          responses: this.responses,
+          ritualChecks: this.ritualChecks,
+          step: this.step,
+        }));
+        this.autoSaved = true;
+        clearTimeout(this._saveT);
+        this._saveT = setTimeout(() => { this.autoSaved = false; }, 1500);
+      } catch (e) {}
+    },
+
+    toggleRitual(idx) { this.ritualChecks[idx] = !this.ritualChecks[idx]; },
+
+    validateCurrent() {
+      const sec = this.currentSection;
+      if (!sec) return true;
+      for (const f of sec.fields) {
+        if (!f.required) continue;
+        const v = this.responses[f.id];
+        if (!v || !String(v).trim()) {
+          this.errorMsg = `Por favor preencha: ${f.label}`;
+          return false;
+        }
+      }
+      this.errorMsg = '';
+      return true;
+    },
+
+    prev() {
+      if (this.step > 1) this.step--;
+      else this.step = 0;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+
+    async next() {
+      if (!this.validateCurrent()) return;
+      if (this.step < this.sectionsLen) {
+        this.step++;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+      // Final step → submit
+      await this.submit();
+    },
+
+    async submit() {
+      this.submitting = true;
+      this.errorMsg = '';
+      try {
+        const r = await fetch('/api/briefing/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            responses:    this.responses,
+            client_name:  this.responses.nome  || '',
+            client_email: this.responses.email || '',
+          }),
+        });
+        if (!r.ok) throw new Error('submit_failed');
+        const data = await r.json();
+        this.pdfUrl = data.pdf_url;
+        try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+        this.step = 'done';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (e) {
+        this.errorMsg = 'Não conseguimos enviar agora. Tente de novo em alguns segundos.';
+      } finally {
+        this.submitting = false;
+      }
+    },
+  };
+}
+</script>
+
+</body>
+</html>

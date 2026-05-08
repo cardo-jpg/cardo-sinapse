@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Briefing — {{ response.client_name or 'Cliente' }}</title>
+  <style>
+    @page { size: A4; margin: 22mm 18mm; @bottom-right { content: counter(page) " / " counter(pages); font-family: sans-serif; font-size: 9pt; color: #888; } }
+
+    :root {
+      --navy: #19196C;
+      --orange: #E97919;
+      --text: #1d1d2e;
+      --muted: #6b6878;
+      --border: #e9e3da;
+      --bg: #fdfbf7;
+    }
+
+    body { font-family: 'Helvetica', Arial, sans-serif; color: var(--text); font-size: 10.5pt; line-height: 1.55; background: #fff; }
+
+    .cover {
+      page-break-after: always;
+      padding: 60px 0;
+      border-bottom: 4px solid var(--orange);
+      margin-bottom: 40px;
+    }
+    .cover-eyebrow { font-size: 9pt; text-transform: uppercase; letter-spacing: 4px; color: var(--orange); font-weight: 700; margin-bottom: 14px; }
+    .cover-title { font-size: 32pt; line-height: 1.1; color: var(--navy); font-weight: 700; margin-bottom: 24px; }
+    .cover-meta { color: var(--muted); font-size: 10pt; line-height: 1.8; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border); }
+    .cover-meta strong { color: var(--navy); display: inline-block; min-width: 100px; }
+
+    h2.section {
+      font-size: 16pt;
+      color: var(--navy);
+      margin-top: 28px;
+      margin-bottom: 4px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid var(--navy);
+      page-break-after: avoid;
+    }
+    .section-sub { color: var(--muted); font-size: 9.5pt; margin-bottom: 18px; font-style: italic; }
+
+    .qa { margin-bottom: 16px; page-break-inside: avoid; }
+    .q { font-size: 10pt; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
+    .a {
+      background: var(--bg);
+      border-left: 3px solid var(--orange);
+      padding: 10px 14px;
+      border-radius: 0 6px 6px 0;
+      white-space: pre-wrap;
+      color: var(--text);
+    }
+    .a.empty { color: #b8b3c0; font-style: italic; background: #f5f3ee; border-left-color: #d8d2c8; }
+
+    .footer-mark { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--muted); font-size: 9pt; }
+    .footer-mark strong { color: var(--orange); }
+  </style>
+</head>
+<body>
+
+  <div class="cover">
+    <div class="cover-eyebrow">Briefing inicial · Cardō</div>
+    <div class="cover-title">{{ response.client_name or 'Briefing de novo cliente' }}</div>
+    <div class="cover-meta">
+      {% if response.client_email %}<div><strong>E-mail:</strong> {{ response.client_email }}</div>{% endif %}
+      {% if response.responses.get('empresa_nome') %}<div><strong>Empresa:</strong> {{ response.responses.empresa_nome }}</div>{% endif %}
+      {% if response.responses.get('whatsapp') %}<div><strong>WhatsApp:</strong> {{ response.responses.whatsapp }}</div>{% endif %}
+      <div><strong>Enviado em:</strong> {{ response.submitted_at }}</div>
+      <div><strong>ID:</strong> {{ response.id }}</div>
+    </div>
+  </div>
+
+  {% for section in definition.sections %}
+    <h2 class="section">{{ section.title }}</h2>
+    <div class="section-sub">{{ section.subtitle }}</div>
+
+    {% for field in section.fields %}
+      {% set val = response.responses.get(field.id) %}
+      <div class="qa">
+        <div class="q">{{ field.label }}</div>
+        {% if val %}
+          <div class="a">{{ val }}</div>
+        {% else %}
+          <div class="a empty">— Não respondido —</div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% endfor %}
+
+  <div class="footer-mark">
+    Briefing gerado pela <strong>Cardō Marketing</strong> · cardomarketing.com.br
+  </div>
+
+</body>
+</html>

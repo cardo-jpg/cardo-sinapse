@@ -14,3 +14,4 @@ google-ads
 requests
 pdfplumber
 psycopg[binary]==3.2.4
+weasyprint==62.3

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Briefing — {{ response.client_name or response.id }}</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+    :root {
+      --navy: #19196C;
+      --orange: #E97919;
+      --bg: #0e0e1a;
+      --panel: #161624;
+      --border: #25253a;
+      --text: #e8e6f0;
+      --muted: #9892a8;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); line-height: 1.55; min-height: 100vh; }
+
+    .page { max-width: 920px; margin: 0 auto; padding: 40px 24px 80px; }
+
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 32px; flex-wrap: wrap; }
+    .back { color: var(--muted); text-decoration: none; font-size: .9rem; display: inline-flex; align-items: center; gap: 6px; }
+    .back:hover { color: var(--orange); }
+    .actions { display: flex; gap: 8px; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 10px 16px; border-radius: 99px;
+      font-family: inherit; font-size: .85rem; font-weight: 600;
+      cursor: pointer; border: 1px solid var(--border);
+      background: transparent; color: var(--text);
+      text-decoration: none;
+      transition: all .15s;
+    }
+    .btn:hover { border-color: var(--orange); color: var(--orange); }
+    .btn-primary { background: var(--orange); color: #fff; border-color: var(--orange); }
+    .btn-primary:hover { background: #d56b14; color: #fff; }
+
+    .header-card {
+      background: linear-gradient(135deg, var(--navy) 0%, #0e0e44 100%);
+      border-radius: 20px; padding: 32px;
+      margin-bottom: 28px;
+      box-shadow: 0 16px 32px -16px rgba(25,25,108,.6);
+      position: relative; overflow: hidden;
+    }
+    .header-card::before {
+      content: ''; position: absolute; top: -40%; right: -10%;
+      width: 280px; height: 280px;
+      background: radial-gradient(circle, var(--orange) 0%, transparent 70%);
+      opacity: .25;
+    }
+    .header-eyebrow { font-size: .72rem; text-transform: uppercase; letter-spacing: .25em; color: var(--orange); margin-bottom: 14px; font-weight: 600; }
+    .header-name { font-size: 1.9rem; line-height: 1.15; color: #fff; margin-bottom: 10px; font-weight: 700; }
+    .header-meta { color: rgba(255,255,255,.7); font-size: .9rem; display: flex; gap: 18px; flex-wrap: wrap; position: relative; z-index: 1; }
+    .header-meta span strong { color: #fff; margin-right: 4px; }
+
+    .section { margin-top: 32px; }
+    .section-title {
+      font-size: 1.25rem; color: var(--orange);
+      padding-bottom: 8px; margin-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 700;
+    }
+    .section-sub { color: var(--muted); font-size: .85rem; font-style: italic; margin-bottom: 18px; }
+
+    .qa { margin-bottom: 18px; }
+    .q { font-size: .82rem; color: var(--muted); font-weight: 600; margin-bottom: 6px; text-transform: uppercase; letter-spacing: .04em; }
+    .a {
+      background: var(--panel); border: 1px solid var(--border); border-left: 3px solid var(--orange);
+      padding: 14px 18px; border-radius: 0 10px 10px 0;
+      white-space: pre-wrap; line-height: 1.6;
+    }
+    .a.empty { color: var(--muted); font-style: italic; border-left-color: var(--border); }
+  </style>
+</head>
+<body>
+
+<div class="page">
+  <div class="topbar">
+    <a href="/gestao" class="back">← Voltar pro Sinapse</a>
+    <div class="actions">
+      <a href="/api/briefing/responses/{{ response.id }}/pdf" target="_blank" class="btn btn-primary">Baixar PDF</a>
+    </div>
+  </div>
+
+  <div class="header-card">
+    <div class="header-eyebrow">Briefing inicial</div>
+    <div class="header-name">{{ response.client_name or 'Sem nome' }}</div>
+    <div class="header-meta">
+      {% if response.client_email %}<span><strong>E-mail:</strong>{{ response.client_email }}</span>{% endif %}
+      {% if response.responses.get('empresa_nome') %}<span><strong>Empresa:</strong>{{ response.responses.empresa_nome }}</span>{% endif %}
+      {% if response.responses.get('whatsapp') %}<span><strong>WhatsApp:</strong>{{ response.responses.whatsapp }}</span>{% endif %}
+      <span><strong>Enviado em:</strong>{{ response.submitted_at }}</span>
+    </div>
+  </div>
+
+  {% for section in definition.sections %}
+    <div class="section">
+      <div class="section-title">{{ section.title }}</div>
+      <div class="section-sub">{{ section.subtitle }}</div>
+      {% for field in section.fields %}
+        {% set val = response.responses.get(field.id) %}
+        <div class="qa">
+          <div class="q">{{ field.label }}</div>
+          {% if val %}
+            <div class="a">{{ val }}</div>
+          {% else %}
+            <div class="a empty">— Não respondido —</div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  {% endfor %}
+</div>
+
+</body>
+</html>
