@@ -62,84 +62,252 @@ def init_briefings_db() -> None:
 BRIEFING_DEFINITION: dict[str, Any] = {
     "title": "Vamos construir sua estratégia digital.",
     "subtitle": (
-        "Esse questionário guia você por uma reflexão profunda sobre o seu negócio. "
-        "Sinta-se à vontade para responder com calma — quanto mais detalhe, melhor "
-        "podemos construir juntos."
+        "Esse briefing é o primeiro passo pra entendermos profundamente seu negócio. "
+        "Quanto mais detalhe você der, mais assertiva será nossa estratégia."
     ),
     "ritual": {
         "headline": "Seja bem-vindo(a) ao momento mais estratégico do seu negócio.",
         "lead": (
-            "Antes de começar, recomendamos que você crie um ambiente confortável: "
-            "respira fundo, separa uns 30-40 minutos sem interrupção, e responde "
-            "com a maior sinceridade possível — desse processo nasce a estratégia."
+            "Antes de começar: respira fundo, separa uns 30-40 minutos sem interrupção, "
+            "e responde com a maior sinceridade possível — desse processo nasce a estratégia. "
+            "Suas respostas ficam salvas no navegador, então pode pausar e voltar quando quiser."
         ),
         "checklist": [
             "Conecte o AMBIENTE: ilumine bem o espaço e silencie notificações",
             "Coloque sua PLAYLIST de foco favorita",
             "Tenha sua BEBIDA FAVORITA por perto — café, chá, água",
-            "Pode pausar e voltar — suas respostas ficam salvas no navegador",
-            "Conecte a EMOÇÃO ao processo: isso aqui é sobre o seu sonho",
+            "Pode pausar e voltar — suas respostas ficam salvas",
+            "Conecte a EMOÇÃO: isso aqui é sobre o seu sonho",
         ],
     },
     "sections": [
+
+        # ── 1 / 6 ─────────────────────────────────────────────────────────────
         {
             "id": "sobre_voce",
             "title": "Sobre você",
-            "subtitle": "Pra começar, queremos te conhecer melhor.",
+            "subtitle": "Antes da empresa, queremos conhecer a pessoa por trás dela.",
             "fields": [
-                {"id": "nome",          "label": "Seu nome completo",                    "type": "short_text", "required": True},
-                {"id": "email",         "label": "Seu melhor e-mail",                    "type": "email",      "required": True},
-                {"id": "whatsapp",      "label": "WhatsApp (com DDD)",                   "type": "short_text", "required": True},
-                {"id": "cargo",         "label": "Qual seu cargo / papel no negócio?",   "type": "short_text", "required": True},
-                {"id": "como_chegou",   "label": "Como você chegou até a Cardō?",        "type": "long_text",  "required": False, "audio": True},
+                {"id": "nome",      "label": "Seu nome completo",                  "type": "short_text", "required": True},
+                {"id": "email",     "label": "Seu melhor e-mail",                  "type": "email",      "required": True},
+                {"id": "whatsapp",  "label": "WhatsApp (com DDD)",                 "type": "short_text", "required": True},
+                {"id": "cargo",     "label": "Qual seu cargo / papel no negócio?", "type": "short_text", "required": True},
+                {"id": "sua_historia",
+                 "label": "Em poucas palavras: quem é você por trás dessa empresa? Qual sua história com esse negócio?",
+                 "type": "long_text", "required": True, "audio": True},
             ],
         },
+
+        # ── 2 / 6 ─────────────────────────────────────────────────────────────
         {
-            "id": "empreendimento",
-            "title": "Empreendimento e mercado",
-            "subtitle": "Agora vamos falar do seu negócio.",
+            "id": "empresa",
+            "title": "Sobre a sua empresa",
+            "subtitle": "Agora sim, vamos falar do negócio.",
             "fields": [
-                {"id": "empresa_nome", "label": "Nome da empresa / marca",                          "type": "short_text", "required": True},
-                {"id": "site",         "label": "Site, Instagram ou principal canal digital",       "type": "short_text", "required": False},
-                {"id": "tempo_mercado","label": "Há quanto tempo o negócio existe?",                 "type": "short_text", "required": False},
-                {"id": "o_que_faz",    "label": "Em uma frase: o que sua empresa faz?",              "type": "long_text",  "required": True,  "audio": True},
-                {"id": "publico_alvo", "label": "Quem é o seu cliente ideal? Como ele vive, pensa, sente?", "type": "long_text", "required": True, "audio": True},
-                {"id": "concorrentes", "label": "Quem são seus principais concorrentes / referências?", "type": "long_text", "required": False, "audio": True},
-                {"id": "diferencial",  "label": "O que diferencia você dos concorrentes?",            "type": "long_text", "required": True,  "audio": True},
+                {"id": "empresa_nome",
+                 "label": "Qual o nome da sua empresa?",
+                 "type": "short_text", "required": True},
+
+                {"id": "nicho",
+                 "label": "Qual o nicho da sua empresa?",
+                 "type": "single_select", "required": True,
+                 "options": [
+                     "Alimentação & Restaurantes", "Moda & Vestuário", "Beleza & Estética",
+                     "Saúde & Bem-estar", "Educação & Cursos", "Imobiliário",
+                     "Serviços B2B", "Serviços B2C", "E-commerce / Varejo",
+                     "Indústria", "Tecnologia / SaaS", "Eventos & Entretenimento",
+                     "Automotivo", "Construção & Reformas", "Agronegócio",
+                     "Direito / Contabilidade", "Outro",
+                 ]},
+
+                {"id": "site_redes",
+                 "label": "Site, Instagram ou principal canal digital",
+                 "type": "short_text", "required": False,
+                 "placeholder": "@suaempresa / suaempresa.com.br"},
+
+                {"id": "tempo_mercado",
+                 "label": "Há quanto tempo o negócio existe?",
+                 "type": "short_text", "required": False},
+
+                {"id": "proposito",
+                 "label": "Em uma frase: o que sua empresa entrega ao mundo? Por que ela existe?",
+                 "type": "long_text", "required": True, "audio": True},
+
+                {"id": "diferenciais",
+                 "label": "Quais são os diferenciais competitivos da sua empresa?",
+                 "type": "long_text", "required": True, "audio": True},
+
+                {"id": "referencias",
+                 "label": "Quem são suas principais referências / modelos?",
+                 "type": "long_text", "required": True, "audio": True,
+                 "placeholder": "Marcas que você admira, dentro ou fora do seu nicho"},
+
+                {"id": "concorrentes",
+                 "label": "Quem são seus principais concorrentes diretos?",
+                 "type": "long_text", "required": True, "audio": True,
+                 "placeholder": "Liste nomes específicos — quanto mais, melhor"},
+
+                {"id": "sazonalidade",
+                 "label": "Como vocês se organizam com datas ao longo do ano? Trabalham com campanhas sazonais ou temáticas em alguma época?",
+                 "type": "long_text", "required": True, "audio": True},
+
+                {"id": "horarios",
+                 "label": "Quais são os dias e horários de funcionamento?",
+                 "type": "short_text", "required": True},
+
+                {"id": "area_atendimento",
+                 "label": "Qual a área de atendimento? (Região, Estado, Cidades…)",
+                 "type": "short_text", "required": True},
             ],
         },
+
+        # ── 3 / 6 ─────────────────────────────────────────────────────────────
         {
-            "id": "brand",
-            "title": "Brand e posicionamento",
-            "subtitle": "A alma da marca — propósito, voz, percepção.",
+            "id": "produtos",
+            "title": "Produtos & receita",
+            "subtitle": "O que vende, quanto vende e o quanto vai investir.",
             "fields": [
-                {"id": "missao",        "label": "Qual a missão / propósito do negócio?",                 "type": "long_text", "required": False, "audio": True},
-                {"id": "valores",       "label": "Quais valores guiam a marca?",                          "type": "long_text", "required": False, "audio": True},
-                {"id": "personalidade", "label": "Se a marca fosse uma pessoa, como ela seria?",          "type": "long_text", "required": False, "audio": True},
-                {"id": "ja_visto",      "label": "Existe alguma marca (sua área ou outra) que admira pela comunicação? Por quê?", "type": "long_text", "required": False, "audio": True},
+                {"id": "produtos_mais_vendidos",
+                 "label": "Quais o(s) produto(s) / serviço(s) você mais vende?",
+                 "type": "long_text", "required": True, "audio": True},
+
+                {"id": "produtos_maior_margem",
+                 "label": "Quais o(s) produto(s) / serviço(s) com maior margem de lucro?",
+                 "type": "long_text", "required": False, "audio": True},
+
+                {"id": "ticket_medio",
+                 "label": "Qual seu ticket médio?",
+                 "type": "currency", "required": True},
+
+                {"id": "verba_anuncios",
+                 "label": "Qual será a verba mensal que investiremos em anúncios?",
+                 "type": "currency", "required": True},
             ],
         },
+
+        # ── 4 / 6 ─────────────────────────────────────────────────────────────
         {
-            "id": "atracao",
-            "title": "Atração e produtos",
-            "subtitle": "Como o cliente entra em contato com você hoje?",
+            "id": "publico",
+            "title": "Sobre o seu público",
+            "subtitle": "Quem compra, como compra, e por quê.",
             "fields": [
-                {"id": "produtos",     "label": "Liste seus principais produtos/serviços e ticket médio", "type": "long_text", "required": True,  "audio": True},
-                {"id": "carro_chefe",  "label": "Qual é o carro-chefe? O que mais vende?",                "type": "long_text", "required": True,  "audio": True},
-                {"id": "ja_tentou",    "label": "Já fez ações de marketing digital antes? O que funcionou e o que não?", "type": "long_text", "required": False, "audio": True},
-                {"id": "investimento", "label": "Qual o investimento mensal previsto em mídia paga?",     "type": "short_text", "required": False},
-                {"id": "metas_90",     "label": "Quais metas você quer atingir nos próximos 90 dias?",    "type": "long_text", "required": True, "audio": True},
+                {"id": "comportamento_compra",
+                 "label": "Qual o comportamento de compra do seu público? Por que, como e em que momento compram?",
+                 "type": "long_text", "required": True, "audio": True},
+
+                {"id": "frequencia_consumo",
+                 "label": "Com qual frequência consomem o produto / serviço?",
+                 "type": "long_text", "required": True, "audio": True},
+
+                {"id": "faixa_etaria",
+                 "label": "Qual a faixa etária do seu público alvo?",
+                 "type": "short_text", "required": True,
+                 "placeholder": "Ex: 25 a 45 anos"},
+
+                {"id": "genero",
+                 "label": "Existe algum gênero mais relevante no seu público alvo?",
+                 "type": "short_text", "required": True},
+
+                {"id": "profissao",
+                 "label": "Existe alguma profissão mais relevante no seu público alvo?",
+                 "type": "short_text", "required": True},
+
+                {"id": "poder_aquisitivo",
+                 "label": "Qual o poder aquisitivo do seu público alvo?",
+                 "type": "short_text", "required": True,
+                 "placeholder": "Classe A, B, C…"},
             ],
         },
+
+        # ── 5 / 6 ─────────────────────────────────────────────────────────────
         {
-            "id": "operacao",
-            "title": "Operação e logística",
-            "subtitle": "Pra garantir uma entrega fluida.",
+            "id": "comercial",
+            "title": "Sobre o seu comercial",
+            "subtitle": "Pra entender o estágio operacional do funil.",
             "fields": [
-                {"id": "horario",       "label": "Horário/dia preferido para reuniões",            "type": "short_text", "required": False},
-                {"id": "responsaveis",  "label": "Quem mais participa das decisões de marketing?", "type": "long_text",  "required": False, "audio": True},
-                {"id": "ferramentas",   "label": "Quais ferramentas vocês já usam? (CRM, e-mail, ads, analytics...)", "type": "long_text", "required": False, "audio": True},
-                {"id": "obs",           "label": "Algo mais que devemos saber?",                   "type": "long_text",  "required": False, "audio": True},
+                {"id": "tem_equipe_comercial",
+                 "label": "Você tem equipe comercial?",
+                 "type": "single_select", "required": True,
+                 "options": [
+                     "Sim, tenho uma equipe comercial que me traz resultados",
+                     "Sim, tenho uma equipe, mas ainda não está me trazendo resultados",
+                     "Eu mesmo faço meu comercial e tenho resultados",
+                     "Eu mesmo faço meu comercial, mas ainda não tenho resultados",
+                 ]},
+
+                {"id": "treinamento_equipe",
+                 "label": "Você dá treinamento para sua equipe comercial?",
+                 "type": "single_select", "required": True,
+                 "options": [
+                     "Sim, pelo menos uma vez por mês",
+                     "Sim, pelo menos uma vez por trimestre",
+                     "Sim, mas só quando as vendas estão baixas",
+                     "Não faço treinamentos com minha equipe",
+                 ]},
+
+                {"id": "tem_crm",
+                 "label": "Você tem um CRM implementado na sua empresa?",
+                 "type": "single_select", "required": True,
+                 "options": [
+                     "Sim, usamos um programa pago de CRM",
+                     "Sim, usamos um programa gratuito de CRM",
+                     "Sei o que é e a importância de utilizar, mas não usamos",
+                     "Não sei o que é um CRM",
+                 ]},
+
+                {"id": "uso_crm",
+                 "label": "Se tiver um CRM implementado, sua equipe faz uso frequente dele?",
+                 "type": "single_select", "required": True,
+                 "options": [
+                     "Sim, utilizamos religiosamente",
+                     "Sim, utilizamos mas com pouca frequência",
+                     "Praticamente não utilizamos",
+                     "Não temos CRM Implementado",
+                 ]},
+
+                {"id": "analisa_funil",
+                 "label": "Você analisa as métricas do seu funil de vendas para buscar melhorias?",
+                 "type": "single_select", "required": True,
+                 "options": [
+                     "Sim, frequentemente",
+                     "Sim, raramente",
+                     "Tenho controle das métricas, mas não analiso",
+                     "Não tenho controle das métricas",
+                 ]},
+
+                {"id": "faturamento_6m",
+                 "label": "Qual foi a média de faturamento mensal nos últimos 6 meses?",
+                 "type": "currency", "required": True},
+
+                {"id": "expectativa_6m",
+                 "label": "Com base nas respostas anteriores, qual sua expectativa de faturamento para os próximos 6 meses?",
+                 "type": "currency", "required": True},
+            ],
+        },
+
+        # ── 6 / 6 ─────────────────────────────────────────────────────────────
+        {
+            "id": "parceria",
+            "title": "Sobre a nossa parceria",
+            "subtitle": "Pra fechar — visão de parceria, expectativas e contexto extra.",
+            "fields": [
+                {"id": "sucesso_parceria",
+                 "label": "O que faria você considerar nossa parceria um sucesso?",
+                 "type": "long_text", "required": True, "audio": True,
+                 "placeholder": "Pode ser tangível (faturamento, leads) ou intangível (autoridade, paz operacional)"},
+
+                {"id": "experiencias_passadas",
+                 "label": "Você já trabalhou com agência ou marketing digital antes? Como foi a experiência? O que funcionou e o que não funcionou?",
+                 "type": "long_text", "required": False, "audio": True},
+
+                {"id": "maior_gargalo",
+                 "label": "Qual é o maior gargalo do seu negócio hoje?",
+                 "type": "long_text", "required": True, "audio": True,
+                 "placeholder": "Operação? Comercial? Geração de demanda? Time? Posicionamento?"},
+
+                {"id": "obs_extra",
+                 "label": "Existe algo mais que devemos saber sobre você ou seu negócio antes de começarmos?",
+                 "type": "long_text", "required": False, "audio": True},
             ],
         },
     ],

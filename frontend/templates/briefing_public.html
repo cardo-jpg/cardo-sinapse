@@ -151,6 +151,49 @@
     }
     .field-input::placeholder, .field-textarea::placeholder { color: #b0acba; }
 
+    /* ── Currency input ───────────────────────────────────────────────────── */
+    .currency-wrap { position: relative; display: flex; align-items: stretch; }
+    .currency-prefix {
+      position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+      color: var(--muted); font-weight: 600; font-size: 1rem; pointer-events: none;
+    }
+    .currency-input { padding-left: 44px; }
+
+    /* ── Single select (radio cards) ──────────────────────────────────────── */
+    .select-stack { display: flex; flex-direction: column; gap: 10px; }
+    .opt-card {
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 18px;
+      background: var(--paper);
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .opt-card:hover { border-color: var(--orange); background: #fff; }
+    .opt-card input[type="radio"] { display: none; }
+    .opt-radio {
+      width: 18px; height: 18px;
+      flex-shrink: 0;
+      border: 1.5px solid var(--border);
+      border-radius: 50%;
+      transition: all .15s;
+      position: relative;
+    }
+    .opt-card:hover .opt-radio { border-color: var(--orange); }
+    .opt-card.opt-selected {
+      border-color: var(--navy);
+      background: linear-gradient(135deg, rgba(25,25,108,.04), rgba(233,121,25,.04));
+      box-shadow: 0 0 0 3px rgba(25,25,108,.06);
+    }
+    .opt-card.opt-selected .opt-radio {
+      border-color: var(--navy);
+      background: var(--navy);
+      box-shadow: inset 0 0 0 3.5px var(--paper);
+    }
+    .opt-text { font-size: .95rem; line-height: 1.4; color: var(--text); }
+    .opt-card.opt-selected .opt-text { color: var(--navy); font-weight: 500; }
+
     /* ── Audio button on long_text fields ─────────────────────────────────── */
     .audio-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
     .audio-btn {
@@ -328,10 +371,32 @@
                        x-model="responses[field.id]">
               </template>
 
+              <template x-if="field.type === 'currency'">
+                <div class="currency-wrap">
+                  <span class="currency-prefix">R$</span>
+                  <input class="field-input currency-input" type="text" inputmode="decimal"
+                         placeholder="0,00"
+                         :value="responses[field.id]"
+                         @input="responses[field.id] = formatCurrency($event.target.value)">
+                </div>
+              </template>
+
+              <template x-if="field.type === 'single_select'">
+                <div class="select-stack">
+                  <template x-for="opt in field.options" :key="opt">
+                    <label class="opt-card" :class="responses[field.id]===opt ? 'opt-selected' : ''">
+                      <input type="radio" :name="'f_'+field.id" :value="opt" x-model="responses[field.id]">
+                      <span class="opt-radio"></span>
+                      <span class="opt-text" x-text="opt"></span>
+                    </label>
+                  </template>
+                </div>
+              </template>
+
               <template x-if="field.type === 'long_text'">
                 <div>
                   <textarea class="field-textarea"
-                            :placeholder="field.placeholder || 'Você pode responder em texto ou usar o microfone para gravar áudio (em breve)…'"
+                            :placeholder="field.placeholder || 'Responda com calma — quanto mais detalhes, melhor.'"
                             x-model="responses[field.id]"></textarea>
                   <template x-if="field.audio">
                     <div class="audio-row">
@@ -339,7 +404,7 @@
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
                         Gravar áudio
                       </button>
-                      <span class="audio-hint">Disponível em breve — você poderá gravar e o texto aparece transcrito automaticamente.</span>
+                      <span class="audio-hint">Em breve — grava e o texto aparece transcrito automaticamente.</span>
                     </div>
                   </template>
                 </div>
@@ -434,6 +499,16 @@ function briefingWizard() {
     },
 
     toggleRitual(idx) { this.ritualChecks[idx] = !this.ritualChecks[idx]; },
+
+    formatCurrency(raw) {
+      if (raw == null) return '';
+      const digits = String(raw).replace(/\D/g, '');
+      if (!digits) return '';
+      const cents = digits.padStart(3, '0');
+      const reais = cents.slice(0, -2).replace(/^0+/, '') || '0';
+      const dec   = cents.slice(-2);
+      return reais.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + dec;
+    },
 
     validateCurrent() {
       const sec = this.currentSection;
