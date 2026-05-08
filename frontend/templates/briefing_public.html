@@ -47,7 +47,10 @@
       position: sticky; top: 0; z-index: 50;
     }
     .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
-    .brand-logo { height: 36px; width: auto; display: block; }
+    .brand-logo { height: 26px; width: auto; display: block; }
+    @media (max-width: 640px) {
+      .brand-logo { height: 22px; }
+    }
     .progress-wrap { flex: 1; max-width: 380px; margin: 0 24px; }
     .progress-meta { display: flex; justify-content: space-between; font-size: .72rem; font-weight: 600; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .08em; }
     .progress-bar { height: 4px; background: var(--border); border-radius: 99px; overflow: hidden; }
@@ -294,7 +297,7 @@
   <!-- Topbar -->
   <header class="topbar">
     <a class="brand" href="/briefing/novo" aria-label="Cardō Marketing">
-      <img src="/static/brand/cardo-logo-horizontal.png" alt="Cardō Marketing" class="brand-logo">
+      <img src="/static/brand/cardo-logo-horizontal.png?v=3" alt="Cardō Marketing" class="brand-logo">
     </a>
     <div class="progress-wrap" x-show="step > 0 && step <= sectionsLen">
       <div class="progress-meta">
@@ -441,12 +444,19 @@
             próximo passo do seu onboarding.
           </p>
           <div class="sent-actions">
-            <a class="btn btn-primary" :href="pdfUrl + '?print=1'" target="_blank" rel="noopener">
-              Baixar respostas em PDF
-            </a>
-            <a class="btn btn-secondary" :href="pdfUrl" target="_blank" rel="noopener">
-              Visualizar resposta
-            </a>
+            <template x-if="pdfUrl">
+              <a class="btn btn-primary" :href="pdfUrl + '?print=1'" target="_blank" rel="noopener">
+                Baixar respostas em PDF
+              </a>
+            </template>
+            <template x-if="pdfUrl">
+              <a class="btn btn-secondary" :href="pdfUrl" target="_blank" rel="noopener">
+                Visualizar resposta
+              </a>
+            </template>
+            <button class="btn btn-ghost" @click="resetBriefing()" type="button">
+              Começar novo briefing
+            </button>
           </div>
         </div>
       </template>
@@ -459,7 +469,12 @@
 <script>
 function briefingWizard() {
   const definition = {{ definition|tojson }};
-  const SAVE_KEY = 'cardo_briefing_draft_v1';
+  // Bump version when fluxo do estado mudar — evita resíduos antigos
+  const SAVE_KEY = 'cardo_briefing_draft_v3';
+  // Limpa keys antigas
+  try {
+    ['cardo_briefing_draft_v1', 'cardo_briefing_draft_v2'].forEach(k => localStorage.removeItem(k));
+  } catch (e) {}
 
   return {
     def: definition,
@@ -478,14 +493,20 @@ function briefingWizard() {
     },
 
     init() {
-      // restore draft
+      // restore draft — ignora saved.step === 'done' (já enviado, sem dados pra remostrar)
       try {
         const raw = localStorage.getItem(SAVE_KEY);
         if (raw) {
           const saved = JSON.parse(raw);
-          this.responses    = saved.responses    || {};
-          this.ritualChecks = saved.ritualChecks || {};
-          if (Object.keys(this.responses).length) this.step = saved.step || 0;
+          if (saved.step === 'done') {
+            localStorage.removeItem(SAVE_KEY);
+          } else {
+            this.responses    = saved.responses    || {};
+            this.ritualChecks = saved.ritualChecks || {};
+            if (Object.keys(this.responses).length) {
+              this.step = (typeof saved.step === 'number') ? saved.step : 0;
+            }
+          }
         }
       } catch (e) {}
       // auto-save
