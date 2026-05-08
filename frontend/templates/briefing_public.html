@@ -53,6 +53,13 @@
     .progress-bar { height: 4px; background: var(--border); border-radius: 99px; overflow: hidden; }
     .progress-fill { height: 100%; background: linear-gradient(90deg, var(--navy), var(--orange)); border-radius: 99px; transition: width .4s cubic-bezier(.2,.8,.2,1); }
     .save-status { font-size: .75rem; color: var(--muted); }
+    .reset-link {
+      background: transparent; border: none; padding: 6px 10px;
+      font-family: inherit; font-size: .75rem; color: var(--muted);
+      cursor: pointer; border-radius: 6px;
+      transition: color .15s, background .15s;
+    }
+    .reset-link:hover { color: var(--orange); background: var(--paper); }
 
     /* ── Stage container ──────────────────────────────────────────────────── */
     .stage { flex: 1; display: flex; flex-direction: column; padding: 48px 24px 96px; }
@@ -300,6 +307,10 @@
       <span x-show="!autoSaved">●</span><span x-show="autoSaved" style="color:#22c55e">✓</span>
       <span x-text="autoSaved ? 'Salvo no navegador' : 'Não salvo'"></span>
     </span>
+    <button class="reset-link" x-show="step === 'done' || (step > 0 && step <= sectionsLen)"
+            @click="resetBriefing()" type="button" title="Apagar respostas e começar do zero">
+      Recomeçar
+    </button>
   </header>
 
   <!-- Stage -->
@@ -484,6 +495,11 @@ function briefingWizard() {
     },
 
     saveDraft() {
+      // Não persiste estado pós-envio — evita ficar preso na tela "enviado"
+      if (this.step === 'done') {
+        try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+        return;
+      }
       try {
         localStorage.setItem(SAVE_KEY, JSON.stringify({
           responses: this.responses,
@@ -494,6 +510,16 @@ function briefingWizard() {
         clearTimeout(this._saveT);
         this._saveT = setTimeout(() => { this.autoSaved = false; }, 1500);
       } catch (e) {}
+    },
+
+    resetBriefing() {
+      try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+      this.responses = {};
+      this.ritualChecks = {};
+      this.errorMsg = '';
+      this.pdfUrl = '';
+      this.step = 0;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     },
 
     toggleRitual(idx) { this.ritualChecks[idx] = !this.ritualChecks[idx]; },
