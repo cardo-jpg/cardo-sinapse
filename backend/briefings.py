@@ -2,11 +2,17 @@
 Briefings públicos — formulário guiado (wizard) para novos clientes.
 
 Fluxo:
-  1. Cliente acessa GET /briefing/novo (público, sem auth)
+  1. Cliente acessa GET /briefing (público, sem auth)
   2. Preenche o wizard, envia → POST /api/briefing/submit
   3. Resposta é gravada em briefing_responses
   4. Tarefa é criada automaticamente em Onboarding & Implementação
   5. Cliente recebe link da resposta + opção de baixar PDF
+
+Áudio:
+  - POST /api/briefing/transcribe → recebe blob de áudio, envia pra
+    Whisper API (OpenAI), retorna texto transcrito.
+  - GET /api/briefing/audio-available → flag pro frontend habilitar
+    o botão de gravação só se a key estiver setada.
 """
 from __future__ import annotations
 
@@ -16,12 +22,16 @@ import uuid
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+import httpx
+from fastapi import APIRouter, HTTPException, Request, UploadFile, File
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from backend.db import get_conn, dict_cursor
 from backend.gestao import _require
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+WHISPER_URL    = "https://api.openai.com/v1/audio/transcriptions"
 
 router = APIRouter()
 
@@ -393,15 +403,65 @@ def _get_response(response_id: str) -> Optional[dict]:
 # Public routes (no auth)
 # ─────────────────────────────────────────────────────────────────────────────
 
-@router.get("/briefing/novo", response_class=HTMLResponse)
+@router.get("/briefing", response_class=HTMLResponse)
 async def briefing_form(request: Request):
     return templates.TemplateResponse(
         "briefing_public.html",
         {
-            "request":    request,
-            "definition": BRIEFING_DEFINITION,
+            "request":         request,
+            "definition":      BRIEFING_DEFINITION,
+            "audio_available": bool(OPENAI_API_KEY),
         },
     )
+
+
+@router.get("/briefing/novo")
+async def briefing_form_legacy():
+    """Redireciona o link antigo pra nova URL canônica."""
+    return RedirectResponse(url="/briefing", status_code=308)
+
+
+@router.get("/api/briefing/audio-available")
+async def briefing_audio_available():
+    """Flag pro frontend saber se a transcrição está disponível."""
+    return {"available": bool(OPENAI_API_KEY)}
+
+
+@router.post("/api/briefing/transcribe")
+async def briefing_transcribe(audio: UploadFile = File(...)):
+    """
+    Recebe um blob de áudio (webm/ogg/mp3/m4a) e devolve o texto
+    transcrito pelo Whisper. Pública — qualquer um preenchendo o
+    briefing pode chamar.
+    """
+    if not OPENAI_API_KEY:
+        raise HTTPException(503, "Transcrição indisponível: OPENAI_API_KEY não configurada")
+
+    # Aceita até ~25MB (limite do Whisper)
+    raw = await audio.read()
+    if len(raw) > 25 * 1024 * 1024:
+        raise HTTPException(413, "Áudio muito grande (máx 25MB)")
+    if len(raw) < 1024:
+        raise HTTPException(400, "Áudio muito curto")
+
+    filename = audio.filename or "audio.webm"
+    mime     = audio.content_type or "audio/webm"
+
+    try:
+        async with httpx.AsyncClient(timeout=120) as client:
+            r = await client.post(
+                WHISPER_URL,
+                headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
+                files={"file": (filename, raw, mime)},
+                data={"model": "whisper-1", "language": "pt", "response_format": "json"},
+            )
+        if r.status_code >= 400:
+            raise HTTPException(502, f"Whisper API erro {r.status_code}: {r.text[:200]}")
+        data = r.json()
+    except httpx.HTTPError as e:
+        raise HTTPException(502, f"Falha ao chamar Whisper: {e}")
+
+    return {"text": (data.get("text") or "").strip()}
 
 
 @router.post("/api/briefing/submit")

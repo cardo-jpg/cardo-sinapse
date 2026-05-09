@@ -220,12 +220,15 @@
     }
     .audio-btn:hover { background: var(--navy-deep); }
     .audio-btn.recording { background: var(--orange); animation: pulse 1.4s infinite; }
+    .audio-btn.processing { background: var(--muted); cursor: wait; }
     .audio-btn[disabled] { opacity: .55; cursor: not-allowed; }
     .audio-hint { font-size: .78rem; color: var(--muted); }
     @keyframes pulse {
       0%, 100% { box-shadow: 0 0 0 0 rgba(233,121,25,.5); }
       50%      { box-shadow: 0 0 0 10px rgba(233,121,25,0); }
     }
+    .spin { display: inline-block; animation: spinrot 1s linear infinite; }
+    @keyframes spinrot { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
     /* ── Nav buttons ──────────────────────────────────────────────────────── */
     .nav { display: flex; justify-content: space-between; align-items: center; margin-top: 56px; gap: 16px; }
@@ -296,7 +299,7 @@
 
   <!-- Topbar -->
   <header class="topbar">
-    <a class="brand" href="/briefing/novo" aria-label="Cardō Marketing">
+    <a class="brand" href="/briefing" aria-label="Cardō Marketing">
       <img src="/static/brand/cardo-logo-horizontal.png?v=3" alt="Cardō Marketing" class="brand-logo">
     </a>
     <div class="progress-wrap" x-show="step > 0 && step <= sectionsLen">
@@ -409,11 +412,49 @@
                             x-model="responses[field.id]"></textarea>
                   <template x-if="field.audio">
                     <div class="audio-row">
-                      <button type="button" class="audio-btn" disabled title="Em breve — disponível na próxima fase">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-                        Gravar áudio
-                      </button>
-                      <span class="audio-hint">Em breve — grava e o texto aparece transcrito automaticamente.</span>
+                      <template x-if="!audioAvailable">
+                        <button type="button" class="audio-btn" disabled title="Aguardando configuração da API">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                          Gravar áudio
+                        </button>
+                      </template>
+                      <template x-if="audioAvailable">
+                        <button type="button" class="audio-btn"
+                                :class="{
+                                  'recording': audioRec.fieldId === field.id && audioRec.state === 'recording',
+                                  'processing': audioRec.fieldId === field.id && audioRec.state === 'processing'
+                                }"
+                                :disabled="audioRec.state !== 'idle' && audioRec.fieldId !== field.id"
+                                @click="toggleAudio(field.id)">
+                          <template x-if="!(audioRec.fieldId === field.id) || audioRec.state === 'idle'">
+                            <span style="display:inline-flex;align-items:center;gap:8px">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                              Gravar áudio
+                            </span>
+                          </template>
+                          <template x-if="audioRec.fieldId === field.id && audioRec.state === 'recording'">
+                            <span style="display:inline-flex;align-items:center;gap:8px">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                              Parar (<span x-text="formatRecTime(audioRec.elapsed)"></span>)
+                            </span>
+                          </template>
+                          <template x-if="audioRec.fieldId === field.id && audioRec.state === 'processing'">
+                            <span style="display:inline-flex;align-items:center;gap:8px">
+                              <span class="spin">⏳</span> Transcrevendo…
+                            </span>
+                          </template>
+                        </button>
+                      </template>
+                      <span class="audio-hint" x-show="audioAvailable && (audioRec.fieldId !== field.id || audioRec.state === 'idle')">
+                        Grave e o texto aparece transcrito automaticamente — você pode editar depois.
+                      </span>
+                      <span class="audio-hint" style="color:var(--orange)"
+                            x-show="audioRec.fieldId === field.id && audioRec.state === 'recording'">
+                        ● Gravando… clique em "Parar" quando terminar.
+                      </span>
+                      <span class="audio-hint" style="color:#b91c1c"
+                            x-show="audioRec.errorMsg && audioRec.errorField === field.id"
+                            x-text="audioRec.errorMsg"></span>
                     </div>
                   </template>
                 </div>
@@ -468,7 +509,8 @@
 
 <script>
 function briefingWizard() {
-  const definition = {{ definition|tojson }};
+  const definition       = {{ definition|tojson }};
+  const audioAvailable   = {{ audio_available|tojson }};
   // Bump version when fluxo do estado mudar — evita resíduos antigos
   const SAVE_KEY = 'cardo_briefing_draft_v3';
   // Limpa keys antigas
@@ -478,6 +520,7 @@ function briefingWizard() {
 
   return {
     def: definition,
+    audioAvailable,
     step: 0,
     responses: {},
     ritualChecks: {},
@@ -486,6 +529,18 @@ function briefingWizard() {
     submitting: false,
     autoSaved: false,
     pdfUrl: '',
+    audioRec: {
+      state: 'idle',     // idle | recording | processing
+      fieldId: null,
+      elapsed: 0,
+      errorMsg: '',
+      errorField: null,
+      _mediaRecorder: null,
+      _stream: null,
+      _chunks: [],
+      _timer: null,
+      _started: 0,
+    },
 
     get currentSection() {
       const idx = this.step - 1;
@@ -544,6 +599,113 @@ function briefingWizard() {
     },
 
     toggleRitual(idx) { this.ritualChecks[idx] = !this.ritualChecks[idx]; },
+
+    formatRecTime(sec) {
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return `${m}:${String(s).padStart(2, '0')}`;
+    },
+
+    async toggleAudio(fieldId) {
+      if (this.audioRec.state === 'idle') {
+        await this.startRecording(fieldId);
+      } else if (this.audioRec.state === 'recording' && this.audioRec.fieldId === fieldId) {
+        await this.stopRecording();
+      }
+    },
+
+    async startRecording(fieldId) {
+      this.audioRec.errorMsg = '';
+      this.audioRec.errorField = null;
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Pick a mime the browser supports
+        const mimes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'];
+        const mime = mimes.find(m => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)) || '';
+        const rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+        this.audioRec._mediaRecorder = rec;
+        this.audioRec._stream = stream;
+        this.audioRec._chunks = [];
+        this.audioRec._started = Date.now();
+        this.audioRec.elapsed = 0;
+        this.audioRec.fieldId = fieldId;
+        this.audioRec.state = 'recording';
+
+        rec.addEventListener('dataavailable', e => {
+          if (e.data && e.data.size > 0) this.audioRec._chunks.push(e.data);
+        });
+        rec.addEventListener('stop', () => this._onRecordingStopped());
+        rec.start(1000);
+
+        this.audioRec._timer = setInterval(() => {
+          this.audioRec.elapsed = (Date.now() - this.audioRec._started) / 1000;
+          // Auto-stop em 5 minutos pra não estourar limite do Whisper
+          if (this.audioRec.elapsed > 300) this.stopRecording();
+        }, 250);
+      } catch (e) {
+        this.audioRec.state = 'idle';
+        this.audioRec.fieldId = null;
+        this.audioRec.errorField = fieldId;
+        if (e && e.name === 'NotAllowedError') {
+          this.audioRec.errorMsg = 'Permissão de microfone negada. Habilite nas preferências do navegador.';
+        } else {
+          this.audioRec.errorMsg = 'Não foi possível acessar o microfone.';
+        }
+      }
+    },
+
+    async stopRecording() {
+      if (this.audioRec.state !== 'recording') return;
+      try {
+        this.audioRec._mediaRecorder?.stop();
+      } catch (e) {}
+      if (this.audioRec._timer) { clearInterval(this.audioRec._timer); this.audioRec._timer = null; }
+    },
+
+    async _onRecordingStopped() {
+      // stop tracks
+      try { this.audioRec._stream?.getTracks().forEach(t => t.stop()); } catch (e) {}
+
+      const fieldId = this.audioRec.fieldId;
+      const chunks  = this.audioRec._chunks;
+      const mime    = this.audioRec._mediaRecorder?.mimeType || 'audio/webm';
+      this.audioRec.state = 'processing';
+
+      const blob = new Blob(chunks, { type: mime });
+      if (blob.size < 1024) {
+        this.audioRec.state = 'idle';
+        this.audioRec.fieldId = null;
+        this.audioRec.errorField = fieldId;
+        this.audioRec.errorMsg = 'Áudio muito curto — tente de novo.';
+        return;
+      }
+
+      const fd = new FormData();
+      const ext = mime.includes('mp4') ? 'm4a' : mime.includes('ogg') ? 'ogg' : 'webm';
+      fd.append('audio', blob, `briefing.${ext}`);
+
+      try {
+        const r = await fetch('/api/briefing/transcribe', { method: 'POST', body: fd });
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.detail || 'erro_transcribe');
+        }
+        const { text } = await r.json();
+        if (text) {
+          const prev = (this.responses[fieldId] || '').trim();
+          this.responses[fieldId] = prev ? (prev + '\n\n' + text) : text;
+        }
+        this.audioRec.errorMsg = '';
+        this.audioRec.errorField = null;
+      } catch (e) {
+        this.audioRec.errorField = fieldId;
+        this.audioRec.errorMsg = 'Falha ao transcrever. Tente de novo ou digite manualmente.';
+      } finally {
+        this.audioRec.state = 'idle';
+        this.audioRec.fieldId = null;
+        this.audioRec._chunks = [];
+      }
+    },
 
     formatCurrency(raw) {
       if (raw == null) return '';
