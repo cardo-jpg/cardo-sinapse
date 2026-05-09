@@ -1472,10 +1472,6 @@
         <span class="g-nav-icon">💰</span>
         <span>Financeiro</span>
       </a>
-      <a href="/briefings" class="g-nav-link" data-label="Briefings">
-        <span class="g-nav-icon">📋</span>
-        <span>Briefings</span>
-      </a>
     </div>
 
     <!-- Espaços tree -->
@@ -1514,6 +1510,18 @@
           </div>
 
           <div class="g-space-children" x-show="expanded[space.id]" x-collapse>
+
+            <!-- briefings link (dentro do espaço Novas Contas) -->
+            <template x-if="(space.name||'').toLowerCase().includes('novas contas')">
+              <a href="/briefings"
+                 class="g-feature-row"
+                 :class="false"
+                 style="text-decoration:none;color:inherit">
+                <span style="width:17px;flex-shrink:0"></span>
+                <span style="font-size:.8rem;flex-shrink:0">📋</span>
+                <span style="flex:1">Briefings</span>
+              </a>
+            </template>
 
             <!-- feature links (ferramentas da agência) -->
             <template x-if="space.features && space.features.length > 0">
