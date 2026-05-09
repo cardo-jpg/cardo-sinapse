@@ -1511,18 +1511,6 @@
 
           <div class="g-space-children" x-show="expanded[space.id]" x-collapse>
 
-            <!-- briefings link (dentro do espaço Novas Contas) -->
-            <template x-if="(space.name||'').toLowerCase().includes('novas contas')">
-              <a href="/briefings"
-                 class="g-feature-row"
-                 :class="false"
-                 style="text-decoration:none;color:inherit">
-                <span style="width:17px;flex-shrink:0"></span>
-                <span style="font-size:.8rem;flex-shrink:0">📋</span>
-                <span style="flex:1">Briefings</span>
-              </a>
-            </template>
-
             <!-- feature links (ferramentas da agência) -->
             <template x-if="space.features && space.features.length > 0">
               <div>
@@ -1614,6 +1602,13 @@
                   </div>
                 </div>
                 <div class="g-folder-content" x-show="expanded['f_'+folder.id]" x-collapse>
+                  <!-- briefings link dentro do folder Novas Contas -->
+                  <template x-if="(folder.name||'').toLowerCase().includes('novas contas')">
+                    <a href="/briefings" class="g-list-row" style="text-decoration:none;color:inherit">
+                      <span style="font-size:.75rem; flex-shrink:0">📋</span>
+                      <span style="flex:1">Briefings</span>
+                    </a>
+                  </template>
                   <template x-for="lst in folder.lists" :key="lst.id">
                     <div class="g-list-row"
                          :class="activeList?.id === lst.id ? 'active' : ''"
