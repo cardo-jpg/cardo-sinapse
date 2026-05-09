@@ -649,6 +649,30 @@
     .task-detail-body {
       display: flex; flex: 1; overflow: hidden;
     }
+    .briefing-actions {
+      margin: 12px 0 18px;
+      padding: 14px 16px;
+      background: linear-gradient(135deg, rgba(233,121,25,.08), rgba(25,25,108,.08));
+      border: 1px solid rgba(233,121,25,.25);
+      border-radius: 10px;
+    }
+    .briefing-actions-eyebrow {
+      font-size: .72rem; text-transform: uppercase; letter-spacing: .12em;
+      color: #e97919; font-weight: 600;
+      display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+    }
+    .briefing-actions-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+    .briefing-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 14px; border-radius: 8px;
+      font-size: .82rem; font-weight: 600;
+      text-decoration: none; cursor: pointer;
+      transition: all .15s; border: 1px solid transparent;
+    }
+    .briefing-btn-primary { background: #e97919; color: #fff; }
+    .briefing-btn-primary:hover { background: #d56b14; }
+    .briefing-btn-secondary { background: transparent; color: var(--text); border-color: var(--border); }
+    .briefing-btn-secondary:hover { border-color: #e97919; color: #e97919; }
     .task-detail-left {
       flex: 1; padding: 24px 28px; overflow-y: auto; min-width: 0;
       border-right: 1px solid var(--border);
@@ -1447,6 +1471,10 @@
       <a href="/financeiro" class="g-nav-link" data-label="Financeiro">
         <span class="g-nav-icon">💰</span>
         <span>Financeiro</span>
+      </a>
+      <a href="/briefings" class="g-nav-link" data-label="Briefings">
+        <span class="g-nav-icon">📋</span>
+        <span>Briefings</span>
       </a>
     </div>
 
@@ -2970,6 +2998,26 @@
                       placeholder="Nome da tarefa"
                       @change="patchTask('title', form.title)"
                       @keydown.enter.prevent="$el.blur()"></textarea>
+
+            <!-- Briefing actions (aparece quando a task tem briefing_response_id) -->
+            <template x-if="form.extra_data && form.extra_data.briefing_response_id">
+              <div class="briefing-actions">
+                <div class="briefing-actions-eyebrow">
+                  <span style="font-size:1rem">📋</span>
+                  Briefing inicial recebido
+                </div>
+                <div class="briefing-actions-buttons">
+                  <a class="briefing-btn briefing-btn-primary"
+                     :href="'/briefing/r/' + form.extra_data.briefing_response_id" target="_blank">
+                    Ver respostas
+                  </a>
+                  <a class="briefing-btn briefing-btn-secondary"
+                     :href="'/api/briefing/responses/' + form.extra_data.briefing_response_id + '/pdf?print=1'" target="_blank">
+                    Baixar PDF
+                  </a>
+                </div>
+              </div>
+            </template>
 
             <!-- Status -->
             <div class="prop-row">

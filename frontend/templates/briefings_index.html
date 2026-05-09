@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Briefings — Sinapse</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    :root {
+      --bg: #0e0e1a;
+      --panel: #161624;
+      --panel-2: #1c1c2e;
+      --border: #25253a;
+      --text: #e8e6f0;
+      --muted: #9892a8;
+      --orange: #E97919;
+      --navy: #19196C;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); line-height: 1.55; min-height: 100vh; }
+
+    .page { max-width: 1100px; margin: 0 auto; padding: 32px 24px 80px; }
+
+    .topbar { display: flex; align-items: center; gap: 14px; margin-bottom: 28px; }
+    .back { color: var(--muted); text-decoration: none; font-size: .9rem; display: inline-flex; align-items: center; gap: 6px; }
+    .back:hover { color: var(--orange); }
+    h1 { font-size: 1.75rem; font-weight: 700; }
+    .subtitle { color: var(--muted); font-size: .92rem; margin-top: 4px; }
+
+    .toolbar {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap;
+    }
+    .search {
+      flex: 1; min-width: 240px;
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 14px;
+      color: var(--text); font-family: inherit; font-size: .92rem;
+      outline: none;
+    }
+    .search:focus { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(233,121,25,.12); }
+    .count { font-size: .85rem; color: var(--muted); }
+
+    .table-wrap { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; }
+    thead {
+      background: var(--panel-2);
+      font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
+    }
+    thead th { text-align: left; padding: 12px 16px; font-weight: 600; border-bottom: 1px solid var(--border); }
+    tbody td { padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: .92rem; vertical-align: middle; }
+    tbody tr { transition: background .12s; }
+    tbody tr:hover { background: rgba(233,121,25,.05); }
+    tbody tr:last-child td { border-bottom: none; }
+
+    .client-name { font-weight: 600; color: var(--text); }
+    .client-email { font-size: .8rem; color: var(--muted); margin-top: 2px; }
+    .empresa { color: var(--text); }
+    .nicho-tag {
+      display: inline-block; padding: 2px 8px; border-radius: 99px;
+      font-size: .72rem; background: rgba(25,25,108,.25); color: #aab1ff;
+    }
+    .data-cell { color: var(--muted); font-size: .85rem; white-space: nowrap; }
+    .actions { display: flex; gap: 6px; justify-content: flex-end; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 6px 12px; border-radius: 6px;
+      font-size: .78rem; font-weight: 600;
+      text-decoration: none; cursor: pointer; border: 1px solid transparent;
+      transition: all .12s; font-family: inherit;
+    }
+    .btn-view { background: var(--orange); color: #fff; }
+    .btn-view:hover { background: #d56b14; }
+    .btn-pdf { background: transparent; color: var(--text); border-color: var(--border); }
+    .btn-pdf:hover { border-color: var(--orange); color: var(--orange); }
+    .btn-task { background: transparent; color: var(--muted); border-color: var(--border); font-size: .7rem; }
+    .btn-task:hover { color: #aab1ff; border-color: #aab1ff; }
+
+    .empty {
+      padding: 64px 24px; text-align: center; color: var(--muted);
+    }
+    .empty-icon { font-size: 2.5rem; margin-bottom: 16px; opacity: .5; }
+    .empty-title { font-size: 1.1rem; color: var(--text); margin-bottom: 6px; }
+    .empty-sub { font-size: .9rem; }
+    .empty a { color: var(--orange); text-decoration: none; }
+
+    .loading { padding: 60px 24px; text-align: center; color: var(--muted); }
+
+    @media (max-width: 700px) {
+      thead { display: none; }
+      tbody td { display: block; padding: 8px 16px; border-bottom: none; }
+      tbody tr { display: block; padding: 14px 0; border-bottom: 1px solid var(--border); }
+      .actions { justify-content: flex-start; padding-top: 8px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page" x-data="briefingsIndex()" x-init="load()">
+  <div class="topbar">
+    <a href="/gestao" class="back">← Voltar pro Sinapse</a>
+  </div>
+
+  <h1>Briefings recebidos</h1>
+  <div class="subtitle">Todos os briefings iniciais enviados por novos clientes via <code>/briefing</code>.</div>
+
+  <div class="toolbar" style="margin-top: 22px;">
+    <input type="text" class="search" placeholder="Buscar por nome, email, empresa, nicho…"
+           x-model="q" @input.debounce.300ms="load()">
+    <span class="count" x-show="!loading" x-text="items.length + (items.length === 1 ? ' briefing' : ' briefings')"></span>
+    <a href="/briefing" target="_blank" class="btn btn-view" style="margin-left:auto;">
+      Abrir formulário público →
+    </a>
+  </div>
+
+  <template x-if="loading">
+    <div class="loading">Carregando…</div>
+  </template>
+
+  <template x-if="!loading && items.length === 0">
+    <div class="empty">
+      <div class="empty-icon">📋</div>
+      <div class="empty-title">Nenhum briefing por aqui ainda</div>
+      <div class="empty-sub">
+        Compartilhe o link <a href="/briefing" target="_blank">/briefing</a> com seus novos clientes — as respostas aparecem aqui automaticamente.
+      </div>
+    </div>
+  </template>
+
+  <template x-if="!loading && items.length > 0">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th>Empresa</th>
+            <th>Nicho</th>
+            <th>Recebido</th>
+            <th style="text-align:right">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="b in items" :key="b.id">
+            <tr>
+              <td>
+                <div class="client-name" x-text="b.client_name || '— sem nome —'"></div>
+                <div class="client-email" x-text="b.client_email || ''"></div>
+              </td>
+              <td><span class="empresa" x-text="b.empresa || '—'"></span></td>
+              <td><span class="nicho-tag" x-show="b.nicho" x-text="b.nicho"></span></td>
+              <td><span class="data-cell" x-text="formatDate(b.submitted_at)"></span></td>
+              <td>
+                <div class="actions">
+                  <a class="btn btn-view" :href="'/briefing/r/' + b.id" target="_blank">Ver</a>
+                  <a class="btn btn-pdf" :href="'/api/briefing/responses/' + b.id + '/pdf?print=1'" target="_blank">PDF</a>
+                </div>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </template>
+</div>
+
+<script>
+  function briefingsIndex() {
+    return {
+      items: [],
+      q: '',
+      loading: true,
+      async load() {
+        this.loading = true;
+        try {
+          const url = '/api/briefings' + (this.q ? '?q=' + encodeURIComponent(this.q) : '');
+          const r = await fetch(url);
+          const data = await r.json();
+          this.items = data.items || [];
+        } catch (e) {
+          this.items = [];
+        } finally {
+          this.loading = false;
+        }
+      },
+      formatDate(s) {
+        if (!s) return '—';
+        try {
+          const d = new Date(s);
+          return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+               + ' · ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        } catch (e) { return s; }
+      },
+    };
+  }
+</script>
+
+</body>
+</html>
