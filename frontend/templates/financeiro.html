@@ -518,8 +518,11 @@
             <button class="fin-pill" :class="filtro===f && 'active'" @click="filtro=f; selectedIds=[]" x-text="filtroLabel(f)"></button>
           </template>
           <template x-if="selectedIds.length > 0">
-            <div style="display:flex;align-items:center;gap:6px;margin-left:auto;">
+            <div style="display:flex;align-items:center;gap:10px;margin-left:auto;">
               <span style="font-size:.8rem;color:var(--muted);" x-text="selectedIds.length + ' selecionado(s)'"></span>
+              <span style="font-size:.85rem;font-weight:600;"
+                    :style="`color:${selectedSum >= 0 ? '#22c55e' : '#ef4444'}`"
+                    x-text="'Soma: ' + formatBRL(selectedSum)"></span>
               <button class="btn btn-ghost" style="font-size:.8rem;padding:4px 10px;" @click="quitarLote()">✓ Quitar/Reabrir</button>
               <button class="btn btn-ghost" style="font-size:.8rem;padding:4px 10px;" @click="selectedIds=[]">✕ Limpar</button>
             </div>
@@ -1497,23 +1500,29 @@
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Tipo de Contato</label>
-              <select class="form-input form-select" x-model="lancForm.tipo_contato" @change="lancForm.contato_id=''">
+              <select class="form-input form-select" x-model="lancForm.contato_tipo" @change="lancForm.contato_id=''">
                 <option value="">Nenhum</option>
                 <option value="cliente">Cliente</option>
                 <option value="fornecedor">Fornecedor</option>
+                <option value="colaborador">Colaborador</option>
               </select>
             </div>
             <div class="form-group">
               <label class="form-label">Contato</label>
-              <select class="form-input form-select" x-model="lancForm.contato_id" :disabled="!lancForm.tipo_contato">
+              <select class="form-input form-select" x-model="lancForm.contato_id" :disabled="!lancForm.contato_tipo">
                 <option value="">— Selecione —</option>
-                <template x-if="lancForm.tipo_contato==='cliente'">
+                <template x-if="lancForm.contato_tipo==='cliente'">
                   <template x-for="c in clientes" :key="c.id">
                     <option :value="c.id" x-text="c.nome_fantasia||c.razao_social||c.nome"></option>
                   </template>
                 </template>
-                <template x-if="lancForm.tipo_contato==='fornecedor'">
+                <template x-if="lancForm.contato_tipo==='fornecedor'">
                   <template x-for="c in fornecedores" :key="c.id">
+                    <option :value="c.id" x-text="c.nome_fantasia||c.razao_social||c.nome"></option>
+                  </template>
+                </template>
+                <template x-if="lancForm.contato_tipo==='colaborador'">
+                  <template x-for="c in colaboradores" :key="c.id">
                     <option :value="c.id" x-text="c.nome_fantasia||c.razao_social||c.nome"></option>
                   </template>
                 </template>
@@ -2120,7 +2129,31 @@ window.finApp = function() {
         this.loadCentros(),
         this.loadClientes(),
         this.loadFornecedores(),
+        this.loadColaboradores(),
       ]);
+    },
+
+    _resolveContatoNome() {
+      const id   = this.lancForm.contato_id;
+      const tipo = this.lancForm.contato_tipo;
+      if (!id || !tipo) return null;
+      const list = tipo === 'cliente'    ? this.clientes
+                : tipo === 'fornecedor' ? this.fornecedores
+                : tipo === 'colaborador'? this.colaboradores
+                : [];
+      const c = list.find(x => x.id == id);
+      if (!c) return null;
+      return c.nome_fantasia || c.razao_social || c.nome || null;
+    },
+
+    get selectedSum() {
+      if (!this.selectedIds || !this.selectedIds.length) return 0;
+      const set = new Set(this.selectedIds.map(String));
+      return (this.lancamentos || []).reduce((s, l) => {
+        if (!set.has(String(l.id))) return s;
+        const v = parseFloat(l.valor_total || l.valor || 0) || 0;
+        return s + (l.tipo === 'pagar' ? -v : v);
+      }, 0);
     },
 
     /* ══════════════════════════ MONTH NAV ══════════════════════════ */
@@ -2165,7 +2198,7 @@ window.finApp = function() {
         id: null, tipo,
         data_emissao: this.today(), vencimento: this.today(),
         vencimento_tipo: 'uma_vez', num_parcelas: '',
-        tipo_contato: '', contato_id: '',
+        contato_tipo: '', contato_id: '',
         descricao: '', documento: '',
         valor_str: '', acrescimo_str: '', acrescimo_tipo: 'R$',
         desconto_str: '', desconto_tipo: 'R$',
@@ -2182,7 +2215,7 @@ window.finApp = function() {
         tipo: l.tipo,
         data_emissao: l.data_emissao ? l.data_emissao.slice(0,10) : this.today(),
         vencimento: l.vencimento ? l.vencimento.slice(0,10) : this.today(),
-        tipo_contato: l.tipo_contato || '',
+        contato_tipo: l.contato_tipo || '',
         contato_id: l.contato_id || '',
         descricao: l.descricao || '',
         documento: l.documento || '',
@@ -2223,8 +2256,9 @@ window.finApp = function() {
           tipo: this.lancForm.tipo,
           emissao: this.lancForm.data_emissao,
           vencimento: this.lancForm.vencimento,
-          tipo_contato: this.lancForm.tipo_contato || null,
+          contato_tipo: this.lancForm.contato_tipo || null,
           contato_id: this.lancForm.contato_id || null,
+          contato_nome: this._resolveContatoNome() || null,
           descricao: this.lancForm.descricao,
           documento: this.lancForm.documento || null,
           valor: this.parseBRL(this.lancForm.valor_str),
