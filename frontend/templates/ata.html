@@ -4,403 +4,845 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Atas — Sinapse</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap">
   <link rel="stylesheet" href="/static/style.css?v=2">
   <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    :root {
+      --cb-navy:        #19196C;
+      --cb-navy-deep:   #0e0e44;
+      --cb-orange:      #E97919;
+      --cb-orange-soft: #f59854;
+      --cb-bg:          #0a0a14;
+      --cb-bg-2:        #0f0f1c;
+      --cb-panel:       #14142a;
+      --cb-panel-2:     #1a1a30;
+      --cb-border:      #232342;
+      --cb-text:        #ebe9f5;
+      --cb-text-dim:    #a8a4ba;
+      --cb-muted:       #6b6786;
+    }
+
+    .sinapse-main {
+      background:
+        radial-gradient(1200px 600px at 50% -20%, rgba(25,25,108,.45) 0%, transparent 60%),
+        radial-gradient(800px 500px at 100% 100%, rgba(233,121,25,.18) 0%, transparent 60%),
+        var(--cb-bg) !important;
+      color: var(--cb-text) !important;
+      font-family: 'Inter', -apple-system, sans-serif !important;
+    }
+
+    .display { font-family: 'Fraunces', 'Inter', serif; font-weight: 600; letter-spacing: -.01em; }
+
+    /* App shell */
+    .ata-app {
+      min-height: 100%;
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 32px 28px 80px;
+    }
+
+    /* Topbar */
+    .ata-topbar {
+      display: flex; align-items: center; gap: 16px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .ata-topbar h1 {
+      font-family: 'Fraunces', serif;
+      font-size: 1.7rem; font-weight: 700;
+      color: #fff; letter-spacing: -.01em;
+      flex: 1;
+    }
+    .ata-topbar h1 em { font-style: normal; color: var(--cb-orange); }
+
+    /* Progress bar */
+    .ata-progress {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 32px;
+    }
+    .ata-step-dot {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 12px;
+      border-radius: 99px;
+      background: var(--cb-panel);
+      border: 1px solid var(--cb-border);
+      font-size: .75rem;
+      color: var(--cb-text-dim);
+      transition: all .2s;
+    }
+    .ata-step-dot.active {
+      background: linear-gradient(135deg, var(--cb-navy) 0%, var(--cb-navy-deep) 100%);
+      border-color: var(--cb-orange);
+      color: #fff;
+      box-shadow: 0 0 0 3px rgba(233,121,25,.18);
+    }
+    .ata-step-dot.done {
+      background: rgba(34,197,94,.12);
+      border-color: rgba(34,197,94,.4);
+      color: #86efac;
+    }
+    .ata-step-num {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.1);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: .7rem; font-weight: 700;
+    }
+    .ata-step-dot.active .ata-step-num { background: var(--cb-orange); }
+    .ata-step-dot.done .ata-step-num { background: #22c55e; color: #062013; }
+    .ata-step-line {
+      flex: 1; height: 1px;
+      background: linear-gradient(90deg, var(--cb-border), transparent);
+      max-width: 30px;
+    }
+
+    /* Card geral */
+    .ata-card {
+      background: rgba(20, 20, 42, 0.55);
+      backdrop-filter: blur(14px) saturate(140%);
+      -webkit-backdrop-filter: blur(14px) saturate(140%);
+      border: 1px solid var(--cb-border);
+      border-radius: 16px;
+      padding: 28px;
+      margin-bottom: 18px;
+    }
+
+    .section-eyebrow {
+      font-size: .72rem; text-transform: uppercase; letter-spacing: .25em;
+      color: var(--cb-orange); font-weight: 600;
+      margin-bottom: 10px;
+    }
+    .section-title {
+      font-family: 'Fraunces', serif;
+      font-size: 1.5rem; font-weight: 600;
+      color: #fff; margin-bottom: 8px;
+      letter-spacing: -.005em;
+    }
+    .section-sub {
+      color: var(--cb-text-dim); font-size: .92rem;
+      margin-bottom: 22px;
+    }
+
+    /* Step 1: lista de reuniões */
+    .meeting-list { display: flex; flex-direction: column; gap: 8px; }
+    .meeting-item {
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 18px;
+      background: var(--cb-panel-2);
+      border: 1px solid var(--cb-border);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .meeting-item:hover {
+      border-color: var(--cb-orange);
+      background: var(--cb-panel);
+      transform: translateY(-1px);
+    }
+    .meeting-item.selected {
+      border-color: var(--cb-orange);
+      background: linear-gradient(135deg, rgba(25,25,108,.25), rgba(233,121,25,.08));
+      box-shadow: 0 0 0 3px rgba(233,121,25,.15);
+    }
+    .meeting-icon {
+      width: 36px; height: 36px;
+      border-radius: 9px;
+      background: rgba(25,25,108,.3);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; font-size: 1.05rem;
+    }
+    .meeting-info { flex: 1; min-width: 0; }
+    .meeting-title {
+      color: #fff; font-weight: 500; font-size: .95rem;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      margin-bottom: 3px;
+    }
+    .meeting-meta {
+      color: var(--cb-muted); font-size: .78rem;
+      display: flex; gap: 8px; align-items: center;
+    }
+    .meeting-badge {
+      padding: 1px 7px; border-radius: 99px;
+      font-size: .68rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .04em;
+    }
+    .badge-notes { background: rgba(56,189,248,.15); color: #7dd3fc; }
+    .badge-summary { background: rgba(168,85,247,.15); color: #c4b5fd; }
+    .empty-state {
+      padding: 60px 20px; text-align: center;
+      color: var(--cb-muted);
+    }
+    .empty-state-icon { font-size: 2.5rem; margin-bottom: 12px; opacity: .4; }
+
+    /* Step 2: cliente */
+    .client-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 10px;
+    }
+    .client-card {
+      padding: 18px 16px;
+      background: linear-gradient(135deg, var(--cb-panel) 0%, var(--cb-panel-2) 100%);
+      border: 1px solid var(--cb-border);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all .15s;
+      text-align: center;
+    }
+    .client-card:hover {
+      border-color: var(--cb-orange);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px -8px rgba(233,121,25,.3);
+    }
+    .client-card.selected {
+      border-color: var(--cb-orange);
+      background: linear-gradient(135deg, rgba(25,25,108,.4), rgba(233,121,25,.08));
+      box-shadow: 0 0 0 3px rgba(233,121,25,.18);
+    }
+    .client-card-sigla {
+      font-family: 'Fraunces', serif;
+      font-size: 1.05rem; font-weight: 700;
+      color: var(--cb-orange);
+      letter-spacing: .04em;
+      display: block;
+      margin-bottom: 4px;
+    }
+    .client-card-nome {
+      font-size: .82rem;
+      color: var(--cb-text-dim);
+    }
+    .client-card.selected .client-card-nome { color: var(--cb-text); }
+
+    /* Step 3: ata content */
+    .ata-content-wrapper {
+      max-height: 60vh; overflow-y: auto;
+      padding: 8px 4px;
+    }
+    .ata-content {
+      color: var(--cb-text); line-height: 1.7;
+      font-size: .94rem;
+    }
+    .ata-content h1, .ata-content h2, .ata-content h3 {
+      color: #fff; font-family: 'Fraunces', serif;
+      margin-top: 1.5em; margin-bottom: .5em;
+    }
+    .ata-content h1 { font-size: 1.4rem; }
+    .ata-content h2 { font-size: 1.2rem; }
+    .ata-content h3 { font-size: 1.05rem; }
+    .ata-content ul, .ata-content ol { margin: 12px 0 12px 24px; }
+    .ata-content li { margin-bottom: 4px; }
+    .ata-content strong { color: #fff; }
+    .ata-content code {
+      background: rgba(255,255,255,.08); padding: 2px 6px;
+      border-radius: 4px; font-size: .88em;
+    }
+    .ata-content blockquote {
+      border-left: 3px solid var(--cb-orange);
+      padding: 4px 0 4px 16px; margin: 12px 0;
+      color: var(--cb-text-dim);
+    }
+
+    /* Step 4: tasks validation */
+    .task-list { display: flex; flex-direction: column; gap: 10px; }
+    .task-row {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 14px 16px;
+      background: var(--cb-panel);
+      border: 1px solid var(--cb-border);
+      border-radius: 12px;
+    }
+    .task-check {
+      width: 22px; height: 22px; flex-shrink: 0;
+      cursor: pointer;
+      accent-color: var(--cb-orange);
+    }
+    .task-info { flex: 1; min-width: 0; }
+    .task-name {
+      color: #fff; font-weight: 500; font-size: .92rem;
+      margin-bottom: 8px; line-height: 1.4;
+    }
+    .task-controls {
+      display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    }
+    .task-select {
+      padding: 6px 10px;
+      background: var(--cb-bg-2); border: 1px solid var(--cb-border);
+      color: var(--cb-text); font-size: .78rem; font-family: inherit;
+      border-radius: 7px; cursor: pointer;
+      max-width: 280px;
+    }
+    .task-select:focus { outline: 1px solid var(--cb-orange); }
+    .task-tag {
+      padding: 2px 8px; font-size: .7rem;
+      border-radius: 99px;
+      background: rgba(255,255,255,.06);
+      color: var(--cb-text-dim);
+    }
+    .task-tag.client { background: rgba(56,189,248,.15); color: #7dd3fc; }
+    .task-tag.cardo  { background: rgba(233,121,25,.15); color: var(--cb-orange-soft); }
+
+    /* Buttons */
+    .btn-row {
+      display: flex; gap: 10px; justify-content: space-between; align-items: center;
+      margin-top: 22px; flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-family: inherit; font-size: .92rem; font-weight: 600;
+      cursor: pointer; border: 1px solid transparent;
+      transition: all .15s;
+      text-decoration: none;
+    }
+    .btn-primary {
+      background: var(--cb-orange); color: #fff; border-color: var(--cb-orange);
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: #d56b14;
+      transform: translateY(-1px);
+      box-shadow: 0 8px 20px -8px rgba(233,121,25,.5);
+    }
+    .btn-primary:disabled {
+      opacity: .5; cursor: not-allowed;
+    }
+    .btn-ghost {
+      background: transparent; color: var(--cb-text-dim); border-color: var(--cb-border);
+    }
+    .btn-ghost:hover { color: var(--cb-text); border-color: var(--cb-orange); }
+    .btn-secondary {
+      background: rgba(25,25,108,.3); color: var(--cb-text);
+      border-color: rgba(25,25,108,.5);
+    }
+    .btn-secondary:hover { background: rgba(25,25,108,.5); }
+
+    /* Loading + alerts */
+    .loading-blob {
+      padding: 40px 20px; text-align: center;
+      color: var(--cb-text-dim); font-size: .9rem;
+    }
+    .spin-icon { display: inline-block; animation: spin 1.2s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .alert-error {
+      padding: 12px 16px; border-radius: 10px;
+      background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.3);
+      color: #fca5a5; font-size: .9rem;
+      margin-bottom: 14px;
+    }
+
+    /* Final screen */
+    .done-card {
+      text-align: center; padding: 48px 32px;
+    }
+    .done-icon {
+      width: 84px; height: 84px;
+      margin: 0 auto 20px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--cb-orange), var(--cb-orange-soft));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.2rem; color: #fff;
+      box-shadow: 0 16px 32px -8px rgba(233,121,25,.45);
+    }
+    .done-title {
+      font-family: 'Fraunces', serif;
+      font-size: 1.7rem; color: #fff;
+      margin-bottom: 10px;
+    }
+    .done-sub { color: var(--cb-text-dim); margin-bottom: 22px; }
+    .done-breadcrumb {
+      display: inline-block;
+      padding: 8px 14px;
+      background: var(--cb-panel-2);
+      border: 1px solid var(--cb-border);
+      border-radius: 8px;
+      color: var(--cb-text-dim); font-size: .82rem;
+      margin-bottom: 28px;
+      font-family: 'JetBrains Mono', 'Menlo', monospace;
+    }
+    .done-actions {
+      display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+    }
+  </style>
 </head>
 <body>
 <div class="sinapse-shell">
   {% include "_sidebar.html" %}
-  <main class="sinapse-main" style="padding:0; overflow:hidden;">
-  <div class="ata-layout">
+  <main class="sinapse-main" style="padding:0; overflow-y:auto;">
 
-    <!-- SIDEBAR -->
-    <aside class="ata-sidebar">
-      <div class="ata-sidebar-title">Reuniões no Granola</div>
-      <div class="ata-meeting-list" id="meetingList">
-        <div class="ata-loading">Buscando reuniões...</div>
+  <div class="ata-app" x-data="ataWizard()" x-init="init()">
+
+    <!-- TOPBAR -->
+    <div class="ata-topbar">
+      <h1 class="display">Gerador de <em>Atas</em></h1>
+      <button class="btn btn-ghost" @click="reset()" x-show="step !== 'select_meeting'">↺ Recomeçar</button>
+    </div>
+
+    <!-- STEPS PROGRESS (esconde no done) -->
+    <div class="ata-progress" x-show="step !== 'done'">
+      <div class="ata-step-dot" :class="stepClass('select_meeting')">
+        <span class="ata-step-num">1</span><span>Reunião</span>
       </div>
-      <button class="ata-refresh-btn" onclick="loadMeetings()">↻ Atualizar</button>
-    </aside>
-
-    <!-- MAIN -->
-    <main class="ata-main">
-
-      <!-- Estado inicial -->
-      <div id="stateEmpty" class="ata-state">
-        <div class="ata-state-icon">📝</div>
-        <div class="ata-state-title">Selecione uma reunião</div>
-        <div class="ata-state-desc">Escolha uma reunião na lista ao lado para visualizar a ata.</div>
+      <div class="ata-step-line"></div>
+      <div class="ata-step-dot" :class="stepClass('select_client')">
+        <span class="ata-step-num">2</span><span>Cliente</span>
       </div>
-
-      <!-- Carregando -->
-      <div id="stateLoading" class="ata-state" style="display:none;">
-        <div class="ata-state-icon ata-spin">⏳</div>
-        <div class="ata-state-title">Carregando ata...</div>
-        <div class="ata-state-desc">Buscando reunião no Granola.</div>
+      <div class="ata-step-line"></div>
+      <div class="ata-step-dot" :class="stepClass('preview')">
+        <span class="ata-step-num">3</span><span>Ata</span>
       </div>
+      <div class="ata-step-line"></div>
+      <div class="ata-step-dot" :class="stepClass('tasks')">
+        <span class="ata-step-num">4</span><span>Tarefas</span>
+      </div>
+    </div>
 
-      <!-- Preview da ata -->
-      <div id="stateResult" style="display:none;" class="ata-result-wrapper">
-        <div class="ata-result-toolbar">
-          <div class="ata-result-title-block">
-            <div class="ata-result-title" id="resultTitle"></div>
-            <div class="ata-result-date" id="resultDate"></div>
+    <!-- ════════════════════════════════════════════════════════════
+         STEP 1: SELECIONAR REUNIÃO
+         ════════════════════════════════════════════════════════════ -->
+    <template x-if="step === 'select_meeting'">
+      <div class="ata-card">
+        <div class="section-eyebrow">Etapa 1 de 4</div>
+        <h2 class="section-title display">Qual reunião?</h2>
+        <p class="section-sub">Escolha uma reunião do Granola para gerar a ata.</p>
+
+        <template x-if="meetingsLoading">
+          <div class="loading-blob"><span class="spin-icon">⏳</span> Buscando no Granola…</div>
+        </template>
+
+        <template x-if="!meetingsLoading && meetingsError">
+          <div class="alert-error" x-text="meetingsError"></div>
+        </template>
+
+        <template x-if="!meetingsLoading && !meetings.length && !meetingsError">
+          <div class="empty-state">
+            <div class="empty-state-icon">🗓️</div>
+            Nenhuma reunião encontrada.
           </div>
-          <div class="ata-result-actions">
-            <div class="ata-clickup-group">
-              <div class="ata-clickup-group-label">Enviar para o ClickUp</div>
-              <div class="ata-clickup-group-row">
-                <select class="ata-client-select" id="resultClientSelect">
-                  <option value="">Selecione o cliente...</option>
-                </select>
-                <div class="ata-clickup-group-btns">
-                  <button class="ata-btn-tasks" id="extractTasksBtn" onclick="extractTasks()">Criar tarefas</button>
-                  <button class="ata-btn-publish" id="publishBtn" onclick="publishAta()">Publicar ata</button>
+        </template>
+
+        <template x-if="!meetingsLoading && meetings.length">
+          <div class="meeting-list">
+            <template x-for="m in meetings" :key="m.id">
+              <div class="meeting-item" @click="selectMeeting(m)">
+                <div class="meeting-icon">🎙️</div>
+                <div class="meeting-info">
+                  <div class="meeting-title" x-text="m.title"></div>
+                  <div class="meeting-meta">
+                    <span x-text="formatDate(m.date)"></span>
+                    <template x-if="m.has_content"><span class="meeting-badge badge-notes">notas</span></template>
+                    <template x-if="m.has_summary"><span class="meeting-badge badge-summary">resumo</span></template>
+                  </div>
                 </div>
+                <span style="color: var(--cb-muted); font-size:1.2rem">→</span>
               </div>
+            </template>
+          </div>
+        </template>
+
+        <div class="btn-row">
+          <button class="btn btn-ghost" @click="loadMeetings()">↻ Atualizar</button>
+        </div>
+      </div>
+    </template>
+
+    <!-- ════════════════════════════════════════════════════════════
+         STEP 2: SELECIONAR CLIENTE
+         ════════════════════════════════════════════════════════════ -->
+    <template x-if="step === 'select_client'">
+      <div class="ata-card">
+        <div class="section-eyebrow">Etapa 2 de 4</div>
+        <h2 class="section-title display">Qual cliente?</h2>
+        <p class="section-sub">A ata vai ser publicada na pasta deste cliente em <strong>Operacional → Gestão de Contas → Documentação</strong>.</p>
+
+        <template x-if="clientsLoading">
+          <div class="loading-blob"><span class="spin-icon">⏳</span> Carregando clientes…</div>
+        </template>
+
+        <template x-if="!clientsLoading && clients.length">
+          <div class="client-grid">
+            <template x-for="c in clients" :key="c.sigla">
+              <div class="client-card" :class="selectedClient && selectedClient.sigla === c.sigla ? 'selected' : ''" @click="selectClient(c)">
+                <span class="client-card-sigla" x-text="c.sigla"></span>
+                <span class="client-card-nome" x-text="c.nome"></span>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <template x-if="!clientsLoading && !clients.length">
+          <div class="empty-state">Nenhum cliente ativo encontrado.</div>
+        </template>
+
+        <div class="btn-row">
+          <button class="btn btn-ghost" @click="step = 'select_meeting'">← Voltar</button>
+          <button class="btn btn-primary" @click="generateAta()" :disabled="!selectedClient">Gerar ata →</button>
+        </div>
+      </div>
+    </template>
+
+    <!-- ════════════════════════════════════════════════════════════
+         STEP 3: PREVIEW DA ATA
+         ════════════════════════════════════════════════════════════ -->
+    <template x-if="step === 'preview'">
+      <div class="ata-card">
+        <div class="section-eyebrow">Etapa 3 de 4 · <span x-text="selectedClient ? `[${selectedClient.sigla}] ${selectedClient.nome}` : ''"></span></div>
+        <h2 class="section-title display" x-text="selectedMeeting ? selectedMeeting.title : ''"></h2>
+        <p class="section-sub" x-text="generatedDate ? formatDate(generatedDate) : ''"></p>
+
+        <template x-if="ataGenerating">
+          <div class="loading-blob"><span class="spin-icon">✨</span> Gerando ata com IA…</div>
+        </template>
+
+        <template x-if="!ataGenerating && ataError">
+          <div class="alert-error" x-text="ataError"></div>
+        </template>
+
+        <template x-if="!ataGenerating && generatedAta">
+          <div class="ata-content-wrapper">
+            <div class="ata-content" x-html="generatedHtml"></div>
+          </div>
+        </template>
+
+        <div class="btn-row">
+          <button class="btn btn-ghost" @click="step = 'select_client'">← Voltar</button>
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-secondary" @click="extractTasks()" :disabled="!generatedAta || tasksExtracting">
+              <template x-if="tasksExtracting"><span class="spin-icon">⏳</span></template>
+              <span x-text="tasksExtracting ? 'Analisando…' : 'Próximo: extrair tarefas →'"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ════════════════════════════════════════════════════════════
+         STEP 4: VALIDAR TAREFAS + PUBLICAR
+         ════════════════════════════════════════════════════════════ -->
+    <template x-if="step === 'tasks'">
+      <div>
+        <div class="ata-card">
+          <div class="section-eyebrow">Etapa 4 de 4</div>
+          <h2 class="section-title display">Confirme as tarefas</h2>
+          <p class="section-sub">A IA sugeriu uma lista pra cada tarefa. Você pode marcar/desmarcar e mudar a lista de destino.</p>
+
+          <template x-if="!extractedTasks.length">
+            <div class="empty-state">Nenhuma tarefa identificada na ata.</div>
+          </template>
+
+          <template x-if="extractedTasks.length">
+            <div class="task-list">
+              <template x-for="(t, i) in extractedTasks" :key="i">
+                <div class="task-row">
+                  <input type="checkbox" class="task-check" x-model="t._enabled">
+                  <div class="task-info">
+                    <div class="task-name" x-text="t.name"></div>
+                    <div class="task-controls">
+                      <select class="task-select" x-model="t._list_id" :disabled="!t._enabled">
+                        <option value="">— Escolha lista —</option>
+                        <template x-for="l in sinapseLists" :key="l.id">
+                          <option :value="l.id" :selected="l.id === t._list_id" x-text="l.breadcrumb"></option>
+                        </template>
+                      </select>
+                      <select class="task-select" x-model="t.assignee" :disabled="!t._enabled" style="max-width:150px">
+                        <option value="">— Sem responsável —</option>
+                        <option value="victor">👤 Victor</option>
+                        <option value="jose">👤 José</option>
+                        <option value="jadna">👤 Jadna</option>
+                      </select>
+                      <span class="task-tag" :class="t.is_client ? 'client' : 'cardo'" x-text="t.is_client ? 'cliente' : 'cardô'"></span>
+                      <span class="task-tag" x-show="t.due_date" x-text="'📅 ' + formatDate(t.due_date)"></span>
+                    </div>
+                  </div>
+                </div>
+              </template>
             </div>
-          </div>
+          </template>
         </div>
-        <div class="ata-result-content" id="resultContent"></div>
-      </div>
 
-      <!-- Modal de tarefas -->
-      <div id="tasksModal" class="tasks-modal" style="display:none;">
-        <div class="tasks-modal-inner">
-          <div class="tasks-modal-header">
-            <div class="tasks-modal-title">Tarefas extraídas da ata</div>
-            <button class="tasks-modal-close" onclick="closeTasksModal()">×</button>
-          </div>
-          <div class="tasks-modal-body" id="tasksModalBody"></div>
-          <div class="tasks-modal-footer">
-            <button class="ata-btn-secondary" onclick="closeTasksModal()">Cancelar</button>
-            <button class="ata-btn-publish" id="createTasksBtn" onclick="createTasks()">Criar tarefas selecionadas</button>
-          </div>
+        <template x-if="publishError">
+          <div class="alert-error" x-text="publishError"></div>
+        </template>
+
+        <div class="btn-row">
+          <button class="btn btn-ghost" @click="step = 'preview'">← Voltar</button>
+          <button class="btn btn-primary" @click="publishAll()" :disabled="publishing">
+            <template x-if="publishing"><span class="spin-icon">⏳</span></template>
+            <span x-text="publishing ? 'Publicando…' : 'Publicar ata + criar tarefas →'"></span>
+          </button>
         </div>
       </div>
+    </template>
 
-      <!-- Publicado -->
-      <div id="statePublished" class="ata-state" style="display:none;">
-        <div class="ata-state-icon">✅</div>
-        <div class="ata-state-title">Ata publicada no ClickUp!</div>
-        <div class="ata-state-desc">
-          <a id="publishedUrl" href="#" target="_blank" class="ata-clickup-link">Abrir no ClickUp →</a>
+    <!-- ════════════════════════════════════════════════════════════
+         DONE
+         ════════════════════════════════════════════════════════════ -->
+    <template x-if="step === 'done'">
+      <div class="ata-card done-card">
+        <div class="done-icon">✓</div>
+        <div class="done-title display">Tudo publicado!</div>
+        <div class="done-sub">
+          <span x-text="`Ata salva` + (createdResult.tasksCount ? ` e ${createdResult.tasksCount} tarefa${createdResult.tasksCount === 1 ? '' : 's'} criada${createdResult.tasksCount === 1 ? '' : 's'}` : '') + ' no Sinapse.'"></span>
         </div>
-        <button class="ata-btn-secondary" style="margin-top:24px;" onclick="resetFull()">Ver outra ata</button>
+        <div class="done-breadcrumb" x-text="createdResult.breadcrumb"></div>
+        <div class="done-actions">
+          <a class="btn btn-primary" :href="createdResult.url || '/gestao'">Ver no Sinapse →</a>
+          <button class="btn btn-ghost" @click="reset()">Nova ata</button>
+        </div>
       </div>
+    </template>
 
-    </main>
   </div>
 
-  <script>
-    const CLIENTS = [
-      { sigla: 'SRW',   nome: 'Speedrack West',   emoji: '🏭' },
-      { sigla: 'HDLT',  nome: 'Headlight Co',      emoji: '💡' },
-      { sigla: 'HIRE',  nome: 'Hire Brazil',       emoji: '🤝' },
-      { sigla: 'SCALE', nome: 'Scale Army',        emoji: '⚡' },
-      { sigla: 'CC',    nome: 'Conexão Cirúrgica', emoji: '🏥' },
-      { sigla: 'NF',    nome: 'Gráfica NF',        emoji: '🖨️' },
-      { sigla: 'PV',    nome: 'Patrícia Voggt',    emoji: '💄' },
-      { sigla: 'DFT',   nome: 'DFT Logística',     emoji: '🚛' },
-    ];
-
-    let selectedMeeting = null;
-    let generatedAta = null;
-    let generatedDate = null;
-
-    // ── Meetings ──────────────────────────────────────────────────────────────
-
-    async function loadMeetings() {
-      const list = document.getElementById('meetingList');
-      list.innerHTML = '<div class="ata-loading">Buscando reuniões...</div>';
-      try {
-        const res = await fetch('/api/granola/meetings');
-        if (!res.ok) throw new Error('Erro');
-        const meetings = await res.json();
-        if (meetings.error) throw new Error(meetings.error);
-        renderMeetings(meetings);
-      } catch (e) {
-        list.innerHTML = '<div class="ata-error">Não foi possível conectar ao Granola.</div>';
-      }
-    }
-
-    function renderMeetings(meetings) {
-      const list = document.getElementById('meetingList');
-      if (!meetings.length) {
-        list.innerHTML = '<div class="ata-empty">Nenhuma reunião encontrada.</div>';
-        return;
-      }
-      list.innerHTML = '';
-      meetings.forEach(m => {
-        const el = document.createElement('div');
-        el.className = 'ata-meeting-item';
-        el.dataset.id = m.id;
-        const dateStr = formatDate(m.date);
-        const badges = [];
-        if (m.has_content) badges.push('<span class="ata-badge ata-badge-notes">notas</span>');
-        if (m.has_summary) badges.push('<span class="ata-badge ata-badge-summary">resumo</span>');
-        el.innerHTML = `
-          <div class="ata-meeting-title">${escapeHtml(m.title)}</div>
-          <div class="ata-meeting-meta">
-            <span class="ata-meeting-date">${dateStr}</span>
-            ${badges.join('')}
-          </div>`;
-        el.onclick = () => selectMeeting(m, el);
-        list.appendChild(el);
-      });
-    }
-
-    function selectMeeting(m, el) {
-      document.querySelectorAll('.ata-meeting-item').forEach(i => i.classList.remove('active'));
-      el.classList.add('active');
-      selectedMeeting = m;
-      generatedAta = null;
-      fetchMeetingContent(m);
-    }
-
-    // ── Fetch content ─────────────────────────────────────────────────────────
-
-    async function fetchMeetingContent(meeting) {
-      showState('stateLoading');
-      try {
-        const res = await fetch('/api/ata/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ meeting_id: meeting.id }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'Erro ao buscar ata.');
-        generatedAta = data.ata;
-        generatedDate = data.date || meeting.date;
-        showResult(data.ata, data.title, data.date || meeting.date);
-      } catch (e) {
-        showState('stateEmpty');
-        alert(e.message);
-      }
-    }
-
-    function showResult(ata, title, date) {
-      showState('stateResult');
-      document.getElementById('resultTitle').textContent = title;
-      document.getElementById('resultDate').textContent = date ? formatDate(date) : '';
-
-      const sel = document.getElementById('resultClientSelect');
-      sel.innerHTML = '<option value="">Selecione o cliente...</option>';
-      CLIENTS.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.sigla;
-        opt.textContent = `${c.emoji} ${c.nome}`;
-        sel.appendChild(opt);
-      });
-
-      const publishBtn = document.getElementById('publishBtn');
-      publishBtn.disabled = false;
-      publishBtn.textContent = 'Publicar ata';
-
-      const tasksBtn = document.getElementById('extractTasksBtn');
-      tasksBtn.disabled = false;
-      tasksBtn.textContent = 'Criar tarefas';
-
-      marked.setOptions({ breaks: true, gfm: true });
-      document.getElementById('resultContent').innerHTML = marked.parse(ata);
-    }
-
-    // ── Publish ───────────────────────────────────────────────────────────────
-
-    async function publishAta() {
-      const clientSigla = document.getElementById('resultClientSelect').value;
-      if (!clientSigla) {
-        alert('Selecione o cliente antes de publicar.');
-        return;
-      }
-
-      const btn = document.getElementById('publishBtn');
-      btn.disabled = true;
-      btn.textContent = 'Publicando...';
-      try {
-        const res = await fetch('/api/ata/publish', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            content: generatedAta,
-            client_sigla: clientSigla,
-            date: generatedDate || (selectedMeeting ? selectedMeeting.date : ''),
-            meeting_title: selectedMeeting ? selectedMeeting.title : '',
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'Erro ao publicar.');
-        document.getElementById('publishedUrl').href = data.url;
-        document.getElementById('publishedUrl').textContent = 'Abrir no ClickUp →';
-        showState('statePublished');
-      } catch (e) {
-        alert(e.message);
-        btn.disabled = false;
-        btn.textContent = 'Publicar ata';
-      }
-    }
-
-    // ── Tasks ─────────────────────────────────────────────────────────────────
-
-    let extractedTasks = [];
-
-    async function extractTasks() {
-      const clientSigla = document.getElementById('resultClientSelect').value;
-      if (!clientSigla) {
-        alert('Selecione o cliente antes de criar tarefas.');
-        return;
-      }
-      const clientNome = CLIENTS.find(c => c.sigla === clientSigla)?.nome || '';
-
-      const btn = document.getElementById('extractTasksBtn');
-      btn.disabled = true;
-      btn.textContent = 'Analisando...';
-
-      try {
-        const res = await fetch('/api/ata/extract-tasks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            content: generatedAta,
-            client_sigla: clientSigla,
-            client_name: clientNome,
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'Erro ao extrair tarefas.');
-        extractedTasks = data.tasks || [];
-        if (!extractedTasks.length) { alert('Nenhuma tarefa encontrada na ata.'); return; }
-        showTasksModal(extractedTasks);
-      } catch (e) {
-        alert(e.message);
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Criar tarefas';
-      }
-    }
-
-    const AREA_LABELS = {
-      atendimento: 'Atendimento & CS',
-      trafego:     'Gestão de Tráfego',
-      redacao:     'Redação',
-      automacao:   'Automações',
-      conteudo:    'Conteúdo',
-    };
-
-    const MEMBERS = [
-      { key: 'victor',  label: 'Victor' },
-      { key: 'jose',    label: 'José Carlos' },
-      { key: 'jadna',   label: 'Jadna' },
-    ];
-
-    function showTasksModal(tasks) {
-      const body = document.getElementById('tasksModalBody');
-      body.innerHTML = '';
-      const areaOptions = Object.entries(AREA_LABELS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
-      tasks.forEach((t, i) => {
-        const div = document.createElement('div');
-        div.className = 'task-item';
-        const selectedArea = t.area || 'atendimento';
-        div.innerHTML = `
-          <label class="task-item-check">
-            <input type="checkbox" checked data-idx="${i}">
-            <div class="task-item-info">
-              <div class="task-item-name">${escapeHtml(t.name)}</div>
-              <div class="task-item-meta">
-                <select class="task-area-select" data-idx="${i}" style="font-size:11px;padding:2px 6px;border-radius:6px;border:1px solid #444;background:#1e1e1e;color:#ccc;cursor:pointer;">
-                  ${Object.entries(AREA_LABELS).map(([k, v]) => `<option value="${k}" ${k === selectedArea ? 'selected' : ''}>${v}</option>`).join('')}
-                </select>
-                <select class="task-assignee-select" data-idx="${i}" style="font-size:11px;padding:2px 6px;border-radius:6px;border:1px solid #444;background:#1e1e1e;color:#ccc;cursor:pointer;">
-                  ${MEMBERS.map(m => `<option value="${m.key}" ${(t.assignee||'').toLowerCase().includes(m.key) ? 'selected' : ''}>👤 ${m.label}</option>`).join('')}
-                </select>
-                ${t.due_date ? `<span class="task-meta-tag">📅 ${formatDate(t.due_date)}</span>` : ''}
-                ${t.is_client ? `<span class="task-meta-tag task-meta-client">cliente</span>` : '<span class="task-meta-tag task-meta-cardo">cardô</span>'}
-              </div>
-            </div>
-          </label>`;
-        body.appendChild(div);
-      });
-      document.getElementById('tasksModal').style.display = 'flex';
-    }
-
-    function closeTasksModal() {
-      document.getElementById('tasksModal').style.display = 'none';
-    }
-
-    async function createTasks() {
-      const clientSigla = document.getElementById('resultClientSelect').value;
-      const checkboxes = document.querySelectorAll('#tasksModalBody input[type=checkbox]');
-      const selected = [];
-      checkboxes.forEach(cb => {
-        if (cb.checked) {
-          const idx = parseInt(cb.dataset.idx);
-          const task = { ...extractedTasks[idx] };
-          // Sobrescreve área com o valor do select (caso o usuário tenha alterado)
-          const areaSelect = document.querySelector(`.task-area-select[data-idx="${idx}"]`);
-          if (areaSelect) task.area = areaSelect.value;
-          const assigneeSelect = document.querySelector(`.task-assignee-select[data-idx="${idx}"]`);
-          if (assigneeSelect) task.assignee = assigneeSelect.value;
-          selected.push(task);
-        }
-      });
-      if (!selected.length) { alert('Selecione ao menos uma tarefa.'); return; }
-
-      const btn = document.getElementById('createTasksBtn');
-      btn.disabled = true;
-      btn.textContent = 'Criando...';
-
-      try {
-        const res = await fetch('/api/ata/create-tasks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tasks: selected, client_sigla: clientSigla }),
-        });
-        const data = await res.json();
-        closeTasksModal();
-        const n = data.created?.length || 0;
-        const errs = data.errors?.length || 0;
-        let msg = `✅ ${n} tarefa${n !== 1 ? 's' : ''} criada${n !== 1 ? 's' : ''} no ClickUp.`;
-        if (errs) msg += `\n⚠️ ${errs} com erro.`;
-        alert(msg);
-      } catch(e) {
-        alert('Erro ao criar tarefas: ' + e.message);
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Criar tarefas selecionadas';
-      }
-    }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    function showState(id) {
-      ['stateEmpty', 'stateLoading', 'stateResult', 'statePublished'].forEach(s => {
-        const el = document.getElementById(s);
-        if (el) el.style.display = s === id ? 'flex' : 'none';
-      });
-    }
-
-    function resetFull() {
-      selectedMeeting = null;
-      generatedAta = null;
-      document.querySelectorAll('.ata-meeting-item').forEach(i => i.classList.remove('active'));
-      showState('stateEmpty');
-    }
-
-    function formatDate(iso) {
-      if (!iso) return '';
-      const [y, m, d] = iso.split('-');
-      return `${d}/${m}/${y}`;
-    }
-
-    function escapeHtml(t) {
-      return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
-
-    // ── Init ──────────────────────────────────────────────────────────────────
-    loadMeetings();
-  </script>
-  </div>
   </main>
 </div>
+
+<script>
+function ataWizard() {
+  return {
+    step: 'select_meeting',          // select_meeting | select_client | preview | tasks | done
+
+    // Meetings
+    meetings: [],
+    meetingsLoading: false,
+    meetingsError: '',
+    selectedMeeting: null,
+
+    // Clients
+    clients: [],
+    clientsLoading: false,
+    selectedClient: null,
+
+    // Ata
+    ataGenerating: false,
+    ataError: '',
+    generatedAta: '',
+    generatedHtml: '',
+    generatedDate: '',
+
+    // Tasks
+    tasksExtracting: false,
+    extractedTasks: [],
+    sinapseLists: [],
+
+    // Publish
+    publishing: false,
+    publishError: '',
+    createdResult: { url: '', breadcrumb: '', tasksCount: 0 },
+
+    // ── INIT ────────────────────────────────────────────────────
+    async init() {
+      marked.setOptions({ breaks: true, gfm: true });
+      this.loadMeetings();
+      this.loadSinapseLists();
+    },
+
+    stepClass(s) {
+      const order = ['select_meeting', 'select_client', 'preview', 'tasks'];
+      const i = order.indexOf(s);
+      const cur = order.indexOf(this.step);
+      if (this.step === 'done') return i >= 0 ? 'done' : '';
+      if (i === cur) return 'active';
+      if (i < cur) return 'done';
+      return '';
+    },
+
+    // ── STEP 1: meetings ───────────────────────────────────────
+    async loadMeetings() {
+      this.meetingsLoading = true;
+      this.meetingsError = '';
+      try {
+        const r = await fetch('/api/granola/meetings');
+        if (!r.ok) throw new Error('não foi possível conectar ao Granola');
+        const data = await r.json();
+        if (data.error) throw new Error(data.error);
+        this.meetings = data;
+      } catch (e) {
+        this.meetingsError = e.message || 'Erro ao buscar reuniões.';
+      } finally {
+        this.meetingsLoading = false;
+      }
+    },
+
+    selectMeeting(m) {
+      this.selectedMeeting = m;
+      this.loadClients();
+      this.step = 'select_client';
+    },
+
+    // ── STEP 2: clients ────────────────────────────────────────
+    async loadClients() {
+      if (this.clients.length) return;
+      this.clientsLoading = true;
+      try {
+        const r = await fetch('/api/cerebro/clients');
+        const data = await r.json();
+        this.clients = (data.clients || []).filter(c => c.sigla && c.nome);
+      } catch (e) {
+        this.clients = [];
+      } finally {
+        this.clientsLoading = false;
+      }
+    },
+
+    selectClient(c) { this.selectedClient = c; },
+
+    // ── STEP 3: gerar ata ──────────────────────────────────────
+    async generateAta() {
+      if (!this.selectedClient || !this.selectedMeeting) return;
+      this.step = 'preview';
+      this.ataGenerating = true;
+      this.ataError = '';
+      this.generatedAta = '';
+      this.generatedHtml = '';
+      try {
+        const r = await fetch('/api/ata/generate', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ meeting_id: this.selectedMeeting.id }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.detail || 'Erro ao gerar ata.');
+        this.generatedAta = data.ata;
+        this.generatedDate = data.date || this.selectedMeeting.date;
+        this.generatedHtml = marked.parse(this.generatedAta);
+      } catch (e) {
+        this.ataError = e.message || 'Erro inesperado.';
+      } finally {
+        this.ataGenerating = false;
+      }
+    },
+
+    // ── STEP 4: tasks ──────────────────────────────────────────
+    async loadSinapseLists() {
+      try {
+        const r = await fetch('/api/sinapse/lists');
+        const data = await r.json();
+        this.sinapseLists = data.lists || [];
+      } catch (e) {
+        this.sinapseLists = [];
+      }
+    },
+
+    async extractTasks() {
+      if (!this.generatedAta) return;
+      this.tasksExtracting = true;
+      try {
+        const r = await fetch('/api/ata/sinapse/extract-tasks', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            content: this.generatedAta,
+            client_sigla: this.selectedClient.sigla,
+            client_name:  this.selectedClient.nome,
+          }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.detail || 'Erro ao extrair tarefas.');
+        const list = data.tasks || [];
+        // Pré-seleciona list_id baseado em suggested_list_name
+        list.forEach(t => {
+          t._enabled = true;
+          const sug = t.suggested_list_name || '';
+          const match = this.sinapseLists.find(l =>
+            l.name.toLowerCase() === sug.toLowerCase()
+          ) || this.sinapseLists.find(l =>
+            l.name.toLowerCase().includes(sug.toLowerCase())
+          );
+          t._list_id = match ? match.id : '';
+        });
+        this.extractedTasks = list;
+        this.step = 'tasks';
+      } catch (e) {
+        alert(e.message || 'Erro ao analisar.');
+      } finally {
+        this.tasksExtracting = false;
+      }
+    },
+
+    // ── PUBLICAR ───────────────────────────────────────────────
+    async publishAll() {
+      this.publishing = true;
+      this.publishError = '';
+      try {
+        // 1. publica a ata
+        const r1 = await fetch('/api/ata/sinapse/publish', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({
+            client_sigla:  this.selectedClient.sigla,
+            content:       this.generatedAta,
+            date:          this.generatedDate,
+            meeting_title: this.selectedMeeting.title,
+          }),
+        });
+        const data1 = await r1.json();
+        if (!r1.ok) throw new Error(data1.detail || 'Erro ao publicar ata.');
+
+        // 2. cria tarefas selecionadas
+        const tasksToCreate = this.extractedTasks
+          .filter(t => t._enabled && t._list_id)
+          .map(t => ({
+            name: t.name,
+            description: t.description || '',
+            list_id: t._list_id,
+            assignee: t.assignee || null,
+            due_date: t.due_date || null,
+          }));
+
+        let tasksCount = 0;
+        if (tasksToCreate.length) {
+          const r2 = await fetch('/api/ata/sinapse/create-tasks', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ tasks: tasksToCreate, client_sigla: this.selectedClient.sigla }),
+          });
+          const data2 = await r2.json();
+          tasksCount = (data2.created || []).length;
+        }
+
+        this.createdResult = {
+          url: data1.url,
+          breadcrumb: data1.breadcrumb,
+          tasksCount,
+        };
+        this.step = 'done';
+      } catch (e) {
+        this.publishError = e.message || 'Erro ao publicar.';
+      } finally {
+        this.publishing = false;
+      }
+    },
+
+    // ── RESET ──────────────────────────────────────────────────
+    reset() {
+      this.step = 'select_meeting';
+      this.selectedMeeting = null;
+      this.selectedClient = null;
+      this.generatedAta = '';
+      this.generatedHtml = '';
+      this.generatedDate = '';
+      this.extractedTasks = [];
+      this.publishError = '';
+      this.ataError = '';
+    },
+
+    // ── HELPERS ────────────────────────────────────────────────
+    formatDate(s) {
+      if (!s) return '';
+      try {
+        if (s.includes('-') && s.length >= 10) {
+          const [y, m, d] = s.slice(0, 10).split('-');
+          return `${d}/${m}/${y}`;
+        }
+        return s;
+      } catch (e) { return s; }
+    },
+  };
+}
+</script>
 </body>
 </html>
