@@ -209,6 +209,15 @@ def init_db():
                 FOREIGN KEY (form_id) REFERENCES forms(id) ON DELETE CASCADE
             )
         """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS list_view_settings (
+                list_id     TEXT PRIMARY KEY,
+                settings    TEXT NOT NULL DEFAULT '{}',
+                updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_by  TEXT,
+                FOREIGN KEY (list_id) REFERENCES lists(id) ON DELETE CASCADE
+            )
+        """)
 
         # ADD COLUMN migrations — PostgreSQL: use DO blocks to avoid errors on re-run
         migrations = [

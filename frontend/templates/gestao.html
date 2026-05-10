@@ -41,13 +41,23 @@
     [x-cloak] { display: none !important; }
 
     /* ── shell ───────────────────────────────────────────────────────────────── */
-    body { overflow: hidden; }
-    .g-shell { display: flex; height: 100vh; overflow: hidden; }
+    body {
+      overflow: hidden;
+      /* Glow Cardō atrás de tudo — aparece através das áreas translúcidas */
+      background:
+        radial-gradient(1200px 600px at -10% -20%, rgba(25,25,108,.45) 0%, transparent 60%),
+        radial-gradient(900px 600px at 110% 110%, rgba(233,121,25,.18) 0%, transparent 60%),
+        var(--bg);
+    }
+    .g-shell { display: flex; height: 100vh; overflow: hidden; background: transparent; }
 
     /* ── unified sidebar ─────────────────────────────────────────────────────── */
     .g-nav {
       width: 260px; flex-shrink: 0;
-      background: #111; border-right: 1px solid var(--border);
+      background: rgba(14, 14, 26, 0.72);
+      backdrop-filter: blur(14px) saturate(140%);
+      -webkit-backdrop-filter: blur(14px) saturate(140%);
+      border-right: 1px solid rgba(255, 255, 255, 0.06);
       display: flex; flex-direction: column;
       height: 100vh; overflow: hidden;
       transition: width .2s ease;
@@ -322,25 +332,42 @@
     .g-favitem-del:hover { color: #ef4444 !important; }
 
     /* ── main content ────────────────────────────────────────────────────────── */
-    .g-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+    .g-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; background: transparent; }
 
     .g-topbar {
       display: flex; align-items: center; justify-content: center;
-      padding: 8px 20px; border-bottom: 1px solid var(--border);
-      background: var(--bg); flex-shrink: 0;
+      padding: 8px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(14, 14, 26, 0.55);
+      backdrop-filter: blur(14px) saturate(140%);
+      -webkit-backdrop-filter: blur(14px) saturate(140%);
+      flex-shrink: 0;
       height: 52px; box-sizing: border-box;
+      position: relative; z-index: 10;
     }
     .g-topbar-search {
       display: flex; align-items: center; gap: 8px;
-      background: #1a1a1a; border: 1px solid var(--border); border-radius: 8px;
-      padding: 6px 14px; width: 340px; cursor: pointer;
-      color: var(--muted); font-size: .85rem; transition: border-color .15s;
+      background: rgba(20, 20, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 7px 14px; width: 380px; cursor: pointer;
+      color: var(--muted); font-size: .85rem;
+      transition: border-color .15s, background .15s, box-shadow .15s;
     }
-    .g-topbar-search:hover { border-color: #444; }
+    .g-topbar-search:hover {
+      border-color: rgba(233, 121, 25, .35);
+      background: rgba(20, 20, 42, 0.85);
+    }
+    .g-topbar-search:focus-within {
+      border-color: rgba(233, 121, 25, .55);
+      box-shadow: 0 0 0 4px rgba(233, 121, 25, .12);
+    }
     .g-topbar-search span { flex: 1; }
     .g-topbar-search kbd {
-      background: #222; border: 1px solid #333; border-radius: 4px;
-      padding: 1px 6px; font-size: .72rem; color: #555; font-family: inherit;
+      background: rgba(255, 255, 255, .06);
+      border: 1px solid rgba(255, 255, 255, .1);
+      border-radius: 4px;
+      padding: 1px 6px; font-size: .72rem; color: var(--muted); font-family: inherit;
     }
 
     /* toolbar */
