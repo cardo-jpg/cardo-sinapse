@@ -863,6 +863,89 @@ async def api_delete_task(task_id: str, request: Request):
     return {"ok": True}
 
 
+@router.patch("/api/gestao/tasks/bulk")
+async def api_bulk_update_tasks(request: Request):
+    """
+    Atualiza N tarefas com o mesmo patch.
+    Body: { ids: [task_id, ...], patch: {status?, assignees?, due_date?, priority?, list_id?, cf_set?} }
+    cf_set = { cf_id: value }  → merge no cf_values existente
+    """
+    _require(request)
+    data = await request.json()
+    ids = data.get("ids") or []
+    patch = data.get("patch") or {}
+    if not ids or not isinstance(ids, list):
+        raise HTTPException(400, "ids vazio")
+
+    allowed = {"status", "assignees", "due_date", "priority", "list_id"}
+    fields = {k: v for k, v in patch.items() if k in allowed}
+    cf_set = patch.get("cf_set") or {}
+
+    if not fields and not cf_set:
+        raise HTTPException(400, "Nenhum campo válido")
+
+    if "assignees" in fields and not isinstance(fields["assignees"], str):
+        fields["assignees"] = json.dumps(fields["assignees"])
+
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    updated = []
+    try:
+        for task_id in ids:
+            # 1. fields diretos
+            if fields:
+                set_clause = ", ".join(f"{k}=%s" for k in fields)
+                cur.execute(
+                    f"UPDATE tasks SET {set_clause} WHERE id=%s",
+                    [*fields.values(), task_id],
+                )
+            # 2. cf_values merge
+            if cf_set:
+                cur.execute("SELECT cf_values FROM tasks WHERE id=%s", (task_id,))
+                row = cur.fetchone()
+                if row:
+                    try:
+                        cv = json.loads(row.get("cf_values") or "{}")
+                    except Exception:
+                        cv = {}
+                    if not isinstance(cv, dict):
+                        cv = {}
+                    for k, v in cf_set.items():
+                        if v is None or v == "":
+                            cv.pop(k, None)
+                        else:
+                            cv[k] = v
+                    cur.execute(
+                        "UPDATE tasks SET cf_values=%s WHERE id=%s",
+                        (json.dumps(cv), task_id),
+                    )
+            updated.append(task_id)
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
+    return {"ok": True, "updated": updated}
+
+
+@router.post("/api/gestao/tasks/bulk-delete")
+async def api_bulk_delete_tasks(request: Request):
+    """Exclui N tarefas em lote. Body: { ids: [...] }"""
+    _require(request)
+    data = await request.json()
+    ids = data.get("ids") or []
+    if not ids or not isinstance(ids, list):
+        raise HTTPException(400, "ids vazio")
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM tasks WHERE id = ANY(%s)", (ids,))
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
+    return {"ok": True, "deleted": ids}
+
+
 # ── Checklists ────────────────────────────────────────────────────────────────
 
 @router.get("/api/gestao/tasks/{task_id}/checklists")
