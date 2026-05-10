@@ -1271,23 +1271,42 @@ def _sinapse_client_context(client_id: str) -> list[str]:
                         lines.append(f"\n## Descrição\n{task['description'].strip()}")
                     out.append(f"=== Sinapse · Painel de Clientes · {task['title']} ===\n" + "\n".join(lines))
 
-            # 2. Documents do Sinapse com [SIGLA] no título ou em pasta com sigla/nome
+            # 2. Documents do Sinapse:
+            #    - title contém [SIGLA] ou o nome do cliente (matches diretos)
+            #    - pasta tem [SIGLA] ou o nome no nome
+            #    - OU descendente recursivo de qualquer match acima (ex: atas
+            #      publicadas pelo wizard ficam em Documentação > [SIGLA] Cliente
+            #      > Atas de Reunião > DD/MM - Título — o título da ata não
+            #      bate, mas o avô bate)
             cliente_nome = _resolve_client_name(sigla)
             patterns = [f"%[{sigla}]%"]
             if cliente_nome:
                 patterns.append(f"%{cliente_nome}%")
 
-            # documents diretos do cliente
-            placeholders_t = " OR ".join(["d.title ILIKE %s"] * len(patterns))
-            placeholders_f = " OR ".join(["f.name ILIKE %s"] * len(patterns)) if patterns else "FALSE"
+            placeholders_t = " OR ".join(["title ILIKE %s"] * len(patterns))
+            placeholders_f = " OR ".join(["f.name ILIKE %s"] * len(patterns))
             sql = f"""
-                SELECT d.title, d.content, COALESCE(s.name, '') AS space_name, COALESCE(f.name, '') AS folder_name
+                WITH RECURSIVE doc_tree AS (
+                    SELECT id FROM documents WHERE {placeholders_t}
+                  UNION
+                    SELECT d.id FROM documents d
+                      LEFT JOIN folders f ON f.id = d.folder_id
+                     WHERE {placeholders_f}
+                  UNION
+                    SELECT d.id FROM documents d
+                      INNER JOIN doc_tree dt ON d.parent_id = dt.id
+                )
+                SELECT DISTINCT d.title, d.content, d.updated_at,
+                       COALESCE(s.name, '') AS space_name,
+                       COALESCE(f.name, '') AS folder_name,
+                       COALESCE(p.title, '') AS parent_title
                 FROM documents d
                 LEFT JOIN spaces  s ON s.id = d.space_id
                 LEFT JOIN folders f ON f.id = d.folder_id
-                WHERE ({placeholders_t}) OR ({placeholders_f})
+                LEFT JOIN documents p ON p.id = d.parent_id
+                WHERE d.id IN (SELECT id FROM doc_tree)
                 ORDER BY d.updated_at DESC
-                LIMIT 25
+                LIMIT 30
             """
             params = patterns + patterns
             cur.execute(sql, params)
@@ -1298,7 +1317,8 @@ def _sinapse_client_context(client_id: str) -> list[str]:
                 # Strip HTML grosseiramente — TipTap salva como HTML; mantém texto legível
                 txt = re.sub(r"<[^>]+>", " ", content)
                 txt = re.sub(r"\s+", " ", txt).strip()
-                breadcrumb = " · ".join([p for p in [r.get("space_name"), r.get("folder_name")] if p])
+                trail_parts = [p for p in [r.get("space_name"), r.get("folder_name"), r.get("parent_title")] if p]
+                breadcrumb = " · ".join(trail_parts)
                 header = f"=== Sinapse · {breadcrumb}/{title} ===" if breadcrumb else f"=== Sinapse · {title} ==="
                 out.append(header + "\n" + _strip_md_simple(txt, 4000))
         finally:
