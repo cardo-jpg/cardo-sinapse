@@ -14,3 +14,4 @@ google-ads
 requests
 pdfplumber
 psycopg[binary]==3.2.4
+markdown==3.7

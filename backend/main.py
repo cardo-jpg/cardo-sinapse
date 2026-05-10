@@ -28,6 +28,7 @@ from backend.financeiro import router as financeiro_router, init_db as financeir
 from backend.fin_pessoais import router as fp_router, init_db as fp_init_db
 from backend.crm import router as crm_router, init_crm_db
 from backend.briefings import router as briefings_router, init_briefings_db
+from backend.atas_sinapse import router as atas_sinapse_router
 
 load_dotenv()
 
@@ -652,6 +653,7 @@ app.include_router(financeiro_router)
 app.include_router(fp_router)
 app.include_router(crm_router)
 app.include_router(briefings_router)
+app.include_router(atas_sinapse_router)
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
