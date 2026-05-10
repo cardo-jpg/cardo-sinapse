@@ -1400,7 +1400,10 @@ async def home(request: Request):
 async def conversar(request: Request):
     if not verify_session(request):
         return RedirectResponse("/login")
-    return templates.TemplateResponse("chat.html", {"request": request, **_nav_base(request, "conversar")})
+    resp = templates.TemplateResponse("chat.html", {"request": request, **_nav_base(request, "conversar")})
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    return resp
 
 @app.get("/ata", response_class=HTMLResponse)
 async def ata_page(request: Request):

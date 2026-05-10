@@ -657,9 +657,9 @@
         <p class="client-screen-sub">Seu copiloto da agência. Selecione um cliente ou um processo da Cardō pra começar.</p>
       </div>
 
-      <div class="cs-section-label">Clientes</div>
+      <div class="cs-section-label">Clientes <span style="margin-left:auto; font-size:.6rem; opacity:.4; letter-spacing:0; text-transform:none">v5-debug</span></div>
       <div class="client-grid" id="clientGrid">
-        <div class="client-grid-loading">Carregando clientes…</div>
+        <div class="client-grid-loading">Aguardando JS… (v5)</div>
       </div>
 
       <div class="cs-section-label">Processos da agência</div>
@@ -1123,6 +1123,7 @@
       textarea.style.height = textarea.scrollHeight + 'px';
     });
 
+    document.title = '[v5] ' + document.title;
     init();
   </script>
 </body>
