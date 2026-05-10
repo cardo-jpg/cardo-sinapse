@@ -270,13 +270,15 @@ def init_db():
             "INSERT INTO features (id,space_id,url,label,icon,position) VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING",
             ("feat_crm", "comercial", "/crm", "CRM", "🎯", 0),
         )
-        # Cleanup features antigos (clientes saíram ou foram consolidados)
-        cur.execute("DELETE FROM features WHERE id IN ('feat_dash_nf', 'feat_dash_dft', 'feat_dash_hire')")
-        # Ferramenta única de Dashboards de Clientes (NF, DFT, ...) com seletor interno
+        # Cleanup features antigos (clientes saíram, consolidados ou residuais)
+        cur.execute("DELETE FROM features WHERE id IN ('feat_dash_nf', 'feat_dash_dft', 'feat_dash_hire', 'feat_dashboard')")
+        # Ferramenta única de Dashboard (clientes com seletor interno)
         cur.execute(
             "INSERT INTO features (id,space_id,url,label,icon,position) VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING",
-            ("feat_dash_clientes", "operacional", "/dashboards/clientes", "Dashboards de Clientes", "📊", 10),
+            ("feat_dash_clientes", "operacional", "/dashboards/clientes", "Dashboard", "📊", 10),
         )
+        # Se já existe, normaliza o label pra 'Dashboard'
+        cur.execute("UPDATE features SET label='Dashboard' WHERE id='feat_dash_clientes'")
 
         conn.commit()
     finally:
@@ -349,9 +351,8 @@ def _seed(conn, cur):
 
 def _seed_features(conn, cur):
     rows = [
-        ("feat_crm",       "comercial",  "/crm",      "CRM",             "🎯", 0),
-        ("feat_dashboard", "operacional", "/trafego", "Dashboards",      "📊", 0),
-        ("feat_ata",       "operacional", "/ata",      "Gerador de Atas", "📝", 1),
+        ("feat_crm",       "comercial",   "/crm",                  "CRM",             "🎯", 0),
+        ("feat_ata",       "operacional", "/ata",                  "Gerador de Atas", "📝", 1),
     ]
     for fid, sid, url, label, icon, pos in rows:
         cur.execute(
