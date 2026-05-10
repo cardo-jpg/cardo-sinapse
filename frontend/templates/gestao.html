@@ -4815,6 +4815,12 @@ document.addEventListener('alpine:init', () => {
           this.clearTaskSelection();
         }
       });
+      // Sync view settings de outros usuários: refresca quando a janela volta a foco
+      window.addEventListener('focus', () => {
+        if (this.activeList && document.visibilityState === 'visible') {
+          this._loadViewPrefsFromServer(this.activeList.id);
+        }
+      });
       // Right-click on column headers
       document.addEventListener('contextmenu', e => {
         const col = e.target.closest('[data-col-key]');
@@ -4980,14 +4986,12 @@ document.addEventListener('alpine:init', () => {
       });
     },
     _colPrefsKey(listId) { return `sinapse_cols_${listId}`; },
-    saveColPrefs() {
-      if (!this.activeList) return;
-      const prefs = {
+    _viewPrefsPayload() {
+      return {
         cols: this.cols,
         cfCols: this.cfCols,
         colWidths: this.colWidths,
         cfColWidths: this.cfColWidths,
-        // Estado de visualização da lista
         view:           this.view,
         groupBy:        this.groupBy,
         groupDir:       this.groupDir,
@@ -4997,7 +5001,41 @@ document.addEventListener('alpine:init', () => {
         sortCol:        this.sortCol,
         collapsedGroups: this.collapsedGroups,
       };
-      localStorage.setItem(this._colPrefsKey(this.activeList.id), JSON.stringify(prefs));
+    },
+    _applyPrefs(p) {
+      if (!p) return;
+      if (p.cols)        Object.assign(this.cols, p.cols);
+      if (p.cfCols)      Object.assign(this.cfCols, p.cfCols);
+      if (p.colWidths)   Object.assign(this.colWidths, p.colWidths);
+      if (p.cfColWidths) Object.assign(this.cfColWidths, p.cfColWidths);
+      if (p.view)            this.view = p.view;
+      if (typeof p.groupBy === 'string')  this.groupBy = p.groupBy;
+      if (p.groupDir)        this.groupDir = p.groupDir;
+      if (Array.isArray(p.filters))        this.filters = p.filters;
+      if (Array.isArray(p.assigneeFilter)) this.assigneeFilter = p.assigneeFilter;
+      if (typeof p.showClosed === 'boolean') this.showClosed = p.showClosed;
+      if (p.sortCol !== undefined)        this.sortCol = p.sortCol;
+      if (p.collapsedGroups)              this.collapsedGroups = p.collapsedGroups;
+    },
+    saveColPrefs() {
+      if (!this.activeList) return;
+      const prefs = this._viewPrefsPayload();
+      const listId = this.activeList.id;
+      // 1. local-first (otimista, sobrevive offline)
+      try { localStorage.setItem(this._colPrefsKey(listId), JSON.stringify(prefs)); } catch (e) {}
+      // 2. servidor (debounce — não martelar em resize de coluna)
+      if (this._viewSaveTimers && this._viewSaveTimers[listId]) {
+        clearTimeout(this._viewSaveTimers[listId]);
+      }
+      this._viewSaveTimers = this._viewSaveTimers || {};
+      this._viewSaveTimers[listId] = setTimeout(() => {
+        if (this._suppressServerSave) return;
+        fetch(`/api/gestao/lists/${listId}/view-settings`, {
+          method: 'PATCH',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ settings: prefs }),
+        }).catch(() => {});
+      }, 600);
     },
     loadColPrefs(listId) {
       // Reset pra defaults antes de aplicar — evita vazar estado entre listas
@@ -5008,23 +5046,28 @@ document.addEventListener('alpine:init', () => {
       this.showClosed     = false;
       this.sortCol        = null;
       this.collapsedGroups = {};
+      // 1. local cache (render imediato, sem flicker)
       try {
         const raw = localStorage.getItem(this._colPrefsKey(listId));
-        if (!raw) return;
-        const p = JSON.parse(raw);
-        if (p.cols)        Object.assign(this.cols, p.cols);
-        if (p.cfCols)      Object.assign(this.cfCols, p.cfCols);
-        if (p.colWidths)   Object.assign(this.colWidths, p.colWidths);
-        if (p.cfColWidths) Object.assign(this.cfColWidths, p.cfColWidths);
-        if (p.view)            this.view = p.view;
-        if (typeof p.groupBy === 'string')  this.groupBy = p.groupBy;
-        if (p.groupDir)        this.groupDir = p.groupDir;
-        if (Array.isArray(p.filters))        this.filters = p.filters;
-        if (Array.isArray(p.assigneeFilter)) this.assigneeFilter = p.assigneeFilter;
-        if (typeof p.showClosed === 'boolean') this.showClosed = p.showClosed;
-        if (p.sortCol !== undefined)        this.sortCol = p.sortCol;
-        if (p.collapsedGroups)              this.collapsedGroups = p.collapsedGroups;
-      } catch(e) {}
+        if (raw) this._applyPrefs(JSON.parse(raw));
+      } catch (e) {}
+      // 2. servidor (fonte de verdade — sobrescreve local se diferente)
+      this._loadViewPrefsFromServer(listId);
+    },
+    async _loadViewPrefsFromServer(listId) {
+      try {
+        const r = await fetch(`/api/gestao/lists/${listId}/view-settings`, { cache: 'no-store' });
+        if (!r.ok) return;
+        const data = await r.json();
+        if (!this.activeList || this.activeList.id !== listId) return; // user já trocou de lista
+        const s = data.settings || {};
+        if (!Object.keys(s).length) return;
+        // Aplica sem disparar save de volta no servidor
+        this._suppressServerSave = true;
+        this._applyPrefs(s);
+        try { localStorage.setItem(this._colPrefsKey(listId), JSON.stringify(s)); } catch (e) {}
+        this.$nextTick(() => { this._suppressServerSave = false; });
+      } catch (e) {}
     },
 
     spaceName(id) { return this.tree.find(s=>s.id===id)?.name||''; },

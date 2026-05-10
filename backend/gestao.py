@@ -935,6 +935,66 @@ async def api_bulk_update_tasks(request: Request):
     return {"ok": True, "updated": updated}
 
 
+@router.get("/api/gestao/lists/{list_id}/view-settings")
+async def api_get_view_settings(list_id: str, request: Request):
+    """Retorna as view settings compartilhadas (cols, group, filters, etc) da lista."""
+    _require(request)
+    conn = get_conn(); cur = dict_cursor(conn)
+    try:
+        cur.execute(
+            "SELECT settings, updated_at, updated_by FROM list_view_settings WHERE list_id=%s",
+            (list_id,),
+        )
+        row = cur.fetchone()
+    finally:
+        cur.close(); conn.close()
+    if not row:
+        return {"settings": {}, "updated_at": None, "updated_by": None}
+    try:
+        settings = json.loads(row.get("settings") or "{}")
+    except Exception:
+        settings = {}
+    return {
+        "settings":   settings,
+        "updated_at": row.get("updated_at").isoformat() if row.get("updated_at") else None,
+        "updated_by": row.get("updated_by"),
+    }
+
+
+@router.patch("/api/gestao/lists/{list_id}/view-settings")
+async def api_patch_view_settings(list_id: str, request: Request):
+    """
+    Faz upsert das view settings. Body: { settings: {...} }
+    Substitui o JSON inteiro — o frontend manda o estado completo.
+    """
+    user = _require(request)
+    body = await request.json()
+    settings = body.get("settings")
+    if not isinstance(settings, dict):
+        raise HTTPException(400, "settings deve ser objeto")
+    payload = json.dumps(settings)
+    conn = get_conn(); cur = dict_cursor(conn)
+    try:
+        cur.execute("""
+            INSERT INTO list_view_settings (list_id, settings, updated_at, updated_by)
+            VALUES (%s, %s, NOW(), %s)
+            ON CONFLICT (list_id) DO UPDATE
+              SET settings   = EXCLUDED.settings,
+                  updated_at = NOW(),
+                  updated_by = EXCLUDED.updated_by
+            RETURNING updated_at
+        """, (list_id, payload, user))
+        row = cur.fetchone()
+        conn.commit()
+    finally:
+        cur.close(); conn.close()
+    return {
+        "ok":         True,
+        "updated_at": row["updated_at"].isoformat() if row and row.get("updated_at") else None,
+        "updated_by": user,
+    }
+
+
 @router.post("/api/gestao/tasks/bulk-delete")
 async def api_bulk_delete_tasks(request: Request):
     """Exclui N tarefas em lote. Body: { ids: [...] }"""
