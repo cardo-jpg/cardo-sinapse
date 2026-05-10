@@ -1562,6 +1562,51 @@ async def get_conversations(request: Request):
         raise HTTPException(status_code=401)
     return JSONResponse(list_conversations())
 
+
+@app.get("/api/cerebro/clients")
+async def cerebro_clients(request: Request):
+    """
+    Retorna os clientes ATIVOS do Painel de Clientes do Sinapse.
+    Usado pra popular a tela inicial do Cérebro dinamicamente, evitando
+    ter que manter uma lista hardcoded.
+    """
+    if not verify_session(request):
+        raise HTTPException(status_code=401)
+    conn = get_conn(); cur = dict_cursor(conn)
+    try:
+        # Acha a lista pelo nome
+        cur.execute(
+            "SELECT id FROM lists WHERE LOWER(name) = LOWER(%s) AND COALESCE(archived,0) = 0 LIMIT 1",
+            ("Painel de Clientes",),
+        )
+        row = cur.fetchone()
+        if not row:
+            return JSONResponse({"clients": []})
+        list_id = row["id"]
+        # Pega tasks ativas (status = 'ativo')
+        cur.execute(
+            "SELECT title FROM tasks WHERE list_id=%s AND LOWER(COALESCE(status,'')) = 'ativo' ORDER BY title",
+            (list_id,),
+        )
+        rows = cur.fetchall() or []
+    finally:
+        cur.close(); conn.close()
+
+    clients = []
+    for r in rows:
+        title = (r.get("title") or "").strip()
+        # Esperado: "[SIGLA] Nome do cliente"
+        m = re.match(r"^\s*\[([A-Za-z0-9]+)\]\s*(.+?)\s*$", title)
+        if not m:
+            # Sem sigla — usa o título como nome e gera sigla a partir das iniciais
+            words = [w for w in re.split(r"\s+", title) if w]
+            sigla = "".join(w[0].upper() for w in words[:3]) if words else "?"
+            clients.append({"sigla": sigla, "nome": title})
+            continue
+        clients.append({"sigla": m.group(1).upper(), "nome": m.group(2).strip()})
+
+    return JSONResponse({"clients": clients})
+
 @app.delete("/api/conversations/{conv_id}")
 async def delete_conversation(conv_id: str, request: Request):
     if not verify_session(request):

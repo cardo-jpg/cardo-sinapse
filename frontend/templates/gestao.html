@@ -546,14 +546,16 @@
     .cf-header-menu-item.danger:hover { background: #ef444418; }
     .cf-header-menu-sep { border-top: 1px solid #2e2e2e; margin: 4px 0; }
     .col-resizer {
-      position: absolute; right: -4px; top: 0; bottom: 0; width: 8px;
-      cursor: col-resize; z-index: 2; display: flex; align-items: center; justify-content: center;
+      position: absolute; right: -7px; top: 0; bottom: 0; width: 14px;
+      cursor: col-resize; z-index: 5; display: flex; align-items: center; justify-content: center;
+      touch-action: none;
     }
     .col-resizer::after {
-      content: ''; width: 2px; height: 14px; border-radius: 1px;
+      content: ''; width: 2px; height: 60%; border-radius: 1px;
       background: transparent; transition: background .15s;
     }
     .col-resizer:hover::after, .col-resizer.dragging::after { background: var(--accent); }
+    .col-header-resizable { position: relative; user-select: none; overflow: visible !important; }
 
     .status-badge {
       display: inline-flex; align-items: center; gap: 5px;

@@ -109,6 +109,16 @@
       margin-bottom: 40px !important;
       min-height: 80px;
     }
+    #clientGrid .client-grid-loading {
+      grid-column: 1 / -1 !important;
+      padding: 24px !important;
+      text-align: center !important;
+      color: #6b6786 !important;
+      font-size: .88rem !important;
+      background: #14142a !important;
+      border: 1px dashed #232342 !important;
+      border-radius: 12px !important;
+    }
     #clientGrid .client-card {
       background: linear-gradient(135deg, #14142a 0%, #1a1a30 100%) !important;
       border: 1px solid #232342 !important;
@@ -649,14 +659,7 @@
 
       <div class="cs-section-label">Clientes</div>
       <div class="client-grid" id="clientGrid">
-        <div class="client-card" data-sigla="SRW"   data-nome="Speedrack West"><span class="client-card-sigla">SRW</span><span class="client-card-nome">Speedrack West</span></div>
-        <div class="client-card" data-sigla="HDLT"  data-nome="Headlight Co"><span class="client-card-sigla">HDLT</span><span class="client-card-nome">Headlight Co</span></div>
-        <div class="client-card" data-sigla="HIRE"  data-nome="Hire Brazil"><span class="client-card-sigla">HIRE</span><span class="client-card-nome">Hire Brazil</span></div>
-        <div class="client-card" data-sigla="SCALE" data-nome="Scale Army"><span class="client-card-sigla">SCALE</span><span class="client-card-nome">Scale Army</span></div>
-        <div class="client-card" data-sigla="CC"    data-nome="Conexão Cirúrgica"><span class="client-card-sigla">CC</span><span class="client-card-nome">Conexão Cirúrgica</span></div>
-        <div class="client-card" data-sigla="NF"    data-nome="Gráfica NF"><span class="client-card-sigla">NF</span><span class="client-card-nome">Gráfica NF</span></div>
-        <div class="client-card" data-sigla="PV"    data-nome="Patrícia Voggt"><span class="client-card-sigla">PV</span><span class="client-card-nome">Patrícia Voggt</span></div>
-        <div class="client-card" data-sigla="DFT"   data-nome="DFT Logística"><span class="client-card-sigla">DFT</span><span class="client-card-nome">DFT Logística</span></div>
+        <div class="client-grid-loading">Carregando clientes…</div>
       </div>
 
       <div class="cs-section-label">Processos da agência</div>
@@ -728,16 +731,9 @@
 </div>
 
   <script>
-    const CLIENTS = [
-      { sigla: 'SRW',   nome: 'Speedrack West'   },
-      { sigla: 'HDLT',  nome: 'Headlight Co'      },
-      { sigla: 'HIRE',  nome: 'Hire Brazil'       },
-      { sigla: 'SCALE', nome: 'Scale Army'        },
-      { sigla: 'CC',    nome: 'Conexão Cirúrgica' },
-      { sigla: 'NF',    nome: 'Gráfica NF'        },
-      { sigla: 'PV',    nome: 'Patrícia Voggt'    },
-      { sigla: 'DFT',   nome: 'DFT Logística'     },
-    ];
+    // Clientes vêm do Painel de Clientes (espaço Operacional > Gestão de Contas)
+    // via /api/cerebro/clients — sempre dinâmico, status='ativo'.
+    let CLIENTS = [];
 
     let messages = [];
     let currentConvId = null;
@@ -774,10 +770,32 @@
       renderClientGrid();
     }
 
-    function renderClientGrid() {
-      // Cards estão renderizados estaticamente no HTML; só garante o listener.
-      document.querySelectorAll('#clientGrid .client-card[data-sigla]').forEach(card => {
-        card.onclick = () => enterChat({ sigla: card.dataset.sigla, nome: card.dataset.nome });
+    async function loadClientsFromSinapse() {
+      try {
+        const r = await fetch('/api/cerebro/clients');
+        if (!r.ok) throw new Error('http_' + r.status);
+        const data = await r.json();
+        CLIENTS = (data.clients || []).filter(c => c.sigla && c.nome);
+      } catch (e) {
+        CLIENTS = [];
+      }
+    }
+
+    async function renderClientGrid() {
+      const grid = document.getElementById('clientGrid');
+      grid.innerHTML = '<div class="client-grid-loading">Carregando clientes…</div>';
+      await loadClientsFromSinapse();
+      if (!CLIENTS.length) {
+        grid.innerHTML = '<div class="client-grid-loading">Nenhum cliente ativo no Painel de Clientes.</div>';
+        return;
+      }
+      grid.innerHTML = '';
+      CLIENTS.forEach(c => {
+        const card = document.createElement('div');
+        card.className = 'client-card';
+        card.innerHTML = `<span class="client-card-sigla">${escapeHtml(c.sigla)}</span><span class="client-card-nome">${escapeHtml(c.nome)}</span>`;
+        card.onclick = () => enterChat(c);
+        grid.appendChild(card);
       });
     }
 
