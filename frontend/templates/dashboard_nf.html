@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Gráfica NF — Dashboard 2026</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800;900&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#f0f3ff;--card:#fff;--card2:#e8edf8;--brd:#d5dcf0;
+  --wh:#0c1d73;--mu:#6272a0;--mu2:#9ba8c8;
+  --nav:#0c1d73;--nav2:#1d1f96;
+  --meta:#1877f2;--meta2:#1251a3;
+  --g1:#4285f4;--g2:#34a853;--g3:#fbbc04;--g4:#ea4335;
+  --green:#16a34a;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--wh);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:repeating-linear-gradient(0deg,transparent,transparent 38px,rgba(38,33,191,.04) 38px,rgba(38,33,191,.04) 40px);pointer-events:none;z-index:0;}
+
+/* top bar */
+.gl{height:4px;background:linear-gradient(90deg,#15803d,#4285f4,#1877f2,#fbbc04,#ea4335,#15803d);background-size:300% 100%;animation:gm 5s linear infinite;}
+@keyframes gm{0%{background-position:0%}100%{background-position:300%}}
+
+/* HEADER */
+header{position:relative;z-index:1;background:linear-gradient(135deg,var(--nav),var(--nav2));}
+.hi{max-width:1340px;margin:0 auto;padding:22px 32px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+.hl{display:flex;align-items:center;gap:16px;}
+.logo-box{width:52px;height:52px;border-radius:12px;background:linear-gradient(135deg,#15803d,#22c55e);display:flex;align-items:center;justify-content:center;font-size:1.25rem;font-weight:900;color:#fff;box-shadow:0 6px 20px rgba(0,0,0,.4);flex-shrink:0;}
+.ht .brand{display:flex;align-items:center;gap:7px;margin-bottom:3px;}
+.ht .brand .dot{width:6px;height:6px;border-radius:50%;background:#4ade80;}
+.ht .brand span{font-size:.66rem;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:1.5px;text-transform:uppercase;}
+.ht h1{font-size:1.3rem;font-weight:900;line-height:1.1;color:#fff;}
+.ht h1 em{color:#4ade80;font-style:normal;}
+.ht p{font-size:.72rem;color:rgba(255,255,255,.45);margin-top:3px;}
+
+/* year badge */
+.year-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:6px 16px;font-size:.8rem;font-weight:900;color:#fff;letter-spacing:1px;}
+
+/* PERIOD FILTER */
+.filter-bar{max-width:1340px;margin:0 auto;padding:16px 32px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;position:relative;z-index:1;}
+.filter-label{font-size:.65rem;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--mu);margin-right:4px;}
+.period-btn{padding:6px 14px;font-size:.7rem;font-weight:700;border-radius:6px;border:1px solid var(--brd);background:var(--card);color:var(--mu);cursor:pointer;font-family:'Nunito',sans-serif;transition:all .15s;white-space:nowrap;}
+.period-btn.active{background:var(--nav);color:#fff;border-color:var(--nav);}
+.period-btn:hover:not(.active){background:var(--card2);}
+
+/* MAIN GRID — two columns */
+main{position:relative;z-index:1;max-width:1340px;margin:0 auto;padding:22px 32px 80px;}
+.platforms{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;}
+@media(max-width:900px){.platforms{grid-template-columns:1fr;}}
+
+/* PLATFORM SECTION */
+.plat-section{display:flex;flex-direction:column;gap:16px;}
+
+.plat-header{border-radius:14px;padding:16px 20px;display:flex;align-items:center;gap:14px;}
+.plat-header.meta{background:linear-gradient(135deg,#0d47a0,#1877f2);}
+.plat-header.google{background:linear-gradient(135deg,#1a1a2e,#1a3a6e);}
+.plat-icon{width:40px;height:40px;border-radius:10px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.plat-icon svg{width:20px;height:20px;}
+.plat-name{font-size:.95rem;font-weight:900;color:#fff;line-height:1;}
+.plat-sub{font-size:.67rem;color:rgba(255,255,255,.55);margin-top:3px;}
+.plat-budget{margin-left:auto;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:4px 10px;font-size:.68rem;font-weight:800;color:rgba(255,255,255,.9);white-space:nowrap;}
+
+/* KPI grid — 3 cols inside each platform */
+.kstrip3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.kcard{background:var(--card);border:1px solid var(--brd);border-radius:12px;padding:14px 12px;position:relative;overflow:hidden;box-shadow:0 2px 10px rgba(12,29,115,.07);}
+.kcard::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:12px 12px 0 0;}
+.kcard.invest::before{background:#16a34a;}
+.kcard.imp::before{background:#4285f4;}
+.kcard.clk::before{background:#1a73e8;}
+.kcard.leads::before{background:#15803d;}
+.kcard.cpc::before{background:#f59e0b;}
+.kcard.cpl::before{background:#ea4335;}
+.klbl{font-size:.57rem;font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:var(--mu);margin-bottom:6px;}
+.kval{font-size:1.25rem;font-weight:900;letter-spacing:-.5px;line-height:1;color:var(--nav);}
+.kval.gr{color:#16a34a;}
+.ksub{font-size:.62rem;color:var(--mu2);margin-top:4px;}
+
+/* CHART */
+.chart-wrap{background:var(--card);border:1px solid var(--brd);border-radius:13px;padding:18px 18px 10px;box-shadow:0 2px 10px rgba(12,29,115,.07);}
+
+/* TABLE */
+.table-wrap{overflow-x:auto;border-radius:13px;border:1px solid var(--brd);box-shadow:0 2px 10px rgba(12,29,115,.07);}
+.camp-table{width:100%;border-collapse:collapse;background:var(--card);font-size:.76rem;table-layout:fixed;}
+.camp-table colgroup col.c-num  {width:28px;}
+.camp-table colgroup col.c-camp {width:130px;}
+.camp-table colgroup col.c-cri  {width:110px;}
+.camp-table colgroup col.c-inv  {width:90px;}
+.camp-table colgroup col.c-imp  {width:68px;}
+.camp-table colgroup col.c-clk  {width:60px;}
+.camp-table colgroup col.c-lds  {width:50px;}
+.camp-table colgroup col.c-cpc  {width:70px;}
+.camp-table colgroup col.c-cpl  {width:70px;}
+.camp-table thead th{background:var(--card2);color:var(--mu);font-size:.57rem;font-weight:800;letter-spacing:.8px;text-transform:uppercase;padding:9px 10px;text-align:right;white-space:nowrap;border-bottom:2px solid var(--brd);overflow:hidden;}
+.camp-table thead th.tl{text-align:left;}
+.camp-table thead th.tc{text-align:center;}
+.camp-table tbody tr{border-bottom:1px solid var(--brd);transition:background .1s;}
+.camp-table tbody tr:last-child{border-bottom:none;}
+.camp-table tbody tr:hover td{background:#f5f7ff;}
+.camp-table tbody td{padding:8px 10px;vertical-align:middle;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.camp-table tbody td.tc{text-align:center;}
+.camp-table tbody td.tl{text-align:left;}
+.camp-table tfoot td{padding:9px 10px;font-weight:800;font-size:.74rem;color:var(--nav);background:var(--card2);border-top:2px solid var(--brd);text-align:right;white-space:nowrap;}
+.camp-table tfoot td.tc{text-align:center;}
+.camp-table tfoot td.tl{text-align:left;}
+
+.ctag{display:flex;align-items:center;gap:5px;font-size:.72rem;font-weight:800;color:var(--nav);overflow:hidden;}
+.ctag .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.ctag span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pub-badge{font-size:.6rem;color:var(--mu);font-weight:700;background:var(--card2);border-radius:4px;padding:2px 5px;white-space:nowrap;display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
+.vg{font-weight:800;color:#16a34a;}
+.vn{font-weight:700;color:var(--nav);}
+.vm{font-weight:600;color:var(--mu2);}
+.share{font-size:.58rem;color:var(--mu2);display:block;}
+
+.type-badge{font-size:.6rem;font-weight:800;border-radius:4px;padding:2px 6px;white-space:nowrap;}
+.type-badge.search{background:#e8f0fe;color:#1a4089;}
+.type-badge.pmax{background:#e6f4ea;color:#137333;}
+
+footer{text-align:center;padding:28px 20px;font-size:.66rem;color:var(--mu2);position:relative;z-index:1;}
+footer strong{color:var(--mu);}
+</style>
+</head>
+<body>
+<div class="gl"></div>
+
+<header>
+  <div class="hi">
+    <div class="hl">
+      <div class="logo-box">NF</div>
+      <div class="ht">
+        <div class="brand"><div class="dot"></div><span>Cardo Marketing</span></div>
+        <h1>Gráfica NF <em>/ Grupo NF</em></h1>
+        <p>Dashboard de Performance — Campanhas Digitais</p>
+      </div>
+    </div>
+    <div class="year-badge">2026</div>
+  </div>
+</header>
+
+<div class="filter-bar">
+  <span class="filter-label">Período</span>
+  <button class="period-btn active" onclick="setPeriod('all')">Geral (2026)</button>
+  <button class="period-btn" onclick="setPeriod('2026-01')">Jan/26</button>
+  <button class="period-btn" onclick="setPeriod('2026-02')">Fev/26</button>
+  <button class="period-btn" onclick="setPeriod('2026-03')">Mar/26</button>
+  <button class="period-btn" onclick="setPeriod('2026-04')">Abr/26</button>
+</div>
+
+<main>
+  <div class="platforms">
+
+    <!-- ======================== META ADS ======================== -->
+    <div class="plat-section">
+      <div class="plat-header meta">
+        <div class="plat-icon">
+          <svg viewBox="0 0 24 24" fill="white"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069z"/></svg>
+        </div>
+        <div>
+          <div class="plat-name">Meta Ads</div>
+          <div class="plat-sub">Facebook · Instagram · WhatsApp</div>
+        </div>
+        <div class="plat-budget">R$ 500/mês</div>
+      </div>
+
+      <div class="kstrip3" id="metaKpis">
+        <div class="kcard invest"><div class="klbl">Investimento</div><div class="kval gr" id="mk-invest">—</div><div class="ksub" id="mk-invest-s"></div></div>
+        <div class="kcard imp"><div class="klbl">Impressões</div><div class="kval" id="mk-imp">—</div><div class="ksub" id="mk-imp-s"></div></div>
+        <div class="kcard clk"><div class="klbl">Cliques</div><div class="kval" id="mk-clk">—</div><div class="ksub" id="mk-clk-s"></div></div>
+        <div class="kcard leads"><div class="klbl">Leads</div><div class="kval gr" id="mk-leads">—</div><div class="ksub" id="mk-leads-s"></div></div>
+        <div class="kcard cpc"><div class="klbl">CPC</div><div class="kval" id="mk-cpc">—</div><div class="ksub">por clique</div></div>
+        <div class="kcard cpl"><div class="klbl">CPL</div><div class="kval" id="mk-cpl">—</div><div class="ksub">por lead</div></div>
+      </div>
+
+      <div class="chart-wrap"><canvas id="metaChart" height="130"></canvas></div>
+
+      <div class="table-wrap">
+        <table class="camp-table">
+          <colgroup><col class="c-num"><col class="c-camp"><col class="c-cri"><col class="c-inv"><col class="c-imp"><col class="c-clk"><col class="c-lds"><col class="c-cpc"><col class="c-cpl"></colgroup>
+          <thead><tr>
+            <th class="tc">#</th><th class="tl">Campanha</th><th class="tl">Criativo / Público</th>
+            <th>Invest.</th><th>Imp.</th><th>Cliques</th><th>Leads</th><th>CPC</th><th>CPL</th>
+          </tr></thead>
+          <tbody id="metaCampBody"></tbody>
+          <tfoot id="metaCampFoot"></tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- ======================== GOOGLE ADS ======================== -->
+    <div class="plat-section">
+      <div class="plat-header google">
+        <div class="plat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </div>
+        <div>
+          <div class="plat-name">Google Ads</div>
+          <div class="plat-sub">Search · Performance Max</div>
+        </div>
+        <div class="plat-budget">R$ 1.200/mês</div>
+      </div>
+
+      <div class="kstrip3" id="googleKpis">
+        <div class="kcard invest"><div class="klbl">Investimento</div><div class="kval gr" id="gk-invest">—</div><div class="ksub" id="gk-invest-s"></div></div>
+        <div class="kcard imp"><div class="klbl">Impressões</div><div class="kval" id="gk-imp">—</div><div class="ksub" id="gk-imp-s"></div></div>
+        <div class="kcard clk"><div class="klbl">Cliques</div><div class="kval" id="gk-clk">—</div><div class="ksub" id="gk-clk-s"></div></div>
+        <div class="kcard leads"><div class="klbl">Leads</div><div class="kval gr" id="gk-leads">—</div><div class="ksub" id="gk-leads-s"></div></div>
+        <div class="kcard cpc"><div class="klbl">CPC</div><div class="kval" id="gk-cpc">—</div><div class="ksub">por clique</div></div>
+        <div class="kcard cpl"><div class="klbl">CPL</div><div class="kval" id="gk-cpl">—</div><div class="ksub">por lead</div></div>
+      </div>
+
+      <div class="chart-wrap"><canvas id="googleChart" height="130"></canvas></div>
+
+      <div class="table-wrap">
+        <table class="camp-table">
+          <colgroup><col class="c-num"><col class="c-camp"><col class="c-cri"><col class="c-inv"><col class="c-imp"><col class="c-clk"><col class="c-lds"><col class="c-cpc"><col class="c-cpl"></colgroup>
+          <thead><tr>
+            <th class="tc">#</th><th class="tl">Campanha</th><th class="tl">Tipo</th>
+            <th>Invest.</th><th>Imp.</th><th>Cliques</th><th>Leads</th><th>CPC</th><th>CPL</th>
+          </tr></thead>
+          <tbody id="googleCampBody"></tbody>
+          <tfoot id="googleCampFoot"></tfoot>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /platforms -->
+</main>
+
+<footer>
+  Relatório gerado por <strong>Cardo Marketing</strong> &nbsp;·&nbsp; Dados 2026 extraídos das planilhas do cliente &nbsp;·&nbsp; Atualizado em Abr/2026
+</footer>
+
+<script>
+/* ============================================================
+   DATA — somente 2026
+   ============================================================ */
+const META = {
+  budget: 500,
+  monthly: {
+    '2026-01':{label:'Jan',invest:223, imp:7375, clk:27, leads:15},
+    '2026-02':{label:'Fev',invest:222, imp:8110, clk:26, leads:7 },
+    '2026-03':{label:'Mar',invest:147, imp:5399, clk:18, leads:11},
+    '2026-04':{label:'Abr',invest:418, imp:14275,clk:77, leads:40},
+  },
+  campaigns:[
+    {camp:'Sacola Regiões',cri:'Regiões Clientes Sacolas',invest:519,imp:18169,clk:57,leads:23,color:'#16a34a'},
+    {camp:'Sacola',        cri:'Aberto',                  invest:186,imp:5542, clk:42,leads:22,color:'#1877f2'},
+    {camp:'Sacola Nat',    cri:'Aberto',                  invest:155,imp:4210, clk:37,leads:23,color:'#06b6d4'},
+    {camp:'Cartela',       cri:'Aberto',                  invest:140,imp:6605, clk:11,leads:5, color:'#f59e0b'},
+    {camp:'Cartela',       cri:'Aberto V2',               invest:11, imp:633,  clk:1, leads:0, color:'#fbbf24'},
+  ]
+};
+
+const GOOGLE = {
+  budget: 1200,
+  monthly: {
+    '2026-01':{label:'Jan',invest:462, imp:4287, clk:425, leads:18},
+    '2026-02':{label:'Fev',invest:785, imp:24501,clk:1797,leads:54},
+    '2026-03':{label:'Mar',invest:1038,imp:4516, clk:390, leads:15},
+    '2026-04':{label:'Abr',invest:1124,imp:4100, clk:246, leads:24},
+  },
+  campaigns:[
+    {camp:'Institucional',       tipo:'Search',invest:1836,imp:6318, clk:366, leads:29,color:'#1a73e8'},
+    {camp:'Performance Max',     tipo:'P-Max', invest:714, imp:23820,clk:1694,leads:62,color:'#16a34a'},
+    {camp:'Institucional 4',     tipo:'Search',invest:345, imp:667,  clk:45,  leads:3, color:'#4285f4'},
+    {camp:'Performance Max New', tipo:'P-Max', invest:336, imp:5900, clk:692, leads:17,color:'#34a853'},
+    {camp:'Pesquisa',            tipo:'Search',invest:176, imp:699,  clk:61,  leads:0, color:'#93c5fd'},
+  ]
+};
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let period = 'all';
+let mChart = null;
+let gChart = null;
+
+/* ============================================================
+   UTILS
+   ============================================================ */
+function R(v,d=2){return 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});}
+function N(v){return Math.round(v).toLocaleString('pt-BR');}
+
+function agg(ds, per){
+  const entries = per==='all'
+    ? Object.values(ds.monthly)
+    : [ds.monthly[per]].filter(Boolean);
+  return {
+    invest: entries.reduce((s,v)=>s+v.invest,0),
+    imp:    entries.reduce((s,v)=>s+v.imp,0),
+    clk:    entries.reduce((s,v)=>s+v.clk,0),
+    leads:  entries.reduce((s,v)=>s+v.leads,0),
+    months: entries.length
+  };
+}
+
+/* ============================================================
+   RENDER KPIs
+   ============================================================ */
+function renderKPIs(ds, prefix){
+  const {invest,imp,clk,leads,months} = agg(ds, period);
+  const cpc = clk>0  ? invest/clk  : 0;
+  const cpl = leads>0? invest/leads: 0;
+  const ctr = imp>0&&clk>0 ? clk/imp*100 : 0;
+
+  const $ = id => document.getElementById(prefix+id);
+  $('k-invest').textContent = R(invest);
+  $('k-invest-s').textContent = period==='all'
+    ? `em ${months} meses`
+    : `orç.: ${R(ds.budget,0)}/mês`;
+  $('k-imp').textContent = N(imp);
+  $('k-imp-s').textContent = period==='all'&&months>1 ? `média ${N(imp/months)}/mês` : '';
+  $('k-clk').textContent = N(clk);
+  $('k-clk-s').textContent = ctr>0 ? `CTR ${ctr.toFixed(2).replace('.',',')}%` : '';
+  $('k-leads').textContent = N(leads);
+  $('k-leads-s').textContent = period==='all'&&months>1
+    ? `média ${(leads/months).toFixed(1).replace('.',',')} leads/mês` : '';
+  $('k-cpc').textContent = cpc>0 ? R(cpc) : '—';
+  $('k-cpl').textContent = cpl>0 ? R(cpl) : '—';
+}
+
+/* ============================================================
+   RENDER CHART
+   ============================================================ */
+function renderChart(ds, canvasId, existing, barColor){
+  const keys  = Object.keys(ds.monthly);
+  const labels= keys.map(k=>ds.monthly[k].label);
+  const inv   = keys.map(k=>ds.monthly[k].invest);
+  const leads = keys.map(k=>ds.monthly[k].leads);
+  const clks  = keys.map(k=>ds.monthly[k].clk);
+  const sel   = period!=='all' ? keys.indexOf(period) : -1;
+
+  const barBg = keys.map((_,i)=>
+    sel>=0
+      ? (i===sel ? barColor : barColor.replace('1)','0.18)').replace(/[\d.]+\)$/,'0.18)'))
+      : barColor
+  );
+
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  if(existing) existing.destroy();
+
+  return new Chart(ctx,{
+    data:{
+      labels,
+      datasets:[
+        {type:'bar',label:'Investimento (R$)',data:inv,
+         backgroundColor:sel>=0
+           ? keys.map((_,i)=>i===sel?barColor:'rgba(150,150,180,0.2)')
+           : barColor,
+         borderRadius:6,yAxisID:'y',order:3},
+        {type:'line',label:'Leads',data:leads,
+         borderColor:'#16a34a',backgroundColor:'rgba(22,163,74,.07)',fill:true,
+         pointBackgroundColor:keys.map((_,i)=>i===sel?'#16a34a':'rgba(22,163,74,.5)'),
+         pointRadius:5,pointHoverRadius:7,tension:.3,yAxisID:'y2',order:1},
+        {type:'line',label:'Cliques',data:clks,
+         borderColor:'#94a3b8',backgroundColor:'transparent',borderDash:[4,3],
+         pointRadius:3,tension:.3,yAxisID:'y2',order:2},
+      ]
+    },
+    options:{
+      responsive:true,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{labels:{font:{family:'Nunito',weight:'700',size:10},color:'#6272a0',boxWidth:12,boxHeight:12}},
+        tooltip:{
+          backgroundColor:'rgba(12,29,115,.93)',
+          titleFont:{family:'Nunito',weight:'800',size:11},
+          bodyFont:{family:'Nunito',size:11},
+          padding:10,
+          callbacks:{
+            label(c){
+              if(c.dataset.label.startsWith('Invest'))
+                return `  ${c.dataset.label}: R$ ${c.raw.toLocaleString('pt-BR')}`;
+              return `  ${c.dataset.label}: ${c.raw.toLocaleString('pt-BR')}`;
+            }
+          }
+        }
+      },
+      scales:{
+        x:{grid:{color:'rgba(0,0,0,.04)'},
+          ticks:{font:{family:'Nunito',weight:'700',size:10},color:'#9ba8c8'}},
+        y:{position:'left',grid:{color:'rgba(0,0,0,.04)'},
+          ticks:{font:{family:'Nunito',size:9},color:'#9ba8c8',
+            callback:v=>'R$'+v.toLocaleString('pt-BR')}},
+        y2:{position:'right',grid:{drawOnChartArea:false},
+          ticks:{font:{family:'Nunito',size:9},color:'#9ba8c8'}}
+      }
+    }
+  });
+}
+
+/* ============================================================
+   RENDER TABLE
+   ============================================================ */
+function renderTable(ds, bodyId, footId, isMeta){
+  const camps = ds.campaigns;
+  // usa dados mensais para o total — mesma fonte dos KPI cards
+  const tot   = agg(ds, 'all');
+  const ti    = camps.reduce((s,c)=>s+c.invest,0); // para share %
+
+  let html='';
+  camps.forEach((c,i)=>{
+    const cpl=c.leads>0?c.invest/c.leads:0;
+    const cpc=c.clk>0?c.invest/c.clk:0;
+    const sh=(c.invest/ti*100).toFixed(0);
+    const col2=isMeta
+      ?`<span class="pub-badge">${c.cri}</span>`
+      :`<span class="type-badge ${c.tipo==='Search'?'search':'pmax'}">${c.tipo}</span>`;
+    html+=`<tr>
+      <td class="tc">${i+1}</td>
+      <td class="tl"><span class="ctag"><span class="dot" style="background:${c.color}"></span><span>${c.camp}</span></span></td>
+      <td class="tl">${col2}</td>
+      <td><span class="vg">R$ ${c.invest.toLocaleString('pt-BR')}</span><span class="share">${sh}%</span></td>
+      <td class="vn">${N(c.imp)}</td>
+      <td class="vn">${N(c.clk)}</td>
+      <td class="vg">${c.leads}</td>
+      <td class="${cpc>0?'vn':'vm'}">${cpc>0?R(cpc):'—'}</td>
+      <td class="${cpl>0?'vn':'vm'}">${cpl>0?R(cpl):'—'}</td>
+    </tr>`;
+  });
+  document.getElementById(bodyId).innerHTML=html;
+
+  // rodapé usa totais mensais (= mesmos valores dos KPI cards no período Geral)
+  const fcpc=tot.clk>0?tot.invest/tot.clk:0;
+  const fcpl=tot.leads>0?tot.invest/tot.leads:0;
+  document.getElementById(footId).innerHTML=`<tr>
+    <td class="tc">—</td>
+    <td class="tl">Total 2026</td>
+    <td></td>
+    <td>R$ ${Math.round(tot.invest).toLocaleString('pt-BR')}</td>
+    <td>${N(tot.imp)}</td>
+    <td>${N(tot.clk)}</td>
+    <td>${tot.leads}</td>
+    <td>${fcpc>0?R(fcpc):'—'}</td>
+    <td>${fcpl>0?R(fcpl):'—'}</td>
+  </tr>`;
+}
+
+/* ============================================================
+   PERIOD TABS
+   ============================================================ */
+function renderPeriodBtns(){
+  document.querySelectorAll('.period-btn').forEach(btn=>{
+    const p=btn.getAttribute('onclick').match(/'([^']+)'/)?.[1];
+    btn.classList.toggle('active',p===period);
+  });
+}
+
+/* ============================================================
+   ACTIONS
+   ============================================================ */
+function setPeriod(p){
+  period=p;
+  renderPeriodBtns();
+  renderKPIs(META,'m');
+  renderKPIs(GOOGLE,'g');
+  mChart=renderChart(META,'metaChart',mChart,'rgba(24,119,242,0.72)');
+  gChart=renderChart(GOOGLE,'googleChart',gChart,'rgba(66,133,244,0.72)');
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+renderKPIs(META,'m');
+renderKPIs(GOOGLE,'g');
+mChart=renderChart(META,'metaChart',null,'rgba(24,119,242,0.72)');
+gChart=renderChart(GOOGLE,'googleChart',null,'rgba(66,133,244,0.72)');
+renderTable(META,'metaCampBody','metaCampFoot',true);
+renderTable(GOOGLE,'googleCampBody','googleCampFoot',false);
+</script>
+</body>
+</html>

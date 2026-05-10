@@ -2472,6 +2472,28 @@ async def trafego_page(request: Request, client: str = None):
         "gads_clients": json.dumps(gads_configured),
     })
 
+@app.get("/dashboard/nf", response_class=HTMLResponse)
+async def dashboard_nf_page(request: Request):
+    """Dashboard de performance — Grupo NF (Gráfica NF). Standalone HTML embedado."""
+    username = verify_session(request)
+    if not username:
+        return RedirectResponse("/login")
+    resp = templates.TemplateResponse("dashboard_nf.html", {"request": request})
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+@app.get("/dashboard/dft", response_class=HTMLResponse)
+async def dashboard_dft_page(request: Request):
+    """Dashboard de performance — DFT Logística. Standalone HTML embedado."""
+    username = verify_session(request)
+    if not username:
+        return RedirectResponse("/login")
+    resp = templates.TemplateResponse("dashboard_dft.html", {"request": request})
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
 @app.get("/api/trafego/metrics")
 async def get_trafego_metrics(
     request: Request,

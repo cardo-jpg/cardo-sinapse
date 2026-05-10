@@ -270,6 +270,15 @@ def init_db():
             "INSERT INTO features (id,space_id,url,label,icon,position) VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING",
             ("feat_crm", "comercial", "/crm", "CRM", "🎯", 0),
         )
+        # Dashboards de clientes — adicionados conforme novos clientes entram
+        cur.execute(
+            "INSERT INTO features (id,space_id,url,label,icon,position) VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING",
+            ("feat_dash_nf",  "operacional", "/dashboard/nf",  "Dashboard — Grupo NF",  "📊", 10),
+        )
+        cur.execute(
+            "INSERT INTO features (id,space_id,url,label,icon,position) VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING",
+            ("feat_dash_dft", "operacional", "/dashboard/dft", "Dashboard — DFT Logística", "📊", 11),
+        )
 
         conn.commit()
     finally:
