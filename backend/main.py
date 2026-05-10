@@ -1567,45 +1567,57 @@ async def get_conversations(request: Request):
 async def cerebro_clients(request: Request):
     """
     Retorna os clientes ATIVOS do Painel de Clientes do Sinapse.
-    Usado pra popular a tela inicial do Cérebro dinamicamente, evitando
-    ter que manter uma lista hardcoded.
+    Usado pra popular a tela inicial do Cérebro dinamicamente.
+    Best-effort: se algo falha, devolve {"clients": [], "error": "..."}
+    em vez de 500 — assim a UI mostra mensagem útil em vez de travar.
     """
     if not verify_session(request):
         raise HTTPException(status_code=401)
-    conn = get_conn(); cur = dict_cursor(conn)
+    rows = []
+    err  = None
+    list_id = None
     try:
-        # Acha a lista pelo nome
-        cur.execute(
-            "SELECT id FROM lists WHERE LOWER(name) = LOWER(%s) AND COALESCE(archived,0) = 0 LIMIT 1",
-            ("Painel de Clientes",),
-        )
-        row = cur.fetchone()
-        if not row:
-            return JSONResponse({"clients": []})
-        list_id = row["id"]
-        # Pega tasks ativas (status = 'ativo')
-        cur.execute(
-            "SELECT title FROM tasks WHERE list_id=%s AND LOWER(COALESCE(status,'')) = 'ativo' ORDER BY title",
-            (list_id,),
-        )
-        rows = cur.fetchall() or []
-    finally:
-        cur.close(); conn.close()
+        conn = get_conn(); cur = dict_cursor(conn)
+        try:
+            # Variantes de nome aceitas (alguns clientes nomeiam diferente)
+            for name in ("Painel de Clientes", "Painel de Cliente", "Painel de clientes"):
+                cur.execute("SELECT id, name FROM lists WHERE LOWER(name) = LOWER(%s) LIMIT 1", (name,))
+                row = cur.fetchone()
+                if row:
+                    list_id = row["id"]
+                    break
+            if list_id:
+                cur.execute(
+                    "SELECT title, status FROM tasks WHERE list_id=%s ORDER BY title",
+                    (list_id,),
+                )
+                rows = cur.fetchall() or []
+        finally:
+            cur.close(); conn.close()
+    except Exception as e:
+        err = str(e)
 
     clients = []
     for r in rows:
+        # Filtra por status='ativo' (case insensitive)
+        status = str(r.get("status") or "").strip().lower()
+        if status != "ativo":
+            continue
         title = (r.get("title") or "").strip()
-        # Esperado: "[SIGLA] Nome do cliente"
         m = re.match(r"^\s*\[([A-Za-z0-9]+)\]\s*(.+?)\s*$", title)
         if not m:
-            # Sem sigla — usa o título como nome e gera sigla a partir das iniciais
             words = [w for w in re.split(r"\s+", title) if w]
             sigla = "".join(w[0].upper() for w in words[:3]) if words else "?"
             clients.append({"sigla": sigla, "nome": title})
             continue
         clients.append({"sigla": m.group(1).upper(), "nome": m.group(2).strip()})
 
-    return JSONResponse({"clients": clients})
+    return JSONResponse({
+        "clients":  clients,
+        "list_id":  list_id,
+        "error":    err,
+        "raw_count": len(rows),
+    })
 
 @app.delete("/api/conversations/{conv_id}")
 async def delete_conversation(conv_id: str, request: Request):

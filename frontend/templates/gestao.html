@@ -1949,31 +1949,31 @@
             <span class="cf-col-header-label" @click.stop="openColMenu('tarefa','Tarefa',$event)">
               <span>Tarefa</span><span style="opacity:.4;font-size:.65rem">⌄</span>
             </span>
-            <div class="col-resizer" @mousedown.left.prevent="startColResize('tarefa',$event)"></div>
+            <div class="col-resizer" @mousedown.prevent="startColResize('tarefa',$event)"></div>
           </span>
           <span x-show="cols.status" class="col-header-resizable" data-col-key="status" data-col-label="Status">
             <span class="cf-col-header-label" @click.stop="openColMenu('status','Status',$event)">
               <span>Status</span><span style="opacity:.4;font-size:.65rem">⌄</span>
             </span>
-            <div class="col-resizer" @mousedown.left.prevent="startColResize('status',$event)"></div>
+            <div class="col-resizer" @mousedown.prevent="startColResize('status',$event)"></div>
           </span>
           <span x-show="cols.responsavel" class="col-header-resizable" data-col-key="responsavel" data-col-label="Responsável">
             <span class="cf-col-header-label" @click.stop="openColMenu('responsavel','Responsável',$event)">
               <span>Responsável</span><span style="opacity:.4;font-size:.65rem">⌄</span>
             </span>
-            <div class="col-resizer" @mousedown.left.prevent="startColResize('responsavel',$event)"></div>
+            <div class="col-resizer" @mousedown.prevent="startColResize('responsavel',$event)"></div>
           </span>
           <span x-show="cols.prioridade" class="col-header-resizable" data-col-key="prioridade" data-col-label="Prioridade">
             <span class="cf-col-header-label" @click.stop="openColMenu('prioridade','Prioridade',$event)">
               <span>Prioridade</span><span style="opacity:.4;font-size:.65rem">⌄</span>
             </span>
-            <div class="col-resizer" @mousedown.left.prevent="startColResize('prioridade',$event)"></div>
+            <div class="col-resizer" @mousedown.prevent="startColResize('prioridade',$event)"></div>
           </span>
           <span x-show="cols.prazo" class="col-header-resizable" data-col-key="prazo" data-col-label="Prazo">
             <span class="cf-col-header-label" @click.stop="openColMenu('prazo','Prazo',$event)">
               <span>Prazo</span><span style="opacity:.4;font-size:.65rem">⌄</span>
             </span>
-            <div class="col-resizer" @mousedown.left.prevent="startColResize('prazo',$event)"></div>
+            <div class="col-resizer" @mousedown.prevent="startColResize('prazo',$event)"></div>
           </span>
           <template x-for="cf in (activeList?.custom_fields||[])" :key="cf.id">
             <span x-show="cfCols[cf.id]" class="col-header-resizable" :data-cf-id="cf.id">
@@ -1981,7 +1981,7 @@
                 <span x-text="cf.name"></span>
                 <span style="opacity:.4;font-size:.65rem">⌄</span>
               </span>
-              <div class="col-resizer" @mousedown.left.prevent="startCfColResize(cf.id,$event)"></div>
+              <div class="col-resizer" @mousedown.prevent="startCfColResize(cf.id,$event)"></div>
             </span>
           </template>
           <span></span>
@@ -4328,7 +4328,8 @@ document.addEventListener('alpine:init', () => {
     },
     get gridCols() {
       const locked = this.colWidths.tarefa > 0;
-      let c = locked ? `${this.colWidths.tarefa}px` : '1fr';
+      // Coluna TAREFA: min 200px pra nunca esmagar mesmo com muitas colunas extras
+      let c = locked ? `${this.colWidths.tarefa}px` : 'minmax(200px, 1fr)';
       if (this.cols.status)      c += ` ${this.colWidths.status}px`;
       if (this.cols.responsavel) c += ` ${this.colWidths.responsavel}px`;
       if (this.cols.prioridade)  c += ` ${this.colWidths.prioridade}px`;

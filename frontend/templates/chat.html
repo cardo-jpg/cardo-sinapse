@@ -770,13 +770,25 @@
       renderClientGrid();
     }
 
+    let _clientsError = '';
+    let _clientsDebug = null;
+
     async function loadClientsFromSinapse() {
+      _clientsError = '';
+      _clientsDebug = null;
       try {
-        const r = await fetch('/api/cerebro/clients');
-        if (!r.ok) throw new Error('http_' + r.status);
+        const r = await fetch('/api/cerebro/clients', { credentials: 'same-origin' });
+        if (!r.ok) {
+          _clientsError = 'HTTP ' + r.status;
+          CLIENTS = [];
+          return;
+        }
         const data = await r.json();
+        _clientsDebug = data;
+        if (data.error) _clientsError = data.error;
         CLIENTS = (data.clients || []).filter(c => c.sigla && c.nome);
       } catch (e) {
+        _clientsError = (e && e.message) || 'erro de rede';
         CLIENTS = [];
       }
     }
@@ -786,7 +798,11 @@
       grid.innerHTML = '<div class="client-grid-loading">Carregando clientes…</div>';
       await loadClientsFromSinapse();
       if (!CLIENTS.length) {
-        grid.innerHTML = '<div class="client-grid-loading">Nenhum cliente ativo no Painel de Clientes.</div>';
+        const dbg = _clientsDebug
+          ? ` (lista=${_clientsDebug.list_id || '?'}, tasks=${_clientsDebug.raw_count ?? '?'})`
+          : '';
+        const errBit = _clientsError ? ` — ${_clientsError}` : '';
+        grid.innerHTML = `<div class="client-grid-loading">Nenhum cliente ativo no Painel de Clientes${errBit}${dbg}</div>`;
         return;
       }
       grid.innerHTML = '';
