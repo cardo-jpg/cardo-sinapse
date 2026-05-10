@@ -1178,26 +1178,182 @@ def read_file_truncated(filepath: Path) -> str:
     note = f"\n_(Exibindo últimas {len(recent_rows)} de {len(data_rows)} linhas)_"
     return "\n".join(truncated) + note
 
+def _strip_md_simple(text: str, max_chars: int = 4000) -> str:
+    """Trunca texto longo preservando início e fim."""
+    if not text:
+        return ""
+    text = text.strip()
+    if len(text) <= max_chars:
+        return text
+    half = max_chars // 2
+    return text[:half] + f"\n\n[…conteúdo truncado, {len(text) - max_chars} chars omitidos…]\n\n" + text[-half:]
+
+
+def _normalize(s: str) -> str:
+    """Lowercase + remove acentos pra comparar nomes."""
+    import unicodedata
+    if not s: return ""
+    nfkd = unicodedata.normalize('NFKD', s)
+    return ''.join(c for c in nfkd if not unicodedata.combining(c)).lower()
+
+
+def _resolve_client_name(client_id: str) -> str:
+    """Busca o nome canônico do cliente no Painel de Clientes do Sinapse."""
+    if not client_id: return ""
+    try:
+        conn = get_conn(); cur = dict_cursor(conn)
+        try:
+            cur.execute(
+                "SELECT id FROM lists WHERE LOWER(name) IN ('painel de clientes','painel de cliente') LIMIT 1"
+            )
+            row = cur.fetchone()
+            if not row: return ""
+            cur.execute(
+                "SELECT title FROM tasks WHERE list_id=%s AND title ILIKE %s LIMIT 1",
+                (row["id"], f"[{client_id.upper()}]%"),
+            )
+            t = cur.fetchone()
+            if not t: return ""
+            # Extrai "Conexão Cirúrgica" de "[CC] Conexão Cirúrgica"
+            m = re.match(r"^\s*\[[A-Za-z0-9]+\]\s*(.+?)\s*$", t["title"])
+            return (m.group(1).strip() if m else "")
+        finally:
+            cur.close(); conn.close()
+    except Exception:
+        return ""
+
+
+def _sinapse_client_context(client_id: str) -> list[str]:
+    """
+    Coleta contexto vivo do cliente direto do banco do Sinapse:
+      - Ficha = task [SIGLA] no Painel de Clientes (descrição + cf_values rotulados)
+      - Documents do Sinapse cujo title contém [SIGLA] OU que estão em pasta cujo nome contém a sigla/nome
+    """
+    if not client_id: return []
+    sigla = client_id.upper()
+    out = []
+    try:
+        conn = get_conn(); cur = dict_cursor(conn)
+        try:
+            # 1. Painel de Clientes — pega a task do cliente
+            cur.execute(
+                "SELECT id, custom_fields FROM lists WHERE LOWER(name) IN ('painel de clientes','painel de cliente') LIMIT 1"
+            )
+            painel = cur.fetchone()
+            if painel:
+                cur.execute(
+                    "SELECT title, description, status, cf_values FROM tasks "
+                    "WHERE list_id=%s AND title ILIKE %s LIMIT 1",
+                    (painel["id"], f"[{sigla}]%"),
+                )
+                task = cur.fetchone()
+                if task:
+                    cf_defs_raw = painel.get("custom_fields") or "[]"
+                    try:
+                        cf_defs = json.loads(cf_defs_raw) if isinstance(cf_defs_raw, str) else cf_defs_raw
+                    except Exception:
+                        cf_defs = []
+                    cf_label = {cf.get("id"): cf.get("name", cf.get("id", "")) for cf in (cf_defs or []) if isinstance(cf, dict)}
+                    try:
+                        cfv = json.loads(task.get("cf_values") or "{}")
+                    except Exception:
+                        cfv = {}
+                    lines = [f"# Ficha do cliente — {task['title']}",
+                             f"_Status:_ {task.get('status') or '—'}"]
+                    if cfv:
+                        lines.append("\n## Dados (custom fields)")
+                        for cid, val in cfv.items():
+                            if val in (None, "", []): continue
+                            lines.append(f"- **{cf_label.get(cid, cid)}**: {val}")
+                    if (task.get("description") or "").strip():
+                        lines.append(f"\n## Descrição\n{task['description'].strip()}")
+                    out.append(f"=== Sinapse · Painel de Clientes · {task['title']} ===\n" + "\n".join(lines))
+
+            # 2. Documents do Sinapse com [SIGLA] no título ou em pasta com sigla/nome
+            cliente_nome = _resolve_client_name(sigla)
+            patterns = [f"%[{sigla}]%"]
+            if cliente_nome:
+                patterns.append(f"%{cliente_nome}%")
+
+            # documents diretos do cliente
+            placeholders_t = " OR ".join(["d.title ILIKE %s"] * len(patterns))
+            placeholders_f = " OR ".join(["f.name ILIKE %s"] * len(patterns)) if patterns else "FALSE"
+            sql = f"""
+                SELECT d.title, d.content, COALESCE(s.name, '') AS space_name, COALESCE(f.name, '') AS folder_name
+                FROM documents d
+                LEFT JOIN spaces  s ON s.id = d.space_id
+                LEFT JOIN folders f ON f.id = d.folder_id
+                WHERE ({placeholders_t}) OR ({placeholders_f})
+                ORDER BY d.updated_at DESC
+                LIMIT 25
+            """
+            params = patterns + patterns
+            cur.execute(sql, params)
+            rows = cur.fetchall() or []
+            for r in rows:
+                title = r.get("title") or "Sem título"
+                content = r.get("content") or ""
+                # Strip HTML grosseiramente — TipTap salva como HTML; mantém texto legível
+                txt = re.sub(r"<[^>]+>", " ", content)
+                txt = re.sub(r"\s+", " ", txt).strip()
+                breadcrumb = " · ".join([p for p in [r.get("space_name"), r.get("folder_name")] if p])
+                header = f"=== Sinapse · {breadcrumb}/{title} ===" if breadcrumb else f"=== Sinapse · {title} ==="
+                out.append(header + "\n" + _strip_md_simple(txt, 4000))
+        finally:
+            cur.close(); conn.close()
+    except Exception as e:
+        # Best-effort — se Sinapse não estiver disponível, segue só com arquivos
+        out.append(f"=== [aviso] não conseguiu ler Sinapse: {e} ===")
+    return out
+
+
+def _client_subdir_for(client_id: str) -> Optional[Path]:
+    """
+    Acha a subpasta documents/Cliente - X/ que corresponde à sigla.
+    Estratégia: usa o nome canônico do Painel de Clientes pra fazer match
+    fuzzy com os nomes das pastas (acento-insensitive).
+    """
+    if not client_id: return None
+    sigla = client_id.upper()
+    # 1. Tenta pelo nome canônico do Painel de Clientes
+    nome = _resolve_client_name(sigla)
+    if nome:
+        nome_norm = _normalize(nome)
+        for sub in DOCS_DIR.iterdir():
+            if sub.is_dir() and nome_norm in _normalize(sub.name):
+                return sub
+    # 2. Fallback: a sigla aparece literal no nome da pasta (caso "- HIRE")
+    needle = f"- {sigla}".lower()
+    for sub in DOCS_DIR.iterdir():
+        if sub.is_dir() and needle in sub.name.lower():
+            return sub
+    return None
+
+
 def load_documents(client_id: str = None):
     docs = []
-    # Documentos globais (raiz de documents/) — apenas .md
+    # 1. Documentos globais do disco (cardôpedia, docs gerais)
     for filepath in sorted(DOCS_DIR.glob("*.md")):
         content = read_file_truncated(filepath)
         docs.append(f"=== {filepath.name} ===\n{content}")
-    # Documentos do cliente selecionado — apenas .md, ignora .txt (exports de chat)
+
     if client_id:
-        for subdir in DOCS_DIR.iterdir():
-            if subdir.is_dir() and f"- {client_id.upper()}" in subdir.name.upper():
-                for filepath in sorted(subdir.glob("*.md")):
-                    content = read_file_truncated(filepath)
-                    docs.append(f"=== {subdir.name}/{filepath.name} ===\n{content}")
+        # 2. CONTEXTO VIVO DO SINAPSE: ficha (Painel de Clientes) + documents
+        docs.extend(_sinapse_client_context(client_id))
+        # 3. Arquivos .md da pasta do cliente (se existir)
+        sub = _client_subdir_for(client_id)
+        if sub:
+            for filepath in sorted(sub.glob("*.md")):
+                content = read_file_truncated(filepath)
+                docs.append(f"=== {sub.name}/{filepath.name} ===\n{content}")
     else:
-        # Sem cliente: carrega só as fichas de todos os clientes
+        # Sem cliente: só fichas de cada subpasta
         for subdir in sorted(DOCS_DIR.iterdir()):
             if subdir.is_dir():
                 for filepath in sorted(subdir.glob("ficha_*.md")):
                     content = filepath.read_text(encoding="utf-8")
                     docs.append(f"=== {subdir.name}/{filepath.name} ===\n{content}")
+
     return "\n\n".join(docs) if docs else "Nenhum documento interno carregado ainda."
 
 def save_conversation(conv_id, user, messages, title=None, client=None, client_name=None):
