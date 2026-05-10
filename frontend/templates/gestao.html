@@ -4546,6 +4546,16 @@ document.addEventListener('alpine:init', () => {
         if (doc) this.loadDocFamily();
         else this.docFamily = [];
       });
+      // Persiste estado de visualização da lista (agrupamento, filtros, view)
+      const _persistOnChange = () => { this.saveColPrefs(); };
+      this.$watch('view',           _persistOnChange);
+      this.$watch('groupBy',        _persistOnChange);
+      this.$watch('groupDir',       _persistOnChange);
+      this.$watch('showClosed',     _persistOnChange);
+      this.$watch('filters',        _persistOnChange);
+      this.$watch('assigneeFilter', _persistOnChange);
+      this.$watch('sortCol',        _persistOnChange);
+      this.$watch('collapsedGroups', _persistOnChange);
       // Ctrl+K / Cmd+K global shortcut
       document.addEventListener('keydown', e => {
         if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); this.openSearch(); }
@@ -4721,10 +4731,27 @@ document.addEventListener('alpine:init', () => {
         cfCols: this.cfCols,
         colWidths: this.colWidths,
         cfColWidths: this.cfColWidths,
+        // Estado de visualização da lista
+        view:           this.view,
+        groupBy:        this.groupBy,
+        groupDir:       this.groupDir,
+        filters:        this.filters,
+        assigneeFilter: this.assigneeFilter,
+        showClosed:     this.showClosed,
+        sortCol:        this.sortCol,
+        collapsedGroups: this.collapsedGroups,
       };
       localStorage.setItem(this._colPrefsKey(this.activeList.id), JSON.stringify(prefs));
     },
     loadColPrefs(listId) {
+      // Reset pra defaults antes de aplicar — evita vazar estado entre listas
+      this.groupBy        = '';
+      this.groupDir       = 'asc';
+      this.filters        = [];
+      this.assigneeFilter = [];
+      this.showClosed     = false;
+      this.sortCol        = null;
+      this.collapsedGroups = {};
       try {
         const raw = localStorage.getItem(this._colPrefsKey(listId));
         if (!raw) return;
@@ -4733,6 +4760,14 @@ document.addEventListener('alpine:init', () => {
         if (p.cfCols)      Object.assign(this.cfCols, p.cfCols);
         if (p.colWidths)   Object.assign(this.colWidths, p.colWidths);
         if (p.cfColWidths) Object.assign(this.cfColWidths, p.cfColWidths);
+        if (p.view)            this.view = p.view;
+        if (typeof p.groupBy === 'string')  this.groupBy = p.groupBy;
+        if (p.groupDir)        this.groupDir = p.groupDir;
+        if (Array.isArray(p.filters))        this.filters = p.filters;
+        if (Array.isArray(p.assigneeFilter)) this.assigneeFilter = p.assigneeFilter;
+        if (typeof p.showClosed === 'boolean') this.showClosed = p.showClosed;
+        if (p.sortCol !== undefined)        this.sortCol = p.sortCol;
+        if (p.collapsedGroups)              this.collapsedGroups = p.collapsedGroups;
       } catch(e) {}
     },
 
