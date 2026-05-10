@@ -773,34 +773,46 @@
     let _clientsError = '';
     let _clientsDebug = null;
 
+    function _setGridState(html) {
+      const g = document.getElementById('clientGrid');
+      if (g) g.innerHTML = '<div class="client-grid-loading">' + html + '</div>';
+    }
+
     async function loadClientsFromSinapse() {
       _clientsError = '';
       _clientsDebug = null;
+      _setGridState('1/3 — iniciando…');
       const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 8000);
+      const timer = setTimeout(() => ctrl.abort(), 4000);
       try {
+        _setGridState('2/3 — chamando /api/cerebro/clients…');
         const r = await fetch('/api/cerebro/clients?_=' + Date.now(), {
           credentials: 'same-origin',
           signal: ctrl.signal,
           cache: 'no-store',
         });
         clearTimeout(timer);
-        console.log('[cerebro] /api/cerebro/clients status:', r.status);
+        _setGridState('3/3 — recebido HTTP ' + r.status + ', parseando…');
         if (!r.ok) {
-          _clientsError = 'HTTP ' + r.status;
+          _clientsError = 'HTTP ' + r.status + ' (' + r.statusText + ')';
           CLIENTS = [];
           return;
         }
-        const data = await r.json();
-        console.log('[cerebro] data:', data);
+        const text = await r.text();
+        let data;
+        try { data = JSON.parse(text); }
+        catch (jerr) {
+          _clientsError = 'resposta não-JSON (primeiros 80 chars): ' + text.slice(0, 80);
+          CLIENTS = [];
+          return;
+        }
         _clientsDebug = data;
         if (data && data.error) _clientsError = data.error;
         CLIENTS = ((data && data.clients) || []).filter(c => c && c.sigla && c.nome);
       } catch (e) {
         clearTimeout(timer);
-        console.log('[cerebro] fetch error:', e);
         if (e && e.name === 'AbortError') {
-          _clientsError = 'timeout — servidor não respondeu em 8s';
+          _clientsError = 'timeout — servidor não respondeu em 4s';
         } else {
           _clientsError = (e && e.message) || 'erro de rede';
         }
@@ -809,14 +821,13 @@
     }
 
     async function renderClientGrid() {
-      const grid = document.getElementById('clientGrid');
-      grid.innerHTML = '<div class="client-grid-loading">Carregando clientes…</div>';
+      _setGridState('Iniciando…');
       try {
         await loadClientsFromSinapse();
       } catch (e) {
-        console.log('[cerebro] render error:', e);
         _clientsError = (e && e.message) || 'erro inesperado';
       }
+      const grid = document.getElementById('clientGrid');
       if (!CLIENTS.length) {
         const lid   = _clientsDebug && _clientsDebug.list_id ? _clientsDebug.list_id : '?';
         const cnt   = _clientsDebug && (_clientsDebug.raw_count !== undefined && _clientsDebug.raw_count !== null) ? _clientsDebug.raw_count : '?';
