@@ -2724,6 +2724,13 @@
       <template x-if="colMenu.cf">
         <div>
           <div class="cf-header-menu-sep"></div>
+          <div class="cf-header-menu-item" @click="openCfEditModal(colMenu.cf); colMenu=null">
+            <span>⚙</span><span>Editar campo</span>
+          </div>
+          <div class="cf-header-menu-item" @click="duplicateCustomField(colMenu.cf); colMenu=null">
+            <span>⎘</span><span>Duplicar</span>
+          </div>
+          <div class="cf-header-menu-sep"></div>
           <div class="cf-header-menu-item" @click="moveCfToStart(colMenu.cf.id); colMenu=null">
             <span>⇤</span><span>Mover para o início</span>
           </div>
@@ -2804,17 +2811,17 @@
     </div>
   </div>
 
-  <!-- create custom field mini-modal -->
+  <!-- create/edit custom field mini-modal -->
   <div class="mini-modal" x-show="cfModal" x-transition @click.self="cfModal=false">
-    <div class="mini-box" @click.stop style="max-width:360px">
-      <div class="mini-title">Novo campo personalizado</div>
+    <div class="mini-box" @click.stop style="max-width:380px">
+      <div class="mini-title" x-text="cfEditingId ? 'Editar campo' : 'Novo campo personalizado'"></div>
       <div class="form-group">
         <label class="form-label">Nome do campo</label>
-        <input class="form-input" x-model="cfName" placeholder="Ex: Budget, Link, Fase..." @keydown.enter="createCustomField()">
+        <input class="form-input" x-model="cfName" placeholder="Ex: Budget, Link, Fase..." @keydown.enter="saveCustomField()">
       </div>
       <div class="form-group">
-        <label class="form-label">Tipo</label>
-        <select class="form-select" x-model="cfType">
+        <label class="form-label">Tipo <span x-show="cfEditingId" style="font-size:.7rem;opacity:.6">(não editável)</span></label>
+        <select class="form-select" x-model="cfType" :disabled="!!cfEditingId">
           <option value="text">Texto</option>
           <option value="number">Número</option>
           <option value="date">Data</option>
@@ -2844,7 +2851,8 @@
       </template>
       <div class="mini-actions">
         <button class="btn-ghost" @click="cfModal=false">Cancelar</button>
-        <button class="btn-primary" @click="createCustomField()" :disabled="!cfName.trim()">Criar</button>
+        <button class="btn-primary" @click="saveCustomField()" :disabled="!cfName.trim()"
+                x-text="cfEditingId ? 'Salvar' : 'Criar'"></button>
       </div>
     </div>
   </div>
@@ -4445,6 +4453,7 @@ document.addEventListener('alpine:init', () => {
 
     cfModal: false, cfName: '', cfType: 'text',
     cfOptionsList: [],
+    cfEditingId: null,
     smColorPickerStatusId: null,
     smColorPickerPos: { x: 0, y: 0 },
     cfColorPickerIdx: null,
@@ -5274,25 +5283,84 @@ document.addEventListener('alpine:init', () => {
       const s = this.smStatuses.find(s => s.id === statusId);
       if (s) s.color = color;
     },
-    openCfModal() { this.cfModal=true; this.cfName=''; this.cfType='text'; this.cfOptionsList=[this._newCfOpt(0), this._newCfOpt(1)]; },
+    openCfModal() {
+      this.cfModal=true; this.cfEditingId=null;
+      this.cfName=''; this.cfType='text';
+      this.cfOptionsList=[this._newCfOpt(0), this._newCfOpt(1)];
+    },
+    openCfEditModal(cf) {
+      if (!cf) return;
+      this.cfEditingId = cf.id;
+      this.cfName = cf.name || '';
+      this.cfType = cf.type || 'text';
+      if (cf.type === 'dropdown') {
+        const opts = (cf.options || []).map((o, i) => ({
+          name: o.name || '',
+          color: o.color || this.cfOptionColors[i % this.cfOptionColors.length],
+        }));
+        this.cfOptionsList = opts.length ? opts : [this._newCfOpt(0), this._newCfOpt(1)];
+      } else {
+        this.cfOptionsList = [this._newCfOpt(0), this._newCfOpt(1)];
+      }
+      this.cfModal = true;
+    },
     addCfOption() { this.cfOptionsList.push(this._newCfOpt(this.cfOptionsList.length)); },
     removeCfOption(idx) { if (this.cfOptionsList.length > 1) this.cfOptionsList.splice(idx, 1); },
-    async createCustomField() {
+    async saveCustomField() {
       if (!this.cfName.trim() || !this.activeList) return;
-      const newField = {
-        id: 'cf_' + Date.now(),
-        name: this.cfName.trim(),
-        type: this.cfType,
-        options: this.cfType === 'dropdown' ? this.cfOptionsList.filter(o=>o.name.trim()).map(o=>({name:o.name.trim(),color:o.color})) : [],
-      };
-      const updated = [...(this.activeList.custom_fields || []), newField];
+      const opts = this.cfType === 'dropdown'
+        ? this.cfOptionsList.filter(o=>o.name.trim()).map(o=>({name:o.name.trim(),color:o.color}))
+        : [];
+      let updated;
+      if (this.cfEditingId) {
+        updated = (this.activeList.custom_fields || []).map(cf =>
+          cf.id === this.cfEditingId
+            ? { ...cf, name: this.cfName.trim(), options: opts }
+            : cf
+        );
+      } else {
+        const newField = {
+          id: 'cf_' + Date.now(),
+          name: this.cfName.trim(),
+          type: this.cfType,
+          options: opts,
+        };
+        updated = [...(this.activeList.custom_fields || []), newField];
+      }
       await fetch(`/api/gestao/lists/${this.activeList.id}`, {
         method: 'PATCH',
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify({custom_fields: updated}),
       });
       this.activeList.custom_fields = updated;
+      const lst = this._findList(this.activeList.id);
+      if (lst) lst.custom_fields = updated;
       this.cfModal = false;
+      this.cfEditingId = null;
+    },
+    // legado: createCustomField mantido pra evitar quebrar callers antigos
+    async createCustomField() { return this.saveCustomField(); },
+
+    async duplicateCustomField(cf) {
+      if (!cf || !this.activeList) return;
+      const fields = [...(this.activeList.custom_fields || [])];
+      const idx = fields.findIndex(f => f.id === cf.id);
+      if (idx === -1) return;
+      const copy = {
+        id: 'cf_' + Date.now(),
+        name: (cf.name || 'Campo') + ' (cópia)',
+        type: cf.type,
+        options: (cf.options || []).map(o => ({...o})),
+      };
+      fields.splice(idx + 1, 0, copy);
+      await fetch(`/api/gestao/lists/${this.activeList.id}`, {
+        method: 'PATCH',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({custom_fields: fields}),
+      });
+      this.activeList.custom_fields = fields;
+      const lst = this._findList(this.activeList.id);
+      if (lst) lst.custom_fields = fields;
     },
 
     async deleteCustomField(cfId) {
@@ -5304,6 +5372,8 @@ document.addEventListener('alpine:init', () => {
         body: JSON.stringify({custom_fields: updated}),
       });
       this.activeList.custom_fields = updated;
+      const lst = this._findList(this.activeList.id);
+      if (lst) lst.custom_fields = updated;
     },
 
     async deleteTask(task) {
