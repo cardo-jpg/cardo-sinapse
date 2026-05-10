@@ -437,8 +437,12 @@
       width: 16px; height: 16px; border: 1.5px solid #3a3a3a; border-radius: 4px;
       cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
       margin-right: 4px;
+      opacity: 0; transition: opacity .12s, border-color .12s, background .12s;
     }
-    .task-list-header .task-select-header-box:hover { border-color: var(--orange, #E97919); }
+    .task-list-header [data-col-key="tarefa"]:hover .task-select-header-box { opacity: .8; }
+    .task-list-header .task-select-header-box:hover { border-color: var(--orange, #E97919); opacity: 1; }
+    .task-list-header .task-select-header-box.checked,
+    .task-list-header .task-select-header-box.indeterminate { opacity: 1; }
     .task-list-header .task-select-header-box.checked {
       background: var(--orange, #E97919); border-color: var(--orange, #E97919);
     }
