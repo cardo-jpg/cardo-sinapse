@@ -397,12 +397,68 @@ Regras:
     return tasks_data
 
 
+def _parse_statuses_blob(raw: str):
+    """Aceita JSON array OU JSON objeto {statuses:[...]}; retorna lista de {id,name,color} ou None."""
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+    except Exception:
+        return None
+    if isinstance(data, list):
+        items = data
+    elif isinstance(data, dict):
+        items = data.get("statuses") or []
+    else:
+        return None
+    out = [s for s in items if isinstance(s, dict) and s.get("id")]
+    return out or None
+
+
+def _first_status_for_list(cur, list_id: str) -> str:
+    """
+    Retorna o ID do primeiro status efetivo da lista (custom > folder > space > default 'aberto').
+    Espelha a lógica do frontend `get statuses()` em gestao.html.
+    """
+    try:
+        cur.execute(
+            "SELECT custom_statuses, space_id, folder_id FROM lists WHERE id=%s LIMIT 1",
+            (list_id,),
+        )
+        row = cur.fetchone()
+        if not row:
+            return "aberto"
+        statuses = _parse_statuses_blob(row.get("custom_statuses"))
+        if statuses:
+            return statuses[0]["id"]
+        if row.get("folder_id"):
+            cur.execute("SELECT custom_statuses FROM folders WHERE id=%s LIMIT 1", (row["folder_id"],))
+            f = cur.fetchone()
+            if f:
+                statuses = _parse_statuses_blob(f.get("custom_statuses"))
+                if statuses:
+                    return statuses[0]["id"]
+        if row.get("space_id"):
+            cur.execute("SELECT custom_statuses FROM spaces WHERE id=%s LIMIT 1", (row["space_id"],))
+            s = cur.fetchone()
+            if s:
+                statuses = _parse_statuses_blob(s.get("custom_statuses"))
+                if statuses:
+                    return statuses[0]["id"]
+    except Exception:
+        pass
+    return "aberto"
+
+
 @router.post("/api/ata/sinapse/create-tasks")
 async def create_tasks_sinapse(request: Request):
     """
     Cria tarefas no Sinapse usando os list_ids escolhidos pelo usuário.
     Body: { tasks: [{name, description, assignee, due_date, list_id}], client_sigla }
     Retorna: { created: [...], errors: [...] }
+
+    Status inicial: pega o PRIMEIRO custom_status da lista (ou folder/space na cascata).
+    Assim a tarefa nasce com "A fazer" em listas de Tráfego/Redação, em vez do default 'aberto'.
     """
     _require(request)
     body = await request.json()
@@ -420,6 +476,7 @@ async def create_tasks_sinapse(request: Request):
             description = t.get("description") or ""
             assignee    = (t.get("assignee") or "").strip().lower() or None
             due_date    = (t.get("due_date") or "").strip() or None
+            status_id   = _first_status_for_list(cur, list_id)
 
             tid = str(uuid.uuid4())
             now = datetime.now().isoformat()
@@ -432,10 +489,10 @@ async def create_tasks_sinapse(request: Request):
                 cur.execute(
                     "INSERT INTO tasks (id,list_id,title,description,assignees,due_date,status,priority,position,created_at) "
                     "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-                    (tid, list_id, name, description, assignees_json, due_date, "aberto", "normal", pos, now),
+                    (tid, list_id, name, description, assignees_json, due_date, status_id, "normal", pos, now),
                 )
                 conn.commit()
-                created.append({"id": tid, "name": name, "list_id": list_id})
+                created.append({"id": tid, "name": name, "list_id": list_id, "status": status_id})
             except Exception as e:
                 conn.rollback()
                 errors.append({"name": name, "error": str(e)})

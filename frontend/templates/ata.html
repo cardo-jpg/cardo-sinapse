@@ -275,6 +275,14 @@
       max-width: 280px;
     }
     .task-select:focus { outline: 1px solid var(--cb-orange); }
+    .task-date {
+      padding: 6px 10px;
+      background: var(--cb-bg-2); border: 1px solid var(--cb-border);
+      color: var(--cb-text); font-size: .78rem; font-family: inherit;
+      border-radius: 7px; cursor: pointer;
+      color-scheme: dark;
+    }
+    .task-date:focus { outline: 1px solid var(--cb-orange); }
     .task-tag {
       padding: 2px 8px; font-size: .7rem;
       border-radius: 99px;
@@ -553,8 +561,8 @@
                         <option value="jose">👤 José</option>
                         <option value="jadna">👤 Jadna</option>
                       </select>
+                      <input type="date" class="task-date" x-model="t.due_date" :disabled="!t._enabled" title="Prazo">
                       <span class="task-tag" :class="t.is_client ? 'client' : 'cardo'" x-text="t.is_client ? 'cliente' : 'cardô'"></span>
-                      <span class="task-tag" x-show="t.due_date" x-text="'📅 ' + formatDate(t.due_date)"></span>
                     </div>
                   </div>
                 </div>
