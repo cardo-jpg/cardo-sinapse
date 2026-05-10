@@ -2472,6 +2472,17 @@ async def trafego_page(request: Request, client: str = None):
         "gads_clients": json.dumps(gads_configured),
     })
 
+@app.get("/dashboards/clientes", response_class=HTMLResponse)
+async def dashboards_clientes_page(request: Request):
+    """Shell com seletor de cliente + iframe pros dashboards individuais."""
+    username = verify_session(request)
+    if not username:
+        return RedirectResponse("/login")
+    resp = templates.TemplateResponse("dashboards_clientes.html", {"request": request})
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
 @app.get("/dashboard/nf", response_class=HTMLResponse)
 async def dashboard_nf_page(request: Request):
     """Dashboard de performance — Grupo NF (Gráfica NF). Standalone HTML embedado."""

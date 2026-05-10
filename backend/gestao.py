@@ -270,14 +270,12 @@ def init_db():
             "INSERT INTO features (id,space_id,url,label,icon,position) VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING",
             ("feat_crm", "comercial", "/crm", "CRM", "🎯", 0),
         )
-        # Dashboards de clientes — adicionados conforme novos clientes entram
+        # Cleanup features antigos (clientes saíram ou foram consolidados)
+        cur.execute("DELETE FROM features WHERE id IN ('feat_dash_nf', 'feat_dash_dft', 'feat_dash_hire')")
+        # Ferramenta única de Dashboards de Clientes (NF, DFT, ...) com seletor interno
         cur.execute(
             "INSERT INTO features (id,space_id,url,label,icon,position) VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING",
-            ("feat_dash_nf",  "operacional", "/dashboard/nf",  "Dashboard — Grupo NF",  "📊", 10),
-        )
-        cur.execute(
-            "INSERT INTO features (id,space_id,url,label,icon,position) VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING",
-            ("feat_dash_dft", "operacional", "/dashboard/dft", "Dashboard — DFT Logística", "📊", 11),
+            ("feat_dash_clientes", "operacional", "/dashboards/clientes", "Dashboards de Clientes", "📊", 10),
         )
 
         conn.commit()
