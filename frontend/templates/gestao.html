@@ -2091,10 +2091,20 @@
                       </template>
                     </select>
                   </template>
-                  <template x-if="f.fieldType === 'date'">
-                    <button type="button" class="group-select" style="padding:4px 10px;cursor:pointer;text-align:left"
-                            @click="openDatePicker($event, f.value, v => f.value = v)"
-                            x-text="f.value ? dpFormatBr(f.value) : 'Selecionar data'"></button>
+                  <template x-if="f.fieldType === 'date' && _dateOpNeedsValue(f.operator)">
+                    <span style="display:inline-flex;align-items:center;gap:6px">
+                      <button type="button" class="group-select" style="padding:4px 10px;cursor:pointer;text-align:left"
+                              @click="openDatePicker($event, f.value, v => f.value = v)"
+                              x-text="f.value ? dpFormatBr(f.value) : 'Selecionar data'"></button>
+                      <template x-if="f.operator === 'between'">
+                        <span style="display:inline-flex;align-items:center;gap:6px">
+                          <span style="color:#666;font-size:.75rem">→</span>
+                          <button type="button" class="group-select" style="padding:4px 10px;cursor:pointer;text-align:left"
+                                  @click="openDatePicker($event, f.valueEnd, v => f.valueEnd = v)"
+                                  x-text="f.valueEnd ? dpFormatBr(f.valueEnd) : 'Data final'"></button>
+                        </span>
+                      </template>
+                    </span>
                   </template>
                 </span>
               </template>
@@ -5472,13 +5482,36 @@ document.addEventListener('alpine:init', () => {
     },
     filterOperators(fieldType) {
       if (fieldType === 'date') return [
-        {v:'before', l:'antes de'}, {v:'after', l:'depois de'},
-        {v:'is_empty', l:'está vazio'}, {v:'is_not_empty', l:'não está vazio'},
+        // Atalhos (não precisam de valor)
+        {v:'overdue',        l:'em atraso'},
+        {v:'today_or_before',l:'hoje e antes'},
+        {v:'is_today',       l:'hoje'},
+        {v:'is_tomorrow',    l:'amanhã'},
+        {v:'is_yesterday',   l:'ontem'},
+        {v:'next_7d',        l:'próximos 7 dias'},
+        {v:'last_7d',        l:'últimos 7 dias'},
+        {v:'this_week',      l:'esta semana'},
+        {v:'next_week',      l:'semana que vem'},
+        {v:'last_week',      l:'semana passada'},
+        {v:'this_month',     l:'este mês'},
+        {v:'next_month',     l:'próximo mês'},
+        {v:'last_month',     l:'mês passado'},
+        // Manuais (precisam de valor)
+        {v:'exact',  l:'data exata'},
+        {v:'before', l:'antes de'},
+        {v:'after',  l:'depois de'},
+        {v:'between',l:'entre'},
+        // Empty
+        {v:'is_empty',     l:'sem data'},
+        {v:'is_not_empty', l:'qualquer data'},
       ];
       return [
         {v:'is', l:'é'}, {v:'is_not', l:'não é'},
         {v:'is_empty', l:'está vazio'}, {v:'is_not_empty', l:'não está vazio'},
       ];
+    },
+    _dateOpNeedsValue(op) {
+      return ['exact', 'before', 'after', 'between'].includes(op);
     },
     filterValues(filter) {
       if (filter.fieldType === 'status') return this.statuses.map(s => ({v: s.id, l: s.name}));
@@ -5489,14 +5522,54 @@ document.addEventListener('alpine:init', () => {
       if (filter.fieldType === 'dropdown') return (filter.cf?.options || []).map(o => ({v: o.name, l: o.name}));
       return [];
     },
+    _filterDateRange(op) {
+      // Retorna {start, end} (YYYY-MM-DD, ambos inclusivos) ou null se não aplica.
+      const today = new Date(); today.setHours(0,0,0,0);
+      const iso = d => {
+        const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+        return `${y}-${m}-${day}`;
+      };
+      const addDays = (d, n) => { const x = new Date(d); x.setDate(d.getDate()+n); return x; };
+      // Início da semana = segunda
+      const dow = today.getDay(); // 0=dom..6=sáb
+      const mondayOfThisWeek = addDays(today, dow === 0 ? -6 : 1 - dow);
+      const sundayOfThisWeek = addDays(mondayOfThisWeek, 6);
+      const firstOfThisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const lastOfThisMonth  = new Date(today.getFullYear(), today.getMonth()+1, 0);
+      switch (op) {
+        case 'is_today':     return { start: iso(today), end: iso(today) };
+        case 'is_tomorrow':  return { start: iso(addDays(today,1)), end: iso(addDays(today,1)) };
+        case 'is_yesterday': return { start: iso(addDays(today,-1)), end: iso(addDays(today,-1)) };
+        case 'next_7d':      return { start: iso(today), end: iso(addDays(today,7)) };
+        case 'last_7d':      return { start: iso(addDays(today,-7)), end: iso(today) };
+        case 'this_week':    return { start: iso(mondayOfThisWeek), end: iso(sundayOfThisWeek) };
+        case 'next_week':    return { start: iso(addDays(mondayOfThisWeek,7)), end: iso(addDays(sundayOfThisWeek,7)) };
+        case 'last_week':    return { start: iso(addDays(mondayOfThisWeek,-7)), end: iso(addDays(sundayOfThisWeek,-7)) };
+        case 'this_month':   return { start: iso(firstOfThisMonth), end: iso(lastOfThisMonth) };
+        case 'next_month': {
+          const a = new Date(today.getFullYear(), today.getMonth()+1, 1);
+          const b = new Date(today.getFullYear(), today.getMonth()+2, 0);
+          return { start: iso(a), end: iso(b) };
+        }
+        case 'last_month': {
+          const a = new Date(today.getFullYear(), today.getMonth()-1, 1);
+          const b = new Date(today.getFullYear(), today.getMonth(), 0);
+          return { start: iso(a), end: iso(b) };
+        }
+        case 'overdue':         return { start: '', end: iso(addDays(today,-1)) };
+        case 'today_or_before': return { start: '', end: iso(today) };
+        default: return null;
+      }
+    },
     addFilter(fieldKey) {
       const field = this.filterFieldsList.find(f => f.key === fieldKey);
       if (!field) return;
       this.filters.push({
         id: Date.now(),
         field: field.key, fieldLabel: field.label, fieldType: field.type,
-        operator: field.type === 'date' ? 'before' : 'is',
+        operator: field.type === 'date' ? 'overdue' : 'is',
         value: '',
+        valueEnd: '',
         cf: field.cf || null,
       });
     },
@@ -5513,11 +5586,28 @@ document.addEventListener('alpine:init', () => {
       const val = this._getFilterTaskVal(task, f.field);
       if (f.operator === 'is_empty')     return !val;
       if (f.operator === 'is_not_empty') return !!val;
+      // Operadores de data com range pré-calculado
+      if (f.fieldType === 'date') {
+        const range = this._filterDateRange(f.operator);
+        if (range) {
+          if (!val) return false;
+          if (range.start && val < range.start) return false;
+          if (range.end   && val > range.end)   return false;
+          return true;
+        }
+        // Operadores manuais
+        if (f.operator === 'exact')  return !!val && !!f.value && val === f.value;
+        if (f.operator === 'before') return !!val && !!f.value && val < f.value;
+        if (f.operator === 'after')  return !!val && !!f.value && val > f.value;
+        if (f.operator === 'between') {
+          if (!val || !f.value || !f.valueEnd) return true;
+          return val >= f.value && val <= f.valueEnd;
+        }
+        return true;
+      }
       if (!f.value) return true;
       if (f.operator === 'is')     return val === f.value;
       if (f.operator === 'is_not') return val !== f.value;
-      if (f.operator === 'before') return val && val < f.value;
-      if (f.operator === 'after')  return val && val > f.value;
       return true;
     },
     toggleGroup(key) {
