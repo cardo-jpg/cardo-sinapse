@@ -1,0 +1,35 @@
+<!-- Twemoji: renderiza todos os emojis como SVGs do Twitter pra ficar IDÊNTICO em Windows/Mac/Linux -->
+<style>
+  img.emoji {
+    height: 1em; width: 1em;
+    margin: 0 .05em 0 .1em;
+    vertical-align: -0.1em;
+    display: inline-block;
+  }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@twemoji/api@latest/dist/twemoji.min.js" crossorigin="anonymous"></script>
+<script>
+(function () {
+  const BASE = 'https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/';
+  function parse() {
+    if (!window.twemoji || !document.body) return;
+    window.twemoji.parse(document.body, { folder: 'svg', ext: '.svg', base: BASE });
+  }
+  // Initial parse
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', parse);
+  } else {
+    parse();
+  }
+  // Re-parse on DOM mutations (Alpine re-renders) — debounced
+  let _t = null;
+  const observer = new MutationObserver(() => {
+    if (_t) clearTimeout(_t);
+    _t = setTimeout(parse, 120);
+  });
+  // Observa só depois do load pra evitar custo no boot
+  window.addEventListener('load', () => {
+    observer.observe(document.body, { childList: true, subtree: true });
+  });
+})();
+</script>
