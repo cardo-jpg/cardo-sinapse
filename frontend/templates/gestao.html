@@ -3889,26 +3889,28 @@
                 </div>
                 <div class="prop-value">
                   <template x-if="cf.type === 'text'">
-                    <input type="text" :value="(form.extra_data||{})[cf.id]||''"
+                    <input type="text" :value="(form.cf_values||{})[cf.id]||''"
                            @change="setExtraField(cf.id,$event.target.value)"
                            :placeholder="'Vazio'" style="width:100%">
                   </template>
                   <template x-if="cf.type === 'number'">
-                    <input type="number" :value="(form.extra_data||{})[cf.id]||''"
+                    <input type="number" :value="(form.cf_values||{})[cf.id]||''"
                            @change="setExtraField(cf.id,$event.target.value)"
                            :placeholder="'Vazio'" style="width:100%">
                   </template>
                   <template x-if="cf.type === 'date'">
                     <button type="button" class="form-input"
                             style="text-align:left;cursor:pointer;width:100%;background:transparent;border:1px solid var(--border);color:#fff;padding:8px 10px;border-radius:6px"
-                            @click="openDatePicker($event, (form.extra_data||{})[cf.id]||'', v => setExtraField(cf.id, v))"
-                            x-text="(form.extra_data||{})[cf.id] ? dpFormatBr((form.extra_data||{})[cf.id]) : 'Sem data'"></button>
+                            @click="openDatePicker($event, (form.cf_values||{})[cf.id]||'', v => setExtraField(cf.id, v))"
+                            x-text="(form.cf_values||{})[cf.id] ? dpFormatBr((form.cf_values||{})[cf.id]) : 'Sem data'"></button>
                   </template>
                   <template x-if="cf.type === 'dropdown'">
                     <select @change="setExtraField(cf.id,$event.target.value)">
                       <option value="">Vazio</option>
-                      <template x-for="opt in (cf.options||[])" :key="opt">
-                        <option :value="opt" :selected="(form.extra_data||{})[cf.id]===opt" x-text="opt"></option>
+                      <template x-for="opt in (cf.options||[])" :key="opt.name || opt">
+                        <option :value="opt.name || opt"
+                                :selected="(form.cf_values||{})[cf.id]===(opt.name || opt)"
+                                x-text="opt.name || opt"></option>
                       </template>
                     </select>
                   </template>
@@ -5778,7 +5780,16 @@ document.addEventListener('alpine:init', () => {
     },
     openEdit(task) {
       this.editTask=task;
-      this.form={title:task.title,description:task.description||'',assignees:[...(task.assignees||[])],due_date:task.due_date||'',status:task.status,priority:task.priority,extra_data:{...(task.extra_data||{})}};
+      this.form={
+        title:task.title,
+        description:task.description||'',
+        assignees:[...(task.assignees||[])],
+        due_date:task.due_date||'',
+        status:task.status,
+        priority:task.priority,
+        extra_data:{...(task.extra_data||{})},
+        cf_values:{...(task.cf_values||{})},
+      };
       this.propEditing={status:false,responsavel:false,prazo:false,prioridade:false};
       this.modal=true;
     },
@@ -6124,9 +6135,20 @@ document.addEventListener('alpine:init', () => {
     },
 
     async setExtraField(cfId, value) {
+      // Renomeado funcionalmente: agora salva em cf_values (que é onde
+      // a célula da listagem lê). Mantido nome 'setExtraField' por
+      // compatibilidade com call sites antigos.
       if (!this.editTask) return;
-      this.form.extra_data = {...(this.form.extra_data||{}), [cfId]: value};
-      await this.patchTask('extra_data', this.form.extra_data);
+      const next = { ...(this.form.cf_values || {}) };
+      if (value === '' || value === null || value === undefined) {
+        delete next[cfId];
+      } else {
+        next[cfId] = value;
+      }
+      this.form.cf_values = next;
+      // Reflete em editTask pra coluna atualizar sem F5
+      if (this.editTask) this.editTask.cf_values = next;
+      await this.patchTask('cf_values', next);
     },
     async saveChecklists() {
       if (!this.editTask) return;
