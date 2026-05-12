@@ -507,6 +507,108 @@
       color-scheme: dark;
     }
 
+    /* ── DATE PICKER (popover global) ──────────────────────────────────── */
+    .dp-pop {
+      position: fixed; z-index: 6000;
+      background: #141422;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      display: flex; min-width: 480px; max-width: 540px;
+      box-shadow: 0 24px 64px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.04) inset;
+      font-size: .82rem;
+      overflow: hidden;
+    }
+    .dp-shortcuts {
+      display: flex; flex-direction: column;
+      width: 200px; flex-shrink: 0;
+      background: rgba(0,0,0,.18);
+      border-right: 1px solid #2a2a2a;
+      padding: 6px;
+    }
+    .dp-input-row {
+      padding: 8px 10px;
+      border-bottom: 1px solid #2a2a2a;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .dp-input-row input {
+      width: 100%;
+      background: transparent;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      padding: 6px 8px;
+      color: #fff;
+      font-family: inherit; font-size: .78rem;
+      color-scheme: dark;
+    }
+    .dp-input-row input:focus { outline: 1px solid var(--orange, #E97919); }
+    .dp-shortcut {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 7px 10px;
+      border-radius: 7px;
+      cursor: pointer;
+      color: #ddd;
+      transition: background .12s, color .12s;
+    }
+    .dp-shortcut:hover { background: #ffffff09; color: #fff; }
+    .dp-shortcut .dp-shortcut-hint {
+      color: #666; font-size: .74rem;
+    }
+    .dp-shortcut.danger { color: #ef4444; }
+    .dp-shortcut.danger:hover { background: rgba(239,68,68,.10); color: #f87171; }
+    .dp-cal {
+      flex: 1;
+      padding: 10px 12px 12px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .dp-cal-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 2px 4px 4px;
+    }
+    .dp-cal-month {
+      font-weight: 600; color: #fff; font-size: .88rem;
+      text-transform: capitalize;
+    }
+    .dp-cal-nav { display: flex; align-items: center; gap: 2px; }
+    .dp-cal-nav-btn {
+      background: none; border: none; color: #999; cursor: pointer;
+      width: 24px; height: 24px; border-radius: 6px; font-size: .9rem;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .dp-cal-nav-btn:hover { background: #ffffff09; color: #fff; }
+    .dp-cal-today {
+      font-size: .72rem; font-weight: 500; color: #999;
+      padding: 4px 8px; border-radius: 6px; cursor: pointer;
+      margin-right: 4px;
+    }
+    .dp-cal-today:hover { color: #fff; background: #ffffff09; }
+    .dp-cal-grid {
+      display: grid; grid-template-columns: repeat(7, 1fr);
+      gap: 1px;
+    }
+    .dp-cal-dow {
+      font-size: .65rem; color: #666; text-align: center;
+      padding: 4px 0; font-weight: 600; text-transform: uppercase;
+    }
+    .dp-cal-day {
+      aspect-ratio: 1;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .8rem; color: #ccc;
+      border-radius: 7px; cursor: pointer;
+      transition: background .12s, color .12s;
+      user-select: none;
+    }
+    .dp-cal-day:hover { background: #ffffff09; color: #fff; }
+    .dp-cal-day.out  { color: #444; }
+    .dp-cal-day.today {
+      box-shadow: inset 0 0 0 1px rgba(233,121,25,.4);
+      color: var(--orange-soft, #f59854);
+    }
+    .dp-cal-day.selected {
+      background: var(--orange, #E97919);
+      color: #fff; font-weight: 600;
+    }
+    .dp-cal-day.selected:hover { background: var(--orange-soft, #f59854); }
+
     /* priority badge in column */
     .priority-badge {
       display: inline-flex; align-items: center; gap: 5px;
@@ -1990,7 +2092,9 @@
                     </select>
                   </template>
                   <template x-if="f.fieldType === 'date'">
-                    <input type="date" class="group-select" x-model="f.value" style="padding:4px 8px">
+                    <button type="button" class="group-select" style="padding:4px 10px;cursor:pointer;text-align:left"
+                            @click="openDatePicker($event, f.value, v => f.value = v)"
+                            x-text="f.value ? dpFormatBr(f.value) : 'Selecionar data'"></button>
                   </template>
                 </span>
               </template>
@@ -2802,6 +2906,67 @@
     </div>
   </template>
 
+  <!-- ── Date Picker (popover global, reutilizável) ─────────────────────────── -->
+  <template x-if="datePicker.open">
+    <div class="dp-pop"
+         :style="`top:${datePicker.y}px; left:${datePicker.x}px`"
+         @click.outside="closeDatePicker()"
+         x-cloak>
+      <div class="dp-shortcuts">
+        <div class="dp-input-row">
+          <input type="text" :value="dpFormatBr(datePicker.value)"
+                 @input="dpParseManualInput($event.target.value)"
+                 placeholder="dd/mm/aaaa">
+          <button class="dp-cal-nav-btn"
+                  x-show="datePicker.value"
+                  @click="pickDate('')" title="Limpar">✕</button>
+        </div>
+        <div class="dp-shortcut" @click="pickShortcut(0)">
+          <span>Hoje</span><span class="dp-shortcut-hint" x-text="dpDowAbbr(0)"></span>
+        </div>
+        <div class="dp-shortcut" @click="pickShortcut(1)">
+          <span>Amanhã</span><span class="dp-shortcut-hint" x-text="dpDowAbbr(1)"></span>
+        </div>
+        <div class="dp-shortcut" @click="pickShortcut('weekend')">
+          <span>Este final de semana</span><span class="dp-shortcut-hint">sáb</span>
+        </div>
+        <div class="dp-shortcut" @click="pickShortcut('next-week')">
+          <span>Semana que vem</span><span class="dp-shortcut-hint">seg</span>
+        </div>
+        <div class="dp-shortcut" @click="pickShortcut('next-weekend')">
+          <span>Próximo final de semana</span><span class="dp-shortcut-hint" x-text="dpHint('next-weekend')"></span>
+        </div>
+        <div class="dp-shortcut" @click="pickShortcut(14)">
+          <span>2 semanas</span><span class="dp-shortcut-hint" x-text="dpHint(14)"></span>
+        </div>
+        <div class="dp-shortcut" @click="pickShortcut(28)">
+          <span>4 semanas</span><span class="dp-shortcut-hint" x-text="dpHint(28)"></span>
+        </div>
+      </div>
+      <div class="dp-cal">
+        <div class="dp-cal-head">
+          <span class="dp-cal-month" x-text="dpMonthLabel"></span>
+          <div class="dp-cal-nav">
+            <button class="dp-cal-today" @click="dpGoToToday()">Hoje</button>
+            <button class="dp-cal-nav-btn" @click="dpShiftMonth(-1)" title="Mês anterior">‹</button>
+            <button class="dp-cal-nav-btn" @click="dpShiftMonth(1)" title="Próximo mês">›</button>
+          </div>
+        </div>
+        <div class="dp-cal-grid">
+          <template x-for="dow in ['dom','seg','ter','qua','qui','sex','sáb']" :key="dow">
+            <div class="dp-cal-dow" x-text="dow"></div>
+          </template>
+          <template x-for="d in dpDays" :key="d.iso">
+            <div class="dp-cal-day"
+                 :class="(d.out?'out ':'') + (d.today?'today ':'') + (d.selected?'selected':'')"
+                 @click="pickDate(d.iso)"
+                 x-text="d.day"></div>
+          </template>
+        </div>
+      </div>
+    </div>
+  </template>
+
   <!-- ── Bulk toolbar (multi-select de tarefas) ────────────────────────────── -->
   <template x-if="selectedTaskIds.length > 0">
     <div class="bulk-toolbar" x-cloak>
@@ -2820,7 +2985,7 @@
       <button class="bulk-btn" @click="openBulkPop('priority', $event)">
         <span>⚑</span><span>Prioridade</span>
       </button>
-      <button class="bulk-btn" @click="openBulkPop('date', $event)">
+      <button class="bulk-btn" @click="openDatePicker($event, '', v => bulkApply({due_date: v || null}))">
         <span>📅</span><span>Prazo</span>
       </button>
       <template x-if="(activeList?.custom_fields||[]).filter(c=>c.type==='dropdown').length">
@@ -2867,15 +3032,6 @@
           <span x-text="priorityLabel(p)"></span>
         </div>
       </template>
-    </div>
-  </template>
-  <template x-if="bulkPop.open && bulkPop.kind === 'date'">
-    <div class="bulk-pop" :style="`top:${bulkPop.y}px;left:${bulkPop.x}px;min-width:220px`" @click.outside="bulkPop.open=false" x-cloak>
-      <input type="date" class="bulk-pop-input" x-model="bulkPop.dateValue"
-             @change="bulkApply({due_date: bulkPop.dateValue || null}); bulkPop.open=false">
-      <div class="bulk-pop-item" style="margin-top:4px" @click="bulkApply({due_date: null}); bulkPop.open=false">
-        <span style="opacity:.5">✕</span><span>Limpar prazo</span>
-      </div>
     </div>
   </template>
   <template x-if="bulkPop.open && bulkPop.kind === 'cf'">
@@ -3207,7 +3363,9 @@
           </div>
           <div class="form-group">
             <label class="form-label">Prazo</label>
-            <input class="form-input" type="date" x-model="form.due_date">
+            <button type="button" class="form-input" style="text-align:left;cursor:pointer"
+                    @click="openDatePicker($event, form.due_date, v => form.due_date = v)"
+                    x-text="form.due_date ? dpFormatBr(form.due_date) : 'Sem prazo'"></button>
           </div>
           <div class="form-group">
             <label class="form-label">Responsável</label>
@@ -3318,16 +3476,10 @@
             <div class="prop-row">
               <div class="prop-label"><span class="prop-label-icon">📅</span> Prazo</div>
               <div class="prop-value">
-                <template x-if="!propEditing.prazo">
-                  <span @click="propEditing.prazo=true"
-                        :class="!form.due_date ? 'empty' : dueCss(form.due_date)"
-                        x-text="form.due_date ? formatDate(form.due_date) : 'Vazio'"></span>
-                </template>
-                <template x-if="propEditing.prazo">
-                  <input type="date" x-model="form.due_date"
-                         @change="patchTask('due_date',form.due_date); propEditing.prazo=false"
-                         @blur="propEditing.prazo=false" x-init="$nextTick(()=>$el.focus())">
-                </template>
+                <span :class="!form.due_date ? 'empty' : dueCss(form.due_date)"
+                      style="cursor:pointer"
+                      @click="openDatePicker($event, form.due_date, v => { form.due_date = v; patchTask('due_date', v || null); })"
+                      x-text="form.due_date ? formatDate(form.due_date) : 'Vazio'"></span>
               </div>
             </div>
 
@@ -3369,9 +3521,10 @@
                            :placeholder="'Vazio'" style="width:100%">
                   </template>
                   <template x-if="cf.type === 'date'">
-                    <input type="date" :value="(form.extra_data||{})[cf.id]||''"
-                           @change="setExtraField(cf.id,$event.target.value)"
-                           style="width:100%">
+                    <button type="button" class="form-input"
+                            style="text-align:left;cursor:pointer;width:100%;background:transparent;border:1px solid var(--border);color:#fff;padding:8px 10px;border-radius:6px"
+                            @click="openDatePicker($event, (form.extra_data||{})[cf.id]||'', v => setExtraField(cf.id, v))"
+                            x-text="(form.extra_data||{})[cf.id] ? dpFormatBr((form.extra_data||{})[cf.id]) : 'Sem data'"></button>
                   </template>
                   <template x-if="cf.type === 'dropdown'">
                     <select @change="setExtraField(cf.id,$event.target.value)">
@@ -4670,6 +4823,9 @@ document.addEventListener('alpine:init', () => {
     selectedTaskIds: [],
     lastSelectedTaskId: null,
     bulkPop: { open: false, kind: null, x: 0, y: 0, dateValue: '', cfId: null },
+
+    // Date picker custom (popover global reutilizável)
+    datePicker: { open: false, x: 0, y: 0, value: '', monthRef: '', apply: null },
     smColorPickerStatusId: null,
     smColorPickerPos: { x: 0, y: 0 },
     cfColorPickerIdx: null,
@@ -5276,6 +5432,14 @@ document.addEventListener('alpine:init', () => {
         this.cfPickerPos = { x, y };
         this.cfPickerTask = task;
         this.cfPickerCf = cf;
+      } else if (cf.type === 'date') {
+        const cur = this.getCfValue(task, cf.id) || '';
+        this.openDatePicker(event, cur, async v => {
+          const newVals = { ...(task.cf_values || {}), [cf.id]: v };
+          if (!v) delete newVals[cf.id];
+          await this.patchTask(task, { cf_values: newVals });
+          task.cf_values = newVals;
+        });
       } else {
         this.cfInlineEdit = {taskId: task.id, cfId: cf.id, value: this.getCfValue(task, cf.id) || ''};
       }
@@ -5738,6 +5902,147 @@ document.addEventListener('alpine:init', () => {
         alert('Erro ao aplicar alteração em lote: ' + (e.message || e));
       }
     },
+    // ── DATE PICKER ──────────────────────────────────────────────────────
+    _dpToday() {
+      const d = new Date();
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    },
+    _dpIso(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,'0');
+      const day = String(d.getDate()).padStart(2,'0');
+      return `${y}-${m}-${day}`;
+    },
+    _dpParseIso(iso) {
+      if (!iso) return null;
+      const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+      if (!m) return null;
+      return new Date(+m[1], +m[2]-1, +m[3]);
+    },
+    openDatePicker(evt, current, applyFn) {
+      const r = (evt && evt.currentTarget) ? evt.currentTarget.getBoundingClientRect() : { left: 200, bottom: 200 };
+      const popW = 510, popH = 360;
+      let x = r.left;
+      let y = r.bottom + 6;
+      if (x + popW > window.innerWidth)  x = window.innerWidth - popW - 12;
+      if (y + popH > window.innerHeight) y = Math.max(12, r.top - popH - 6);
+      const cur = current || '';
+      const ref = cur ? cur.slice(0,7) : this._dpIso(this._dpToday()).slice(0,7);
+      this.datePicker = {
+        open: true,
+        x: Math.max(12, x), y,
+        value: cur,
+        monthRef: ref,
+        apply: applyFn,
+      };
+    },
+    closeDatePicker() {
+      this.datePicker.open = false;
+      this.datePicker.apply = null;
+    },
+    pickDate(iso) {
+      const apply = this.datePicker.apply;
+      this.datePicker.open = false;
+      this.datePicker.apply = null;
+      if (apply) apply(iso || '');
+    },
+    pickShortcut(kind) {
+      const today = this._dpToday();
+      let target = new Date(today);
+      if (typeof kind === 'number') {
+        target.setDate(today.getDate() + kind);
+      } else if (kind === 'weekend') {
+        // sábado dessa semana (se hoje for sáb, fica hoje; se domingo, fica próximo sábado)
+        const dow = today.getDay(); // 0=dom..6=sáb
+        const add = dow === 6 ? 0 : (dow === 0 ? 6 : 6 - dow);
+        target.setDate(today.getDate() + add);
+      } else if (kind === 'next-week') {
+        // próxima segunda
+        const dow = today.getDay();
+        const add = dow === 0 ? 1 : (8 - dow);
+        target.setDate(today.getDate() + add);
+      } else if (kind === 'next-weekend') {
+        // sábado da próxima semana
+        const dow = today.getDay();
+        const addToThisSat = dow === 6 ? 0 : (dow === 0 ? 6 : 6 - dow);
+        target.setDate(today.getDate() + addToThisSat + 7);
+      }
+      this.pickDate(this._dpIso(target));
+    },
+    dpFormatBr(iso) {
+      const d = this._dpParseIso(iso);
+      if (!d) return '';
+      return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+    },
+    dpParseManualInput(str) {
+      // aceita dd/mm/yyyy ou dd-mm-yyyy ou dd/mm/yy (assume 20xx)
+      const m = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/.exec((str||'').trim());
+      if (!m) return;
+      let y = parseInt(m[3], 10);
+      if (y < 100) y += 2000;
+      const dt = new Date(y, parseInt(m[2],10)-1, parseInt(m[1],10));
+      if (isNaN(dt.getTime())) return;
+      const iso = this._dpIso(dt);
+      this.datePicker.value = iso;
+      this.datePicker.monthRef = iso.slice(0,7);
+    },
+    dpDowAbbr(offset) {
+      const d = new Date(this._dpToday());
+      d.setDate(d.getDate() + offset);
+      return ['dom','seg','ter','qua','qui','sex','sáb'][d.getDay()];
+    },
+    dpHint(kind) {
+      const today = this._dpToday();
+      let target = new Date(today);
+      if (typeof kind === 'number') {
+        target.setDate(today.getDate() + kind);
+      } else if (kind === 'next-weekend') {
+        const dow = today.getDay();
+        const addToThisSat = dow === 6 ? 0 : (dow === 0 ? 6 : 6 - dow);
+        target.setDate(today.getDate() + addToThisSat + 7);
+      }
+      const months = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+      return `${target.getDate()} ${months[target.getMonth()]}`;
+    },
+    get dpMonthLabel() {
+      const [y, m] = (this.datePicker.monthRef || '').split('-').map(n => parseInt(n,10));
+      if (!y || !m) return '';
+      const names = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+      return `${names[m-1]} ${y}`;
+    },
+    get dpDays() {
+      const [y, m] = (this.datePicker.monthRef || '').split('-').map(n => parseInt(n,10));
+      if (!y || !m) return [];
+      const first = new Date(y, m-1, 1);
+      const firstDow = first.getDay(); // 0=dom
+      // recua até domingo da primeira linha
+      const start = new Date(y, m-1, 1 - firstDow);
+      const todayIso = this._dpIso(this._dpToday());
+      const selIso = this.datePicker.value || '';
+      const days = [];
+      for (let i = 0; i < 42; i++) {
+        const d = new Date(start);
+        d.setDate(start.getDate() + i);
+        const iso = this._dpIso(d);
+        days.push({
+          iso, day: d.getDate(),
+          out: d.getMonth() !== m-1,
+          today: iso === todayIso,
+          selected: iso === selIso,
+        });
+      }
+      return days;
+    },
+    dpShiftMonth(delta) {
+      const [y, m] = (this.datePicker.monthRef || '').split('-').map(n => parseInt(n,10));
+      if (!y || !m) return;
+      const d = new Date(y, m-1+delta, 1);
+      this.datePicker.monthRef = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    },
+    dpGoToToday() {
+      this.datePicker.monthRef = this._dpIso(this._dpToday()).slice(0,7);
+    },
+
     async bulkDelete() {
       if (!this.selectedTaskIds.length) return;
       const ids = [...this.selectedTaskIds];
