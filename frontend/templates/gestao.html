@@ -889,15 +889,16 @@
     /* totals row (rodapé com somatória/média) */
     .task-totals-row {
       display: grid;
-      padding: 8px 20px;
+      padding: 11px 20px;
       border-top: 1px solid #1a1a1a;
       background: rgba(255,255,255,0.015);
       font-size: .82rem;
       align-items: center;
     }
     .totals-cell {
-      padding: 2px 0;
+      padding: 2px 4px;
       display: flex; align-items: center;
+      min-width: 0;
     }
     .totals-add {
       background: none; border: 1px dashed #2a2a2a;
@@ -910,17 +911,19 @@
     .task-totals-row:hover .totals-add { color: #888; border-color: #3a3a3a; }
     .totals-add:hover { color: var(--orange, #E97919) !important; border-color: rgba(233,121,25,.5) !important; }
     .totals-value {
-      cursor: pointer; padding: 3px 8px;
+      cursor: pointer; padding: 0;
       border-radius: 6px;
-      display: inline-flex; align-items: center; gap: 6px;
+      display: inline-flex; flex-direction: column; align-items: flex-start;
       color: #ddd; font-weight: 500;
       transition: background .12s;
+      line-height: 1.15;
     }
-    .totals-value:hover { background: #ffffff09; }
+    .totals-value:hover { background: #ffffff04; }
     .totals-mode {
-      font-size: .65rem; letter-spacing: .06em; text-transform: uppercase;
+      font-size: .6rem; letter-spacing: .08em; text-transform: uppercase;
       color: var(--orange-soft, #f59854);
       font-weight: 600;
+      opacity: .85;
     }
     .cf-inline-input { background: transparent; border: none; border-bottom: 1.5px solid var(--accent); outline: none; color: var(--text); font-size: .8rem; font-family: inherit; width: 100%; padding: 0 2px; min-width: 60px; }
     .cf-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: .75rem; font-weight: 500; border: 1px solid transparent; cursor: pointer; }
@@ -3472,6 +3475,16 @@
         <span class="campos-row-icon">📅</span>
         <span class="campos-row-label">Prazo</span>
         <button class="col-toggle" :class="cols.prazo ? 'on' : 'off'" @click.stop="toggleCol('prazo')"></button>
+      </div>
+      <div class="campos-row" @click="toggleCol('estimativa')">
+        <span class="campos-row-icon">⏱</span>
+        <span class="campos-row-label">Estimativa</span>
+        <button class="col-toggle" :class="cols.estimativa ? 'on' : 'off'" @click.stop="toggleCol('estimativa')"></button>
+      </div>
+      <div class="campos-row" @click="toggleCol('tempo')">
+        <span class="campos-row-icon">⏲</span>
+        <span class="campos-row-label">Tempo rastreado</span>
+        <button class="col-toggle" :class="cols.tempo ? 'on' : 'off'" @click.stop="toggleCol('tempo')"></button>
       </div>
 
       <div class="campos-section" style="margin-top:8px">
