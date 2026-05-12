@@ -2350,7 +2350,7 @@
           </span>
           <span x-show="cols.tempo" class="col-header-resizable" data-col-key="tempo" data-col-label="Tempo rastreado">
             <span class="cf-col-header-label" @click.stop="openColMenu('tempo','Tempo rastreado',$event)">
-              <span>Tempo</span><span style="opacity:.4;font-size:.65rem">⌄</span>
+              <span>Tempo rastreado</span><span style="opacity:.4;font-size:.65rem">⌄</span>
             </span>
             <div class="col-resizer" @mousedown.prevent="startColResize('tempo',$event)"></div>
           </span>
@@ -2501,7 +2501,7 @@
                                  @click.stop>
                         </template>
                         <template x-if="!(cfInlineEdit.taskId===row.task.id && cfInlineEdit.cfId===cf.id)">
-                          <span x-text="getCfValue(row.task,cf.id)||'—'"
+                          <span x-text="getCfValue(row.task,cf.id) ? (cf.type==='number' ? formatCfNumber(cf, getCfValue(row.task,cf.id)) : (cf.type==='date' ? dpFormatBr(getCfValue(row.task,cf.id)) : getCfValue(row.task,cf.id))) : '—'"
                                 :style="getCfValue(row.task,cf.id)?'font-size:.8rem;color:#ccc':'font-size:.8rem;color:#444'"></span>
                         </template>
                       </span>
@@ -3534,6 +3534,18 @@
           <option value="dropdown">Lista de opções</option>
         </select>
       </div>
+      <template x-if="cfType === 'number'">
+        <div class="form-group">
+          <label class="form-label">Formato</label>
+          <select class="form-select" x-model="cfFormat">
+            <option value="">Número</option>
+            <option value="minutes">Minutos (50 → 50m)</option>
+            <option value="hours">Horas (90 → 1h 30m)</option>
+            <option value="currency">Moeda (50 → R$ 50,00)</option>
+            <option value="percent">Percentual (50 → 50%)</option>
+          </select>
+        </div>
+      </template>
       <template x-if="cfType === 'dropdown'">
         <div class="form-group">
           <label class="form-label">Opções</label>
@@ -4941,7 +4953,7 @@ document.addEventListener('alpine:init', () => {
 
     colsPanel: false,
     cols: { status: true, responsavel: true, prioridade: true, prazo: true, estimativa: false, tempo: false },
-    colWidths: { tarefa: 0, status: 140, responsavel: 120, prioridade: 110, prazo: 100, estimativa: 110, tempo: 120 },
+    colWidths: { tarefa: 0, status: 140, responsavel: 120, prioridade: 110, prazo: 100, estimativa: 110, tempo: 150 },
     statusPickerTask: null,
     statusPickerPos: { x: 0, y: 0 },
     statusPickerQ: '',
@@ -5185,6 +5197,7 @@ document.addEventListener('alpine:init', () => {
 
     cfModal: false, cfName: '', cfType: 'text',
     cfOptionsList: [],
+    cfFormat: '',
     cfEditingId: null,
 
     // Multi-select state
@@ -6180,7 +6193,7 @@ document.addEventListener('alpine:init', () => {
     },
     openCfModal() {
       this.cfModal=true; this.cfEditingId=null;
-      this.cfName=''; this.cfType='text';
+      this.cfName=''; this.cfType='text'; this.cfFormat='';
       this.cfOptionsList=[this._newCfOpt(0), this._newCfOpt(1)];
     },
     openCfEditModal(cf) {
@@ -6188,6 +6201,7 @@ document.addEventListener('alpine:init', () => {
       this.cfEditingId = cf.id;
       this.cfName = cf.name || '';
       this.cfType = cf.type || 'text';
+      this.cfFormat = cf.format || '';
       if (cf.type === 'dropdown') {
         const opts = (cf.options || []).map((o, i) => ({
           name: o.name || '',
@@ -6206,11 +6220,12 @@ document.addEventListener('alpine:init', () => {
       const opts = this.cfType === 'dropdown'
         ? this.cfOptionsList.filter(o=>o.name.trim()).map(o=>({name:o.name.trim(),color:o.color}))
         : [];
+      const fmt = this.cfType === 'number' ? (this.cfFormat || '') : '';
       let updated;
       if (this.cfEditingId) {
         updated = (this.activeList.custom_fields || []).map(cf =>
           cf.id === this.cfEditingId
-            ? { ...cf, name: this.cfName.trim(), options: opts }
+            ? { ...cf, name: this.cfName.trim(), options: opts, format: fmt }
             : cf
         );
       } else {
@@ -6219,6 +6234,7 @@ document.addEventListener('alpine:init', () => {
           name: this.cfName.trim(),
           type: this.cfType,
           options: opts,
+          format: fmt,
         };
         updated = [...(this.activeList.custom_fields || []), newField];
       }
@@ -6595,6 +6611,22 @@ document.addEventListener('alpine:init', () => {
     calcShort(mode) {
       return ({sum:'soma', avg:'média', min:'mín', max:'máx', count:'qtd'})[mode] || mode;
     },
+    formatCfNumber(cf, raw) {
+      if (raw === '' || raw === null || raw === undefined) return '—';
+      const n = parseFloat(String(raw).replace(',', '.'));
+      if (isNaN(n)) return String(raw);
+      const fmt = cf?.format || '';
+      if (fmt === 'minutes') return this.formatDuration(Math.round(n * 60));
+      if (fmt === 'hours')   return this.formatDuration(Math.round(n * 3600));
+      if (fmt === 'currency') {
+        return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+      if (fmt === 'percent') {
+        return (Number.isInteger(n) ? n.toString() : n.toFixed(2).replace('.', ',')) + '%';
+      }
+      // default
+      return Number.isInteger(n) ? n.toString() : n.toFixed(2).replace('.', ',');
+    },
     _cfNumericValues(cfId) {
       const vals = [];
       for (const t of this.tasks) {
@@ -6617,9 +6649,8 @@ document.addEventListener('alpine:init', () => {
         case 'count': return String(vals.length);
         default: return '—';
       }
-      // Formata: até 2 decimais, separador BR
-      const fixed = Number.isInteger(v) ? v.toString() : v.toFixed(2);
-      return fixed.replace('.', ',');
+      // Contagem é puro número; demais respeitam format do CF
+      return this.formatCfNumber(cf, v);
     },
 
     // ── DATE PICKER ──────────────────────────────────────────────────────
