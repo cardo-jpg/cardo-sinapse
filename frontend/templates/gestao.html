@@ -797,6 +797,8 @@
     }
 
     .due-cell { font-size: .83rem; }
+    .due-cell-clickable { cursor: pointer; padding: 3px 8px; border-radius: 6px; margin-left: -8px; transition: background .12s; }
+    .due-cell-clickable:hover { background: #ffffff09; }
     .cf-cell { font-size: .8rem; cursor: pointer; padding: 2px 4px; border-radius: 4px; }
     .cf-cell:hover { background: #ffffff0a; }
     .cf-inline-input { background: transparent; border: none; border-bottom: 1.5px solid var(--accent); outline: none; color: var(--text); font-size: .8rem; font-family: inherit; width: 100%; padding: 0 2px; min-width: 60px; }
@@ -2325,7 +2327,10 @@
                     <span x-text="priorityLabel(row.task.priority)"></span>
                   </span>
                 </div>
-                <div class="due-cell" x-show="cols.prazo" :class="dueCss(row.task.due_date)" x-text="formatDate(row.task.due_date) || '—'"></div>
+                <div class="due-cell due-cell-clickable" x-show="cols.prazo"
+                     :class="dueCss(row.task.due_date)"
+                     @click.stop="openDatePicker($event, row.task.due_date || '', async v => { row.task.due_date = v || null; await patchTask(row.task, { due_date: v || null }); })"
+                     x-text="formatDate(row.task.due_date) || '—'"></div>
                 <template x-for="cf in (activeList?.custom_fields||[])" :key="cf.id">
                   <div x-show="cfCols[cf.id]" class="cf-cell" @click.stop="openCfPicker(row.task,cf,$event)">
                     <template x-if="cf.type==='dropdown'">
