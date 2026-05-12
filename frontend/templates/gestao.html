@@ -801,6 +801,43 @@
     .due-cell-clickable:hover { background: #ffffff09; }
     .cf-cell { font-size: .8rem; cursor: pointer; padding: 2px 4px; border-radius: 4px; }
     .cf-cell:hover { background: #ffffff0a; }
+
+    /* totals row (rodapé com somatória/média) */
+    .task-totals-row {
+      display: grid;
+      padding: 8px 20px;
+      border-top: 1px solid #1a1a1a;
+      background: rgba(255,255,255,0.015);
+      font-size: .82rem;
+      align-items: center;
+    }
+    .totals-cell {
+      padding: 2px 0;
+      display: flex; align-items: center;
+    }
+    .totals-add {
+      background: none; border: 1px dashed #2a2a2a;
+      color: #555; cursor: pointer;
+      font-size: .72rem; font-weight: 500;
+      padding: 4px 10px; border-radius: 6px;
+      font-family: inherit;
+      transition: color .12s, border-color .12s;
+    }
+    .task-totals-row:hover .totals-add { color: #888; border-color: #3a3a3a; }
+    .totals-add:hover { color: var(--orange, #E97919) !important; border-color: rgba(233,121,25,.5) !important; }
+    .totals-value {
+      cursor: pointer; padding: 3px 8px;
+      border-radius: 6px;
+      display: inline-flex; align-items: center; gap: 6px;
+      color: #ddd; font-weight: 500;
+      transition: background .12s;
+    }
+    .totals-value:hover { background: #ffffff09; }
+    .totals-mode {
+      font-size: .65rem; letter-spacing: .06em; text-transform: uppercase;
+      color: var(--orange-soft, #f59854);
+      font-weight: 600;
+    }
     .cf-inline-input { background: transparent; border: none; border-bottom: 1.5px solid var(--accent); outline: none; color: var(--text); font-size: .8rem; font-family: inherit; width: 100%; padding: 0 2px; min-width: 60px; }
     .cf-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: .75rem; font-weight: 500; border: 1px solid transparent; cursor: pointer; }
     .due-normal { color: var(--muted); }
@@ -2375,6 +2412,56 @@
             </template>
           </div>
         </template>
+        <!-- totals row (somatória/média/etc por coluna numérica) -->
+        <template x-if="hasNumericCfs">
+          <div class="task-totals-row" :style="'grid-template-columns:'+gridCols">
+            <div></div>
+            <div x-show="cols.status"></div>
+            <div x-show="cols.responsavel"></div>
+            <div x-show="cols.prioridade"></div>
+            <div x-show="cols.prazo"></div>
+            <template x-for="cf in (activeList?.custom_fields||[])" :key="cf.id">
+              <div x-show="cfCols[cf.id]" class="totals-cell">
+                <template x-if="cf.type === 'number'">
+                  <span>
+                    <template x-if="columnCalcs[cf.id]">
+                      <span class="totals-value"
+                            @click="openCalcMenu(cf, $event)"
+                            :title="'Trocar cálculo (' + calcLabel(columnCalcs[cf.id]) + ')'">
+                        <span class="totals-mode" x-text="calcShort(columnCalcs[cf.id])"></span>
+                        <span x-text="formatCalc(cf, columnCalcs[cf.id])"></span>
+                      </span>
+                    </template>
+                    <template x-if="!columnCalcs[cf.id]">
+                      <button class="totals-add" @click="openCalcMenu(cf, $event)">Calcular</button>
+                    </template>
+                  </span>
+                </template>
+              </div>
+            </template>
+            <div></div>
+          </div>
+        </template>
+      </div>
+    </template>
+
+    <!-- Cálculo popover -->
+    <template x-if="calcMenu.open">
+      <div class="bulk-pop" :style="`top:${calcMenu.y}px;left:${calcMenu.x}px;min-width:170px`"
+           @click.outside="calcMenu.open=false" x-cloak>
+        <div class="bulk-pop-item" style="opacity:.6;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;pointer-events:none">Calcular</div>
+        <template x-for="opt in calcOptions" :key="opt.v">
+          <div class="bulk-pop-item"
+               :class="columnCalcs[calcMenu.cfId] === opt.v ? 'selected' : ''"
+               @click="setColCalc(calcMenu.cfId, opt.v); calcMenu.open=false">
+            <span x-text="opt.l"></span>
+          </div>
+        </template>
+        <div class="bulk-pop-item danger" style="color:#ef4444"
+             x-show="columnCalcs[calcMenu.cfId]"
+             @click="setColCalc(calcMenu.cfId, null); calcMenu.open=false">
+          <span>🗑</span><span>Remover cálculo</span>
+        </div>
       </div>
     </template>
 
@@ -4841,6 +4928,17 @@ document.addEventListener('alpine:init', () => {
 
     // Date picker custom (popover global reutilizável)
     datePicker: { open: false, x: 0, y: 0, value: '', monthRef: '', apply: null },
+
+    // Cálculo de coluna (somatória, média, etc) — chave = cf.id, valor = 'sum'|'avg'|'min'|'max'|'count'
+    columnCalcs: {},
+    calcMenu: { open: false, cfId: null, x: 0, y: 0 },
+    calcOptions: [
+      { v: 'sum',   l: 'Somatória' },
+      { v: 'avg',   l: 'Média' },
+      { v: 'min',   l: 'Mínimo' },
+      { v: 'max',   l: 'Máximo' },
+      { v: 'count', l: 'Contagem' },
+    ],
     smColorPickerStatusId: null,
     smColorPickerPos: { x: 0, y: 0 },
     cfColorPickerIdx: null,
@@ -5171,6 +5269,7 @@ document.addEventListener('alpine:init', () => {
         showClosed:     this.showClosed,
         sortCol:        this.sortCol,
         collapsedGroups: this.collapsedGroups,
+        columnCalcs:    this.columnCalcs,
       };
     },
     _applyPrefs(p) {
@@ -5187,6 +5286,7 @@ document.addEventListener('alpine:init', () => {
       if (typeof p.showClosed === 'boolean') this.showClosed = p.showClosed;
       if (p.sortCol !== undefined)        this.sortCol = p.sortCol;
       if (p.collapsedGroups)              this.collapsedGroups = p.collapsedGroups;
+      if (p.columnCalcs && typeof p.columnCalcs === 'object') this.columnCalcs = {...p.columnCalcs};
     },
     saveColPrefs() {
       if (!this.activeList) return;
@@ -5217,6 +5317,7 @@ document.addEventListener('alpine:init', () => {
       this.showClosed     = false;
       this.sortCol        = null;
       this.collapsedGroups = {};
+      this.columnCalcs    = {};
       // 1. local cache (render imediato, sem flicker)
       try {
         const raw = localStorage.getItem(this._colPrefsKey(listId));
@@ -5997,6 +6098,60 @@ document.addEventListener('alpine:init', () => {
         alert('Erro ao aplicar alteração em lote: ' + (e.message || e));
       }
     },
+    // ── COLUMN CALCULATIONS (totals row) ─────────────────────────────────
+    get hasNumericCfs() {
+      return (this.activeList?.custom_fields || []).some(c => c.type === 'number');
+    },
+    openCalcMenu(cf, evt) {
+      const r = (evt && evt.currentTarget) ? evt.currentTarget.getBoundingClientRect() : { left: 200, bottom: 200 };
+      let x = r.left, y = r.top - 220;
+      if (y < 12) y = r.bottom + 6;
+      if (x + 200 > window.innerWidth) x = window.innerWidth - 210;
+      this.calcMenu = { open: true, cfId: cf.id, x: Math.max(12, x), y };
+    },
+    setColCalc(cfId, mode) {
+      if (!mode) {
+        const next = { ...this.columnCalcs };
+        delete next[cfId];
+        this.columnCalcs = next;
+      } else {
+        this.columnCalcs = { ...this.columnCalcs, [cfId]: mode };
+      }
+      this.saveColPrefs();
+    },
+    calcLabel(mode) {
+      return (this.calcOptions.find(o => o.v === mode)?.l) || mode;
+    },
+    calcShort(mode) {
+      return ({sum:'soma', avg:'média', min:'mín', max:'máx', count:'qtd'})[mode] || mode;
+    },
+    _cfNumericValues(cfId) {
+      const vals = [];
+      for (const t of this.tasks) {
+        const raw = (t.cf_values || {})[cfId];
+        if (raw === '' || raw === null || raw === undefined) continue;
+        const n = parseFloat(String(raw).replace(',', '.'));
+        if (!isNaN(n)) vals.push(n);
+      }
+      return vals;
+    },
+    formatCalc(cf, mode) {
+      const vals = this._cfNumericValues(cf.id);
+      if (!vals.length) return mode === 'count' ? '0' : '—';
+      let v;
+      switch (mode) {
+        case 'sum':   v = vals.reduce((a,b)=>a+b, 0); break;
+        case 'avg':   v = vals.reduce((a,b)=>a+b, 0) / vals.length; break;
+        case 'min':   v = Math.min(...vals); break;
+        case 'max':   v = Math.max(...vals); break;
+        case 'count': return String(vals.length);
+        default: return '—';
+      }
+      // Formata: até 2 decimais, separador BR
+      const fixed = Number.isInteger(v) ? v.toString() : v.toFixed(2);
+      return fixed.replace('.', ',');
+    },
+
     // ── DATE PICKER ──────────────────────────────────────────────────────
     _dpToday() {
       const d = new Date();
