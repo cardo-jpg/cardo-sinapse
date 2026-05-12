@@ -210,6 +210,19 @@ def init_db():
             )
         """)
         cur.execute("""
+            CREATE TABLE IF NOT EXISTS task_time_entries (
+                id               TEXT PRIMARY KEY,
+                task_id          TEXT NOT NULL,
+                username         TEXT,
+                duration_seconds INTEGER NOT NULL,
+                started_at       TIMESTAMPTZ DEFAULT NOW(),
+                note             TEXT DEFAULT '',
+                created_at       TIMESTAMPTZ DEFAULT NOW(),
+                FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_time_entries_task ON task_time_entries(task_id)")
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS list_view_settings (
                 list_id     TEXT PRIMARY KEY,
                 settings    TEXT NOT NULL DEFAULT '{}',
@@ -238,6 +251,7 @@ def init_db():
             ("tasks",     "cf_values",      "TEXT DEFAULT '{}'"),
             ("folders",   "custom_statuses","TEXT DEFAULT ''"),
             ("lists",     "custom_statuses","TEXT DEFAULT ''"),
+            ("tasks",     "estimate_seconds","INTEGER DEFAULT 0"),
         ]
         for table, col, col_def in migrations:
             cur.execute(f"""

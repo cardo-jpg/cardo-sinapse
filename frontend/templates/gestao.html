@@ -2426,14 +2426,14 @@
                   <span>
                     <template x-if="columnCalcs[cf.id]">
                       <span class="totals-value"
-                            @click="openCalcMenu(cf, $event)"
+                            @click.stop="openCalcMenu(cf, $event)"
                             :title="'Trocar cálculo (' + calcLabel(columnCalcs[cf.id]) + ')'">
                         <span class="totals-mode" x-text="calcShort(columnCalcs[cf.id])"></span>
                         <span x-text="formatCalc(cf, columnCalcs[cf.id])"></span>
                       </span>
                     </template>
                     <template x-if="!columnCalcs[cf.id]">
-                      <button class="totals-add" @click="openCalcMenu(cf, $event)">Calcular</button>
+                      <button class="totals-add" @click.stop="openCalcMenu(cf, $event)">Calcular</button>
                     </template>
                   </span>
                 </template>
