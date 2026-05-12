@@ -799,6 +799,90 @@
     .due-cell { font-size: .83rem; }
     .due-cell-clickable { cursor: pointer; padding: 3px 8px; border-radius: 6px; margin-left: -8px; transition: background .12s; }
     .due-cell-clickable:hover { background: #ffffff09; }
+
+    .time-cell {
+      font-size: .82rem; color: #ccc; cursor: pointer;
+      padding: 3px 8px; border-radius: 6px; margin-left: -8px;
+      transition: background .12s;
+    }
+    .time-cell:hover { background: #ffffff09; color: #fff; }
+
+    /* Time tracking panel */
+    .time-panel-overlay {
+      position: fixed; inset: 0; z-index: 5500;
+      background: rgba(0,0,0,.45);
+      display: flex; align-items: flex-start; justify-content: center;
+      padding-top: 12vh;
+    }
+    .time-panel {
+      width: 480px; max-width: calc(100vw - 40px);
+      background: #14141e;
+      border: 1px solid #2a2a2a;
+      border-radius: 14px;
+      box-shadow: 0 32px 80px rgba(0,0,0,.55);
+      overflow: hidden;
+    }
+    .time-panel-head {
+      padding: 14px 18px;
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid #1f1f2c;
+    }
+    .time-panel-body { padding: 14px 18px 18px; }
+    .time-add-card {
+      background: rgba(255,255,255,.02);
+      border: 1px solid #1f1f2c;
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 8px;
+    }
+    .time-play-btn {
+      width: 36px; height: 36px; flex-shrink: 0;
+      border-radius: 50%;
+      background: var(--orange, #E97919);
+      color: #fff; border: none; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: .85rem;
+      transition: transform .1s, background .12s;
+    }
+    .time-play-btn:hover { background: var(--orange-soft, #f59854); transform: scale(1.05); }
+    .timer-running {
+      display: flex; align-items: center; gap: 12px;
+      padding: 8px 4px;
+    }
+    .timer-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: #ef4444;
+      animation: timerPulse 1.2s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    @keyframes timerPulse {
+      0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239,68,68,.5); }
+      50%     { opacity: .6; box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+    }
+    .time-entries-list {
+      max-height: 280px; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 4px;
+      margin-top: 6px;
+    }
+    .time-entry-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 4px;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    .time-entry-row:last-child { border-bottom: none; }
+    .floating-timer {
+      position: fixed; bottom: 22px; right: 22px; z-index: 4800;
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px;
+      background: rgba(20,20,30,.96);
+      backdrop-filter: blur(16px) saturate(140%);
+      border: 1px solid #2a2a2a;
+      border-radius: 999px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.55);
+      cursor: pointer;
+      color: #fff; font-size: .85rem;
+    }
+    .floating-timer:hover { border-color: var(--orange, #E97919); }
     .cf-cell { font-size: .8rem; cursor: pointer; padding: 2px 4px; border-radius: 4px; }
     .cf-cell:hover { background: #ffffff0a; }
 
@@ -2255,6 +2339,18 @@
             </span>
             <div class="col-resizer" @mousedown.prevent="startColResize('prazo',$event)"></div>
           </span>
+          <span x-show="cols.estimativa" class="col-header-resizable" data-col-key="estimativa" data-col-label="Estimativa">
+            <span class="cf-col-header-label" @click.stop="openColMenu('estimativa','Estimativa',$event)">
+              <span>Estimativa</span><span style="opacity:.4;font-size:.65rem">⌄</span>
+            </span>
+            <div class="col-resizer" @mousedown.prevent="startColResize('estimativa',$event)"></div>
+          </span>
+          <span x-show="cols.tempo" class="col-header-resizable" data-col-key="tempo" data-col-label="Tempo rastreado">
+            <span class="cf-col-header-label" @click.stop="openColMenu('tempo','Tempo rastreado',$event)">
+              <span>Tempo</span><span style="opacity:.4;font-size:.65rem">⌄</span>
+            </span>
+            <div class="col-resizer" @mousedown.prevent="startColResize('tempo',$event)"></div>
+          </span>
           <template x-for="cf in (activeList?.custom_fields||[])" :key="cf.id">
             <span x-show="cfCols[cf.id]" class="col-header-resizable" :data-cf-id="cf.id">
               <span class="cf-col-header-label" @click.stop="openCfHeaderMenu(cf,$event)">
@@ -2368,6 +2464,15 @@
                      :class="dueCss(row.task.due_date)"
                      @click.stop="openDatePicker($event, row.task.due_date || '', async v => { row.task.due_date = v || null; await patchTask(row.task, { due_date: v || null }); })"
                      x-text="formatDate(row.task.due_date) || '—'"></div>
+                <div class="time-cell" x-show="cols.estimativa"
+                     @click.stop="openEstimateEditor(row.task, $event)"
+                     :title="row.task.estimate_seconds ? 'Trocar estimativa' : 'Adicionar estimativa'"
+                     x-text="row.task.estimate_seconds ? formatDuration(row.task.estimate_seconds) : '—'"></div>
+                <div class="time-cell" x-show="cols.tempo"
+                     @click.stop="openTaskTimePanel(row.task)"
+                     :title="'Rastrear tempo'">
+                  <span x-text="row.task.time_total_seconds ? formatDuration(row.task.time_total_seconds) : '—'"></span>
+                </div>
                 <template x-for="cf in (activeList?.custom_fields||[])" :key="cf.id">
                   <div x-show="cfCols[cf.id]" class="cf-cell" @click.stop="openCfPicker(row.task,cf,$event)">
                     <template x-if="cf.type==='dropdown'">
@@ -2412,14 +2517,26 @@
             </template>
           </div>
         </template>
-        <!-- totals row (somatória/média/etc por coluna numérica) -->
-        <template x-if="hasNumericCfs">
+        <!-- totals row (somatória/média/etc por coluna numérica + tempo) -->
+        <template x-if="hasNumericCfs || cols.estimativa || cols.tempo">
           <div class="task-totals-row" :style="'grid-template-columns:'+gridCols">
             <div></div>
             <div x-show="cols.status"></div>
             <div x-show="cols.responsavel"></div>
             <div x-show="cols.prioridade"></div>
             <div x-show="cols.prazo"></div>
+            <div class="totals-cell" x-show="cols.estimativa">
+              <span class="totals-value" :title="'Soma das estimativas'">
+                <span class="totals-mode">soma</span>
+                <span x-text="formatDuration(totalEstimateSeconds)"></span>
+              </span>
+            </div>
+            <div class="totals-cell" x-show="cols.tempo">
+              <span class="totals-value" :title="'Tempo total rastreado'">
+                <span class="totals-mode">soma</span>
+                <span x-text="formatDuration(totalTimeSeconds)"></span>
+              </span>
+            </div>
             <template x-for="cf in (activeList?.custom_fields||[])" :key="cf.id">
               <div x-show="cfCols[cf.id]" class="totals-cell">
                 <template x-if="cf.type === 'number'">
@@ -2462,6 +2579,113 @@
              @click="setColCalc(calcMenu.cfId, null); calcMenu.open=false">
           <span>🗑</span><span>Remover cálculo</span>
         </div>
+      </div>
+    </template>
+
+    <!-- Estimativa popover -->
+    <template x-if="estimatePop.open">
+      <div class="bulk-pop" :style="`top:${estimatePop.y}px;left:${estimatePop.x}px;min-width:240px`"
+           @click.outside="estimatePop.open=false" x-cloak>
+        <div class="bulk-pop-item" style="opacity:.6;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;pointer-events:none">Estimativa</div>
+        <div style="padding:6px">
+          <input class="bulk-pop-input" type="text" x-model="estimatePop.text"
+                 placeholder="ex: 1h 30m, 45m, 2h"
+                 x-init="$nextTick(()=>$el.focus())"
+                 @keydown.enter.prevent="saveEstimate()">
+          <div style="display:flex;gap:6px;margin-top:8px">
+            <button class="bulk-btn" style="flex:1;justify-content:center" @click="saveEstimate()">Salvar</button>
+            <button class="bulk-btn danger" @click="saveEstimate(true)" x-show="estimatePop.taskRef?.estimate_seconds">Limpar</button>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- Time tracking panel (modal flutuante) -->
+    <template x-if="timePanel.open">
+      <div class="time-panel-overlay" @click.self="closeTimePanel()" x-cloak>
+        <div class="time-panel">
+          <div class="time-panel-head">
+            <div>
+              <div style="font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Rastrear tempo</div>
+              <div style="font-weight:600;color:#fff;margin-top:2px" x-text="timePanel.taskTitle"></div>
+            </div>
+            <button class="bulk-count-clear" @click="closeTimePanel()">✕</button>
+          </div>
+          <div class="time-panel-body">
+            <!-- Adicionar entry / cronômetro -->
+            <div class="time-add-card">
+              <template x-if="!timer.running || timer.taskId !== timePanel.taskId">
+                <div>
+                  <div style="display:flex;gap:8px;align-items:center">
+                    <input class="bulk-pop-input" type="text" x-model="timePanel.newText"
+                           placeholder="Insira o tempo (ex: 3h 20m) ou inicie o cronômetro"
+                           @keydown.enter.prevent="addManualEntry()">
+                    <button class="time-play-btn" title="Iniciar cronômetro" @click="startTimer(timePanel.taskId)">▶</button>
+                  </div>
+                  <input class="bulk-pop-input" type="text" x-model="timePanel.newNote"
+                         placeholder="Notas (opcional)" style="margin-top:6px">
+                  <div style="display:flex;justify-content:flex-end;margin-top:8px">
+                    <button class="bulk-btn" @click="addManualEntry()"
+                            :disabled="!timePanel.newText.trim()">Salvar</button>
+                  </div>
+                </div>
+              </template>
+              <template x-if="timer.running && timer.taskId === timePanel.taskId">
+                <div>
+                  <div class="timer-running">
+                    <span class="timer-dot"></span>
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:1.5rem;color:#fff" x-text="formatDuration(timer.elapsed)"></span>
+                  </div>
+                  <input class="bulk-pop-input" type="text" x-model="timer.note"
+                         placeholder="Notas (opcional)" style="margin-top:6px">
+                  <div style="display:flex;gap:6px;margin-top:8px;justify-content:flex-end">
+                    <button class="bulk-btn danger" @click="discardTimer()">Descartar</button>
+                    <button class="bulk-btn" @click="stopTimer()" style="background:rgba(34,197,94,.15);color:#86efac">Parar e salvar</button>
+                  </div>
+                </div>
+              </template>
+            </div>
+            <!-- Total + estimativa -->
+            <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid #1a1a1a;font-size:.85rem">
+              <span style="color:var(--muted)">Tempo total</span>
+              <span style="color:#fff;font-weight:600">
+                <span x-text="formatDuration(timePanel.totalSeconds)"></span>
+                <span style="color:var(--muted)" x-show="timePanel.estimateSeconds">
+                  / <span x-text="formatDuration(timePanel.estimateSeconds)"></span>
+                </span>
+              </span>
+            </div>
+            <!-- Lista de entries -->
+            <div class="time-entries-list" x-show="timePanel.entries.length">
+              <template x-for="e in timePanel.entries" :key="e.id">
+                <div class="time-entry-row">
+                  <div style="flex:1;min-width:0">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <span class="assignee-avatar" style="background:#2a2a2a;width:18px;height:18px" x-text="memberName(e.username).charAt(0)"></span>
+                      <span style="font-weight:500;color:#fff" x-text="formatDuration(e.duration_seconds)"></span>
+                      <span style="color:#666;font-size:.74rem" x-text="formatEntryTime(e.started_at || e.created_at)"></span>
+                    </div>
+                    <div x-show="e.note" style="color:var(--muted);font-size:.78rem;margin-top:3px;padding-left:26px" x-text="e.note"></div>
+                  </div>
+                  <button class="bulk-count-clear" @click="deleteTimeEntry(e.id)" title="Remover">✕</button>
+                </div>
+              </template>
+            </div>
+            <div x-show="!timePanel.entries.length" style="text-align:center;color:#444;padding:20px 0;font-size:.85rem">
+              Nenhum tempo registrado
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- Cronômetro flutuante (quando rodando) -->
+    <template x-if="timer.running && (!timePanel.open || timer.taskId !== timePanel.taskId)">
+      <div class="floating-timer" @click="openTaskTimePanel({id: timer.taskId, title: timer.taskTitle, time_total_seconds: 0, estimate_seconds: 0})" x-cloak>
+        <span class="timer-dot"></span>
+        <span style="font-family:'JetBrains Mono',monospace;font-weight:600" x-text="formatDuration(timer.elapsed)"></span>
+        <span style="color:#bbb;font-size:.78rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" x-text="timer.taskTitle"></span>
+        <button class="bulk-count-clear" @click.stop="stopTimer()" title="Parar">⏹</button>
       </div>
     </template>
 
@@ -3604,6 +3828,33 @@
               </div>
             </div>
 
+            <!-- Estimativa -->
+            <div class="prop-row" x-show="editTask">
+              <div class="prop-label"><span class="prop-label-icon">⏱</span> Estimativa</div>
+              <div class="prop-value">
+                <span style="cursor:pointer"
+                      :style="!editTask?.estimate_seconds ? 'color:#444' : 'color:#ddd'"
+                      @click="openEstimateEditor(editTask, $event)"
+                      x-text="editTask?.estimate_seconds ? formatDuration(editTask.estimate_seconds) : 'Vazio'"></span>
+              </div>
+            </div>
+
+            <!-- Tempo rastreado -->
+            <div class="prop-row" x-show="editTask">
+              <div class="prop-label"><span class="prop-label-icon">⏲</span> Tempo rastreado</div>
+              <div class="prop-value" style="display:flex;align-items:center;gap:10px">
+                <span x-text="editTask?.time_total_seconds ? formatDuration(editTask.time_total_seconds) : '0m'"></span>
+                <button type="button" class="bulk-btn" style="padding:4px 10px"
+                        @click="openTaskTimePanel(editTask)">+ Adicionar tempo</button>
+                <button type="button" class="time-play-btn" style="width:28px;height:28px;font-size:.7rem"
+                        x-show="!timer.running || timer.taskId !== editTask?.id"
+                        @click="startTimer(editTask.id)" title="Iniciar cronômetro">▶</button>
+                <button type="button" class="bulk-btn danger" style="padding:4px 10px"
+                        x-show="timer.running && timer.taskId === editTask?.id"
+                        @click="stopTimer()">⏹ Parar</button>
+              </div>
+            </div>
+
             <!-- Custom fields -->
             <template x-for="cf in (activeList?.custom_fields || [])" :key="cf.id">
               <div class="prop-row">
@@ -4676,8 +4927,8 @@ document.addEventListener('alpine:init', () => {
     ],
 
     colsPanel: false,
-    cols: { status: true, responsavel: true, prioridade: true, prazo: true },
-    colWidths: { tarefa: 0, status: 140, responsavel: 120, prioridade: 110, prazo: 100 },
+    cols: { status: true, responsavel: true, prioridade: true, prazo: true, estimativa: false, tempo: false },
+    colWidths: { tarefa: 0, status: 140, responsavel: 120, prioridade: 110, prazo: 100, estimativa: 110, tempo: 120 },
     statusPickerTask: null,
     statusPickerPos: { x: 0, y: 0 },
     statusPickerQ: '',
@@ -4835,6 +5086,8 @@ document.addEventListener('alpine:init', () => {
       if (this.cols.responsavel) c += ` ${this.colWidths.responsavel}px`;
       if (this.cols.prioridade)  c += ` ${this.colWidths.prioridade}px`;
       if (this.cols.prazo)       c += ` ${this.colWidths.prazo}px`;
+      if (this.cols.estimativa)  c += ` ${this.colWidths.estimativa}px`;
+      if (this.cols.tempo)       c += ` ${this.colWidths.tempo}px`;
       for (const cf of (this.activeList?.custom_fields || [])) {
         if (this.cfCols[cf.id]) c += ` ${this.cfColWidths[cf.id] || 140}px`;
       }
@@ -4932,6 +5185,11 @@ document.addEventListener('alpine:init', () => {
     // Cálculo de coluna (somatória, média, etc) — chave = cf.id, valor = 'sum'|'avg'|'min'|'max'|'count'
     columnCalcs: {},
     calcMenu: { open: false, cfId: null, x: 0, y: 0 },
+
+    // Time tracking
+    estimatePop: { open: false, x: 0, y: 0, taskRef: null, text: '' },
+    timePanel: { open: false, taskId: null, taskTitle: '', entries: [], totalSeconds: 0, estimateSeconds: 0, newText: '', newNote: '' },
+    timer: { running: false, taskId: null, taskTitle: '', startedAt: 0, elapsed: 0, note: '', _interval: null },
     calcOptions: [
       { v: 'sum',   l: 'Somatória' },
       { v: 'avg',   l: 'Média' },
@@ -5044,6 +5302,7 @@ document.addEventListener('alpine:init', () => {
       this.loadFavorites();
       this.loadStatusTemplates();
       this.loadCols();
+      this._restoreTimer();
       try { this.collapsedTasks = JSON.parse(localStorage.getItem('sinapse_collapsed_tasks') || '{}'); } catch(e) {}
       await this.loadTree();
       const saved = this._loadNavState();
@@ -6098,6 +6357,204 @@ document.addEventListener('alpine:init', () => {
         alert('Erro ao aplicar alteração em lote: ' + (e.message || e));
       }
     },
+    // ── TIME TRACKING ────────────────────────────────────────────────────
+    _parseDuration(str) {
+      // Aceita "1h 30m", "90m", "1h", "30m", "1:30", "1.5h", "5400" (segundos)
+      if (!str) return 0;
+      str = String(str).trim().toLowerCase();
+      // hh:mm
+      let m = /^(\d{1,3}):(\d{1,2})$/.exec(str);
+      if (m) return parseInt(m[1])*3600 + parseInt(m[2])*60;
+      // só número → segundos? Vou interpretar como minutos (mais útil)
+      if (/^\d+$/.test(str)) return parseInt(str) * 60;
+      // 1.5h ou 2h
+      let total = 0;
+      const reH = /([\d.]+)\s*h/;
+      const reM = /([\d.]+)\s*m/;
+      const reS = /([\d.]+)\s*s/;
+      let h = reH.exec(str); if (h) total += parseFloat(h[1]) * 3600;
+      let mn = reM.exec(str); if (mn) total += parseFloat(mn[1]) * 60;
+      let sc = reS.exec(str); if (sc) total += parseFloat(sc[1]);
+      return Math.round(total);
+    },
+    formatDuration(seconds) {
+      seconds = Math.max(0, Math.round(seconds || 0));
+      if (!seconds) return '0m';
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = seconds % 60;
+      if (h && m) return `${h}h ${m}m`;
+      if (h) return `${h}h`;
+      if (m) return `${m}m`;
+      return `${s}s`;
+    },
+    formatEntryTime(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return '';
+      const pad = n => String(n).padStart(2,'0');
+      return `${pad(d.getDate())}/${pad(d.getMonth()+1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    },
+    get totalEstimateSeconds() {
+      return (this.tasks || []).reduce((s, t) => s + (t.estimate_seconds || 0), 0);
+    },
+    get totalTimeSeconds() {
+      return (this.tasks || []).reduce((s, t) => s + (t.time_total_seconds || 0), 0);
+    },
+    openEstimateEditor(task, evt) {
+      const r = evt.currentTarget.getBoundingClientRect();
+      let x = r.left, y = r.bottom + 6;
+      if (x + 260 > window.innerWidth) x = window.innerWidth - 270;
+      this.estimatePop = {
+        open: true, x: Math.max(12,x), y,
+        taskRef: task,
+        text: task.estimate_seconds ? this.formatDuration(task.estimate_seconds) : '',
+      };
+    },
+    async saveEstimate(clear = false) {
+      const t = this.estimatePop.taskRef;
+      if (!t) return;
+      const secs = clear ? 0 : this._parseDuration(this.estimatePop.text);
+      await this.patchTask(t, { estimate_seconds: secs });
+      // Update local
+      const i = this.tasks.findIndex(x => x.id === t.id);
+      if (i >= 0) this.tasks[i].estimate_seconds = secs;
+      this.estimatePop.open = false;
+    },
+    async openTaskTimePanel(task) {
+      this.timePanel = {
+        open: true, taskId: task.id, taskTitle: task.title,
+        entries: [], totalSeconds: task.time_total_seconds || 0,
+        estimateSeconds: task.estimate_seconds || 0,
+        newText: '', newNote: '',
+      };
+      try {
+        const r = await fetch(`/api/gestao/tasks/${task.id}/time-entries`);
+        const data = await r.json();
+        this.timePanel.entries = data.entries || [];
+        this.timePanel.totalSeconds = data.total_seconds || 0;
+        // sync local
+        const i = this.tasks.findIndex(x => x.id === task.id);
+        if (i >= 0) this.tasks[i].time_total_seconds = data.total_seconds || 0;
+      } catch (e) {}
+    },
+    closeTimePanel() {
+      this.timePanel.open = false;
+    },
+    async addManualEntry() {
+      const dur = this._parseDuration(this.timePanel.newText);
+      if (dur <= 0 || !this.timePanel.taskId) return;
+      try {
+        const r = await fetch(`/api/gestao/tasks/${this.timePanel.taskId}/time-entries`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ duration_seconds: dur, note: this.timePanel.newNote || '' }),
+        });
+        const data = await r.json();
+        if (data.entry) {
+          this.timePanel.entries.unshift(data.entry);
+          this.timePanel.totalSeconds += dur;
+          const i = this.tasks.findIndex(x => x.id === this.timePanel.taskId);
+          if (i >= 0) this.tasks[i].time_total_seconds = (this.tasks[i].time_total_seconds || 0) + dur;
+        }
+        this.timePanel.newText = '';
+        this.timePanel.newNote = '';
+      } catch (e) {
+        alert('Erro ao salvar entry: ' + (e.message || e));
+      }
+    },
+    async deleteTimeEntry(eid) {
+      const idx = this.timePanel.entries.findIndex(e => e.id === eid);
+      if (idx === -1) return;
+      const dur = this.timePanel.entries[idx].duration_seconds || 0;
+      try {
+        await fetch(`/api/gestao/time-entries/${eid}`, { method: 'DELETE' });
+        this.timePanel.entries.splice(idx, 1);
+        this.timePanel.totalSeconds = Math.max(0, this.timePanel.totalSeconds - dur);
+        const i = this.tasks.findIndex(x => x.id === this.timePanel.taskId);
+        if (i >= 0) this.tasks[i].time_total_seconds = Math.max(0, (this.tasks[i].time_total_seconds || 0) - dur);
+      } catch (e) {}
+    },
+    _restoreTimer() {
+      try {
+        const raw = localStorage.getItem('cardo_active_timer');
+        if (!raw) return;
+        const t = JSON.parse(raw);
+        if (!t || !t.taskId || !t.startedAt) return;
+        this.timer.running = true;
+        this.timer.taskId = t.taskId;
+        this.timer.taskTitle = t.taskTitle || '';
+        this.timer.startedAt = t.startedAt;
+        this.timer.note = t.note || '';
+        this.timer.elapsed = Math.floor((Date.now() - t.startedAt) / 1000);
+        this._startTimerInterval();
+      } catch (e) {}
+    },
+    _startTimerInterval() {
+      if (this.timer._interval) clearInterval(this.timer._interval);
+      this.timer._interval = setInterval(() => {
+        this.timer.elapsed = Math.floor((Date.now() - this.timer.startedAt) / 1000);
+      }, 1000);
+    },
+    _persistTimer() {
+      if (this.timer.running) {
+        localStorage.setItem('cardo_active_timer', JSON.stringify({
+          taskId: this.timer.taskId,
+          taskTitle: this.timer.taskTitle,
+          startedAt: this.timer.startedAt,
+          note: this.timer.note,
+        }));
+      } else {
+        localStorage.removeItem('cardo_active_timer');
+      }
+    },
+    startTimer(taskId) {
+      if (this.timer.running) {
+        if (!confirm('Já tem um cronômetro rodando. Parar o atual e iniciar novo?')) return;
+        this.stopTimer();
+      }
+      const task = this.tasks.find(t => t.id === taskId) || { title: this.timePanel.taskTitle || '' };
+      this.timer = {
+        running: true, taskId, taskTitle: task.title,
+        startedAt: Date.now(), elapsed: 0, note: '', _interval: null,
+      };
+      this._persistTimer();
+      this._startTimerInterval();
+    },
+    async stopTimer() {
+      if (!this.timer.running) return;
+      const dur = Math.floor((Date.now() - this.timer.startedAt) / 1000);
+      const taskId = this.timer.taskId;
+      const note = this.timer.note;
+      if (this.timer._interval) clearInterval(this.timer._interval);
+      this.timer = { running: false, taskId: null, taskTitle: '', startedAt: 0, elapsed: 0, note: '', _interval: null };
+      this._persistTimer();
+      if (dur < 5) return; // ignora cronômetro de menos de 5s
+      try {
+        const r = await fetch(`/api/gestao/tasks/${taskId}/time-entries`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ duration_seconds: dur, note }),
+        });
+        const data = await r.json();
+        // Atualiza task local
+        const i = this.tasks.findIndex(x => x.id === taskId);
+        if (i >= 0) this.tasks[i].time_total_seconds = (this.tasks[i].time_total_seconds || 0) + dur;
+        // Se o painel está aberto pra essa task, atualiza
+        if (this.timePanel.open && this.timePanel.taskId === taskId && data.entry) {
+          this.timePanel.entries.unshift(data.entry);
+          this.timePanel.totalSeconds += dur;
+        }
+      } catch (e) {}
+    },
+    discardTimer() {
+      if (!this.timer.running) return;
+      if (!confirm('Descartar tempo rastreado?')) return;
+      if (this.timer._interval) clearInterval(this.timer._interval);
+      this.timer = { running: false, taskId: null, taskTitle: '', startedAt: 0, elapsed: 0, note: '', _interval: null };
+      this._persistTimer();
+    },
+
     // ── COLUMN CALCULATIONS (totals row) ─────────────────────────────────
     get hasNumericCfs() {
       return (this.activeList?.custom_fields || []).some(c => c.type === 'number');

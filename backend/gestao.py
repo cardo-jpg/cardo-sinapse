@@ -788,14 +788,27 @@ async def api_list_tasks(list_id: str, request: Request):
             for cl in cls:
                 cl["items"] = items_map.get(cl["id"], [])
                 checklists_map.setdefault(cl["task_id"], []).append(cl)
+        # Agrega tempo rastreado por tarefa (uma só query)
+        time_map: dict = {}
+        if task_ids:
+            placeholders3 = ",".join(["%s"] * len(task_ids))
+            cur.execute(
+                f"SELECT task_id, SUM(duration_seconds) AS total "
+                f"FROM task_time_entries WHERE task_id IN ({placeholders3}) GROUP BY task_id",
+                task_ids,
+            )
+            for r in cur.fetchall() or []:
+                time_map[r["task_id"]] = int(r["total"] or 0)
     finally:
         cur.close()
         conn.close()
     for t in tasks:
-        t["assignees"]   = json.loads(t.get("assignees") or "[]")
-        t["extra_data"]  = json.loads(t.get("extra_data") or "{}")
-        t["cf_values"]   = json.loads(t.get("cf_values")  or "{}")
-        t["checklists"]  = checklists_map.get(t["id"], [])
+        t["assignees"]          = json.loads(t.get("assignees") or "[]")
+        t["extra_data"]         = json.loads(t.get("extra_data") or "{}")
+        t["cf_values"]          = json.loads(t.get("cf_values")  or "{}")
+        t["checklists"]         = checklists_map.get(t["id"], [])
+        t["time_total_seconds"] = time_map.get(t["id"], 0)
+        t["estimate_seconds"]   = int(t.get("estimate_seconds") or 0)
     return {"tasks": tasks}
 
 
@@ -840,7 +853,7 @@ async def api_create_task(request: Request):
 async def api_update_task(task_id: str, request: Request):
     _require(request)
     data = await request.json()
-    allowed = {"title", "description", "assignees", "due_date", "status", "priority", "position", "extra_data", "cf_values"}
+    allowed = {"title", "description", "assignees", "due_date", "status", "priority", "position", "extra_data", "cf_values", "estimate_seconds"}
     fields = {k: v for k, v in data.items() if k in allowed}
     if not fields:
         raise HTTPException(400, "Nenhum campo válido")
@@ -1026,6 +1039,77 @@ async def api_bulk_delete_tasks(request: Request):
         cur.close()
         conn.close()
     return {"ok": True, "deleted": ids}
+
+
+# ── Time tracking ─────────────────────────────────────────────────────────────
+
+@router.get("/api/gestao/tasks/{task_id}/time-entries")
+async def api_list_time_entries(task_id: str, request: Request):
+    _require(request)
+    conn = get_conn(); cur = dict_cursor(conn)
+    try:
+        cur.execute(
+            "SELECT id, username, duration_seconds, started_at, note, created_at "
+            "FROM task_time_entries WHERE task_id=%s ORDER BY started_at DESC",
+            (task_id,),
+        )
+        entries = []
+        total = 0
+        for r in cur.fetchall() or []:
+            d = dict(r)
+            d["started_at"] = d["started_at"].isoformat() if d.get("started_at") else None
+            d["created_at"] = d["created_at"].isoformat() if d.get("created_at") else None
+            total += int(d.get("duration_seconds") or 0)
+            entries.append(d)
+    finally:
+        cur.close(); conn.close()
+    return {"entries": entries, "total_seconds": total}
+
+
+@router.post("/api/gestao/tasks/{task_id}/time-entries")
+async def api_create_time_entry(task_id: str, request: Request):
+    user = _require(request)
+    data = await request.json()
+    dur = int(data.get("duration_seconds") or 0)
+    if dur <= 0:
+        raise HTTPException(400, "duration_seconds deve ser > 0")
+    started_at = data.get("started_at") or None
+    note = (data.get("note") or "").strip()
+    eid = str(uuid.uuid4())
+    conn = get_conn(); cur = dict_cursor(conn)
+    try:
+        if started_at:
+            cur.execute(
+                "INSERT INTO task_time_entries (id, task_id, username, duration_seconds, started_at, note) "
+                "VALUES (%s, %s, %s, %s, %s, %s) RETURNING *",
+                (eid, task_id, user, dur, started_at, note),
+            )
+        else:
+            cur.execute(
+                "INSERT INTO task_time_entries (id, task_id, username, duration_seconds, note) "
+                "VALUES (%s, %s, %s, %s, %s) RETURNING *",
+                (eid, task_id, user, dur, note),
+            )
+        row = cur.fetchone()
+        conn.commit()
+    finally:
+        cur.close(); conn.close()
+    out = dict(row)
+    out["started_at"] = out["started_at"].isoformat() if out.get("started_at") else None
+    out["created_at"] = out["created_at"].isoformat() if out.get("created_at") else None
+    return {"entry": out}
+
+
+@router.delete("/api/gestao/time-entries/{entry_id}")
+async def api_delete_time_entry(entry_id: str, request: Request):
+    _require(request)
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM task_time_entries WHERE id=%s", (entry_id,))
+        conn.commit()
+    finally:
+        cur.close(); conn.close()
+    return {"ok": True}
 
 
 # ── Checklists ────────────────────────────────────────────────────────────────
