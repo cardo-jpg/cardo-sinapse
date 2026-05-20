@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SpeedRack West — Campaign Briefing</title>
+  <style>
+    :root {
+      --orange: #E8650A;
+      --dark: #111111;
+      --gray-dark: #1C1C1C;
+      --gray-mid: #2A2A2A;
+      --gray-light: #3A3A3A;
+      --text: #E8E8E8;
+      --text-muted: #999999;
+      --border: #333333;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--dark);
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    header {
+      background: var(--gray-dark);
+      border-bottom: 3px solid var(--orange);
+      padding: 40px 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    header .brand { display: flex; align-items: center; gap: 16px; }
+
+    header .brand-dot {
+      width: 14px; height: 14px;
+      background: var(--orange);
+      border-radius: 50%;
+    }
+
+    header h1 { font-size: 22px; font-weight: 700; letter-spacing: 0.5px; }
+    header h1 span { color: var(--orange); }
+    header .meta { font-size: 13px; color: var(--text-muted); text-align: right; }
+
+    nav {
+      background: var(--gray-mid);
+      padding: 0 60px;
+      display: flex;
+      border-bottom: 1px solid var(--border);
+    }
+
+    nav a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 16px 20px;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+
+    nav a:hover { color: var(--orange); border-bottom-color: var(--orange); }
+
+    main { max-width: 960px; margin: 0 auto; padding: 60px 40px; }
+
+    .section { margin-bottom: 80px; }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 36px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-number {
+      background: var(--orange);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .section-title { font-size: 22px; font-weight: 700; letter-spacing: 0.3px; }
+    .section-subtitle { font-size: 13px; color: var(--text-muted); margin-top: 3px; }
+
+    h3 {
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--orange);
+      margin: 36px 0 16px;
+    }
+
+    p { font-size: 15px; color: #ccc; margin-bottom: 12px; }
+
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 28px; font-size: 14px; }
+
+    th {
+      background: var(--gray-mid);
+      color: var(--orange);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 12px 16px;
+      text-align: left;
+      border: 1px solid var(--border);
+    }
+
+    td { padding: 11px 16px; border: 1px solid var(--border); color: #ccc; vertical-align: top; }
+    tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+
+    .creative-card {
+      background: var(--gray-mid);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--orange);
+      border-radius: 6px;
+      padding: 20px 24px;
+      margin-bottom: 16px;
+    }
+
+    .creative-card .label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--orange);
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .creative-card .headline { font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 6px; }
+    .creative-card .desc { font-size: 14px; color: var(--text-muted); }
+
+    .code-block {
+      background: #0D0D0D;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px 20px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      color: #8DE28D;
+      margin: 12px 0 24px;
+      word-break: break-all;
+    }
+
+    .checklist { list-style: none; padding: 0; margin: 16px 0 28px; }
+
+    .checklist li {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      font-size: 14px;
+      color: #ccc;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .checklist li:last-child { border-bottom: none; }
+
+    .checklist li::before {
+      content: '';
+      width: 18px; height: 18px;
+      border: 2px solid var(--orange);
+      border-radius: 3px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .structure-block {
+      background: var(--gray-mid);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 24px;
+      margin: 16px 0 28px;
+    }
+
+    .structure-row {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+
+    .structure-row:last-child { border-bottom: none; }
+    .structure-time { color: var(--orange); font-weight: 700; min-width: 60px; font-family: monospace; }
+    .structure-desc { color: #ccc; }
+
+    .highlight {
+      background: rgba(232, 101, 10, 0.08);
+      border: 1px solid rgba(232, 101, 10, 0.25);
+      border-radius: 6px;
+      padding: 16px 20px;
+      margin: 16px 0 24px;
+      font-size: 14px;
+      color: #ccc;
+    }
+
+    footer {
+      background: var(--gray-dark);
+      border-top: 1px solid var(--border);
+      padding: 30px 60px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    footer span { color: var(--orange); }
+
+    @media print { nav { display: none; } .section { page-break-inside: avoid; } }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-dot"></div>
+    <div>
+      <h1><span>SpeedRack West</span> — Campaign Briefing</h1>
+      <div style="font-size:13px;color:var(--text-muted);margin-top:4px;">Prepared by Cardo Marketing · May 2026</div>
+    </div>
+  </div>
+  <div class="meta">PMax · YouTube · Merchant Center<br/>Internal Use</div>
+</header>
+
+<nav>
+  <a href="#pmax">1. PMax Creatives</a>
+  <a href="#youtube">2. YouTube Campaign</a>
+  <a href="#merchant">3. Merchant Center Photos</a>
+</nav>
+
+<main>
+
+  <!-- SECTION 1 -->
+  <div class="section" id="pmax">
+    <div class="section-header">
+      <div class="section-number">1</div>
+      <div>
+        <div class="section-title">Creative Brief — PMax</div>
+        <div class="section-subtitle">Direction for static and video creative production · Priority: statics</div>
+      </div>
+    </div>
+
+    <h3>Visual Identity</h3>
+    <table>
+      <tr><th>Element</th><th>Guideline</th></tr>
+      <tr><td>Background</td><td>Dark — black or charcoal gray</td></tr>
+      <tr><td>Accent color</td><td>Orange (#E8650A) — per logo</td></tr>
+      <tr><td>Typography</td><td>Bold, sans-serif — industrial and direct tone</td></tr>
+      <tr><td>Overall style</td><td>Clean, professional, no decorative elements</td></tr>
+    </table>
+
+    <h3>Statics — Required Formats</h3>
+    <table>
+      <tr><th>Size</th><th>Usage</th></tr>
+      <tr><td>1200 × 628 px</td><td>Feed & Display</td></tr>
+      <tr><td>1080 × 1080 px</td><td>Square</td></tr>
+      <tr><td>960 × 1200 px</td><td>Vertical</td></tr>
+      <tr><td>300 × 250 px</td><td>Display Banner</td></tr>
+    </table>
+
+    <h3>Static Composition</h3>
+    <div class="highlight">
+      Every static must include: <strong>product in use</strong> (real warehouse/depot — not isolated product shot) · <strong>headline</strong> (max 30 chars) · <strong>subheadline</strong> (max 90 chars) · <strong>logo + CTA</strong> in an orange button.
+    </div>
+
+    <h3>Default CTA</h3>
+    <p>Use <strong>"Get a Free Quote"</strong> or <strong>"Request a Quote"</strong> — always in an orange background button.</p>
+
+    <h3>Creative Lines — Minimum 3 Variations</h3>
+
+    <div class="creative-card">
+      <div class="label">Line 1 — Problem / Solution</div>
+      <div class="headline">"Running out of space?"</div>
+      <div class="desc">Our cantilever racks free up your floor and organize any load.</div>
+    </div>
+
+    <div class="creative-card">
+      <div class="label">Line 2 — Authority</div>
+      <div class="headline">"Trusted by Industry"</div>
+      <div class="desc">Custom racking systems engineered for your exact operation.</div>
+    </div>
+
+    <div class="creative-card">
+      <div class="label">Line 3 — ROI / Urgency</div>
+      <div class="headline">"Stop Wasting Floor Space"</div>
+      <div class="desc">Maximize your warehouse capacity with a free custom quote.</div>
+    </div>
+
+    <h3>Videos — Structure & Script</h3>
+
+    <table>
+      <tr><th>Format</th><th>Duration</th><th>Usage</th></tr>
+      <tr><td>16:9</td><td>15 to 30 seconds</td><td>YouTube / Display</td></tr>
+      <tr><td>9:16</td><td>15 seconds</td><td>Discovery / Vertical</td></tr>
+    </table>
+
+    <div class="structure-block">
+      <div class="structure-row">
+        <div class="structure-time">0–3s</div>
+        <div class="structure-desc">Visual hook — disorganized warehouse <em>or</em> product installed in use</div>
+      </div>
+      <div class="structure-row">
+        <div class="structure-time">3–10s</div>
+        <div class="structure-desc">Problem — <em>"Storing long, bulky inventory is a challenge..."</em></div>
+      </div>
+      <div class="structure-row">
+        <div class="structure-time">10–20s</div>
+        <div class="structure-desc">Solution — cantilever in action, installation, load capacity</div>
+      </div>
+      <div class="structure-row">
+        <div class="structure-time">20–25s</div>
+        <div class="structure-desc">CTA — <em>"Get your free quote at SpeedRackWest.com"</em></div>
+      </div>
+    </div>
+
+    <h3>What to Capture (Production Checklist)</h3>
+    <ul class="checklist">
+      <li>Cantilever racks installed in a real warehouse — wide shot and close-up</li>
+      <li>Product being loaded (forklift or manual operation)</li>
+      <li>Variety of rack sizes and configurations</li>
+      <li>SpeedRack West logo or signage visible in the environment</li>
+      <li>Employee or customer interacting with the system (if possible)</li>
+    </ul>
+  </div>
+
+  <!-- SECTION 2 -->
+  <div class="section" id="youtube">
+    <div class="section-header">
+      <div class="section-number">2</div>
+      <div>
+        <div class="section-title">YouTube Campaign Plan</div>
+        <div class="section-subtitle">Full launch structure from scratch</div>
+      </div>
+    </div>
+
+    <h3>Prerequisites</h3>
+    <ul class="checklist">
+      <li>Grant access to the Google Ads account linked to channel @SpeedrackWest</li>
+      <li>Confirm if the channel has any published videos (even unlisted ones)</li>
+      <li>Produce at least 1 main video (30–60s) before launching the campaign</li>
+    </ul>
+
+    <h3>Campaign Structure</h3>
+    <table>
+      <tr><th>Parameter</th><th>Setting</th></tr>
+      <tr><td>Type</td><td>Video Action Campaign (VAC) or PMax with video asset</td></tr>
+      <tr><td>Goal</td><td>Lead generation — click to LP or form submission</td></tr>
+      <tr><td>Daily budget (test)</td><td>$30–50/day</td></tr>
+      <tr><td>Initial duration</td><td>30 days for data collection</td></tr>
+    </table>
+
+    <h3>Targeting</h3>
+    <table>
+      <tr><th>Criteria</th><th>Setting</th></tr>
+      <tr><td>Language</td><td>English (EN-US)</td></tr>
+      <tr><td>Location</td><td>States where SpeedRack West operates</td></tr>
+      <tr><td>In-Market Audiences</td><td>Industrial Equipment · Warehousing · Logistics</td></tr>
+      <tr><td>Channel Keywords</td><td>cantilever rack · warehouse storage · industrial shelving</td></tr>
+      <tr><td>Exclusions</td><td>B2C consumers · Users under 18</td></tr>
+    </table>
+
+    <h3>Assets Required to Launch</h3>
+    <ul class="checklist">
+      <li>1 main video (minimum 30s, ideal 60s)</li>
+      <li>1 bumper video — 6-second version of the main video</li>
+      <li>Minimum 3 headlines (max 30 characters each)</li>
+      <li>Minimum 2 descriptions (max 90 characters each)</li>
+      <li>High-resolution logo</li>
+      <li>LP URL with UTM parameters configured</li>
+    </ul>
+
+    <h3>UTM Parameters</h3>
+
+    <p style="color:var(--text-muted);font-size:13px;margin-bottom:6px;">PMax — Static</p>
+    <div class="code-block">https://www.lp.speedrackwest.com/cantilever-lp-1/?utm_source=google&utm_medium=cpc&utm_campaign=pmax_cantilever&utm_content=static</div>
+
+    <p style="color:var(--text-muted);font-size:13px;margin-bottom:6px;">PMax — Video</p>
+    <div class="code-block">https://www.lp.speedrackwest.com/cantilever-lp-1/?utm_source=google&utm_medium=cpc&utm_campaign=pmax_cantilever&utm_content=video</div>
+
+    <p style="color:var(--text-muted);font-size:13px;margin-bottom:6px;">YouTube — Video Action</p>
+    <div class="code-block">https://www.lp.speedrackwest.com/cantilever-lp-1/?utm_source=youtube&utm_medium=cpc&utm_campaign=youtube_cantilever&utm_content=video_v1</div>
+
+    <p style="color:var(--text-muted);font-size:13px;margin-bottom:6px;">Google Search</p>
+    <div class="code-block">https://www.lp.speedrackwest.com/cantilever-lp-1/?utm_source=google&utm_medium=cpc&utm_campaign=search_cantilever&utm_content=search</div>
+  </div>
+
+  <!-- SECTION 3 -->
+  <div class="section" id="merchant">
+    <div class="section-header">
+      <div class="section-number">3</div>
+      <div>
+        <div class="section-title">Catalog Photos — Google Merchant Center</div>
+        <div class="section-subtitle">Quality standard and compliance requirements</div>
+      </div>
+    </div>
+
+    <h3>Google's Mandatory Rules</h3>
+    <table>
+      <tr><th>Requirement</th><th>Specification</th></tr>
+      <tr><td>Background</td><td>Pure white (#FFFFFF) or real-use context</td></tr>
+      <tr><td>Minimum resolution</td><td>800 × 800 px (recommended)</td></tr>
+      <tr><td>Format</td><td>JPG or PNG</td></tr>
+      <tr><td>Watermarks</td><td>Not allowed</td></tr>
+      <tr><td>Overlaid text</td><td>Not allowed</td></tr>
+      <tr><td>Decorative borders</td><td>Not allowed</td></tr>
+    </table>
+
+    <h3>Required Shots per Product</h3>
+    <div class="highlight">
+      Each product in the catalog must have at least the following photo types, in order of priority.
+    </div>
+
+    <ul class="checklist">
+      <li><strong>Main image</strong> — product on white background, centered, occupying at least 75% of the frame</li>
+      <li><strong>Left and right side views</strong> — to show depth and structure</li>
+      <li><strong>Detail shot</strong> — focus on joint, connection, or key component</li>
+      <li><strong>In-use context</strong> — product installed in a real environment (warehouse, depot)</li>
+    </ul>
+
+    <h3>Pre-Upload Checklist</h3>
+    <ul class="checklist">
+      <li>White background or real-use environment</li>
+      <li>Product occupies at least 75% of the frame</li>
+      <li>No text, logo, or watermark on the image</li>
+      <li>Minimum resolution of 800 × 800 px</li>
+      <li>Descriptive file name — e.g. <code style="color:var(--orange);background:rgba(232,101,10,0.1);padding:2px 6px;border-radius:3px;">cantilever-rack-96in-single.jpg</code> not <code style="color:var(--text-muted);background:var(--gray-mid);padding:2px 6px;border-radius:3px;">IMG_0034.jpg</code></li>
+    </ul>
+  </div>
+
+</main>
+
+<footer>
+  <div>SpeedRack West — Campaign Briefing · <span>Cardo Marketing</span></div>
+  <div>May 2026 · Confidential</div>
+</footer>
+
+</body>
+</html>
