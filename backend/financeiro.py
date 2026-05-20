@@ -1887,7 +1887,9 @@ async def dashboard_sheets(request: Request, de: str = None, ate: str = None):
         try: abbr, yy = mes.split('/'); return (int(yy), _MESES_ABBR_LIST.index(abbr))
         except Exception: return (0, 0)
 
-    by_month: dict = defaultdict(lambda: {'receber': 0.0, 'pagar': 0.0, 'n': 0})
+    SOCIO_NAMES = {'victor cardô', 'victor leopoldo dognini cardoso', 'victor cardo'}
+
+    by_month: dict = defaultdict(lambda: {'receber': 0.0, 'pagar': 0.0, 'rem_socio': 0.0, 'n': 0})
     cli:  dict = defaultdict(float)
     forn: dict = defaultdict(float)
     cc:   dict = defaultdict(float)
@@ -1896,9 +1898,11 @@ async def dashboard_sheets(request: Request, de: str = None, ate: str = None):
         k    = _label(r['vencimento'])
         nome = r['contato_nome'] or '—'
         val  = r['valor_total'] or 0
+        is_socio = r['tipo'] == 'pagar' and nome.strip().lower() in SOCIO_NAMES
         if k:
             if r['tipo'] == 'receber': by_month[k]['receber'] += val
             else:                       by_month[k]['pagar']   += val
+            if is_socio:               by_month[k]['rem_socio'] += val
             by_month[k]['n'] += 1
         if r['tipo'] == 'receber':
             cli[nome] += val
@@ -1908,10 +1912,21 @@ async def dashboard_sheets(request: Request, de: str = None, ate: str = None):
             if cn and cn not in ('Sem Centro de Custos', ''):
                 cc[cn] += val
 
+    siga_mensal = []
+    for k, v in sorted(by_month.items(), key=lambda x: _sk(x[0])):
+        lucro_op = round(v['receber'] - (v['pagar'] - v['rem_socio']), 2)
+        siga_mensal.append({
+            'mes':        k,
+            'receber':    round(v['receber'], 2),
+            'pagar':      round(v['pagar'], 2),
+            'lucro':      round(v['receber'] - v['pagar'], 2),
+            'rem_socio':  round(v['rem_socio'], 2),
+            'lucro_op':   lucro_op,
+            'n':          v['n'],
+        })
+
     return {
-        'siga_mensal':      [{'mes': k, 'receber': round(v['receber'],2), 'pagar': round(v['pagar'],2),
-                              'lucro': round(v['receber']-v['pagar'],2), 'n': v['n']}
-                             for k, v in sorted(by_month.items(), key=lambda x: _sk(x[0]))],
+        'siga_mensal':      siga_mensal,
         'top_clientes':     [{'nome': k, 'total': round(v,2)} for k,v in sorted(cli.items(),  key=lambda x: -x[1])[:12]],
         'top_fornecedores': [{'nome': k, 'total': round(v,2)} for k,v in sorted(forn.items(), key=lambda x: -x[1])[:12]],
         'centros':          [{'nome': k, 'total': round(v,2)} for k,v in sorted(cc.items(),   key=lambda x: -x[1])],

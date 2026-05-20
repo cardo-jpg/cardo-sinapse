@@ -1034,11 +1034,12 @@
         <template x-if="dashData">
           <div>
             <!-- KPIs -->
+            <!-- KPIs contábeis -->
             <div class="dash-kpis">
               <div class="dash-kpi">
                 <div class="dash-kpi-label">Receita</div>
                 <div class="dash-kpi-value" x-text="formatBRL(dashKpis.fat25)"></div>
-                <div class="dash-kpi-sub">recebido (quitado)</div>
+                <div class="dash-kpi-sub" x-text="'média ' + formatBRL(dashKpis.receitaMedia) + '/mês'"></div>
               </div>
               <div class="dash-kpi">
                 <div class="dash-kpi-label">Despesas</div>
@@ -1046,15 +1047,41 @@
                 <div class="dash-kpi-sub">pago (quitado)</div>
               </div>
               <div class="dash-kpi">
-                <div class="dash-kpi-label">Lucro</div>
+                <div class="dash-kpi-label">Lucro Contábil</div>
                 <div class="dash-kpi-value" :class="dashKpis.luc25 >= 0 ? 'green' : 'red'"
                   x-text="formatBRL(dashKpis.luc25)"></div>
-                <div class="dash-kpi-sub" x-text="'margem média ' + dashKpis.avgMargem25.toFixed(1) + '%'"></div>
+                <div class="dash-kpi-sub" x-text="'margem ' + dashKpis.avgMargem25.toFixed(1) + '%'"></div>
               </div>
               <div class="dash-kpi">
                 <div class="dash-kpi-label">Melhor Mês</div>
                 <div class="dash-kpi-value green" x-text="dashKpis.bestMes?.mes || '—'"></div>
                 <div class="dash-kpi-sub" x-text="dashKpis.bestMes ? formatBRL(dashKpis.bestMes.lucro) + ' lucro' : ''"></div>
+              </div>
+            </div>
+
+            <!-- KPIs operacionais (antes da remuneração do sócio) -->
+            <div class="dash-kpis" style="margin-top:10px;">
+              <div class="dash-kpi" style="border-color:#26c6da44;">
+                <div class="dash-kpi-label" style="color:#26c6da;">Lucro Operacional</div>
+                <div class="dash-kpi-value" :class="dashKpis.lucroOp >= 0 ? 'green' : 'red'"
+                  x-text="formatBRL(dashKpis.lucroOp)"></div>
+                <div class="dash-kpi-sub" x-text="'antes da remuneração do sócio · margem ' + dashKpis.avgMargemOp.toFixed(1) + '%'"></div>
+              </div>
+              <div class="dash-kpi" style="border-color:#26c6da44;">
+                <div class="dash-kpi-label" style="color:#26c6da;">Remuneração Sócio</div>
+                <div class="dash-kpi-value" x-text="formatBRL(dashKpis.remSocioTotal)"></div>
+                <div class="dash-kpi-sub" x-text="'média ' + formatBRL(dashKpis.remSocioTotal / dashKpis.nMeses) + '/mês'"></div>
+              </div>
+              <div class="dash-kpi" style="border-color:#26c6da44;">
+                <div class="dash-kpi-label" style="color:#26c6da;">Receita Média/Mês</div>
+                <div class="dash-kpi-value" x-text="formatBRL(dashKpis.receitaMedia)"></div>
+                <div class="dash-kpi-sub" x-text="dashKpis.nMeses + ' meses no período'"></div>
+              </div>
+              <div class="dash-kpi" style="border-color:#26c6da44;">
+                <div class="dash-kpi-label" style="color:#26c6da;">Custo Operacional Médio</div>
+                <div class="dash-kpi-value red"
+                  x-text="formatBRL((dashKpis.desp25 - dashKpis.remSocioTotal) / dashKpis.nMeses)"></div>
+                <div class="dash-kpi-sub">despesas excl. sócio · por mês</div>
               </div>
             </div>
 
@@ -1077,6 +1104,13 @@
               <div class="dash-box">
                 <div class="dash-box-title">Evolução</div>
                 <div style="height:260px;"><canvas id="chart-siga-hist"></canvas></div>
+              </div>
+            </div>
+
+            <div class="dash-row cols-1">
+              <div class="dash-box">
+                <div class="dash-box-title">Margem Mensal % — Contábil vs Operacional (antes do sócio)</div>
+                <div style="height:220px;"><canvas id="chart-margem-mensal"></canvas></div>
               </div>
             </div>
 
@@ -2046,16 +2080,23 @@ window.finApp = function() {
     },
 
     get dashKpis() {
-      if (!this.dashData) return { fat25:0, luc25:0, desp25:0, avgMargem25:0, bestMes:null };
+      if (!this.dashData) return { fat25:0, luc25:0, desp25:0, avgMargem25:0, bestMes:null,
+        receitaMedia:0, lucroOp:0, avgMargemOp:0, remSocioTotal:0, nMeses:0 };
       const siga = this.dashData.siga_mensal || [];
       const sum = (arr, k) => arr.reduce((s, h) => s + (h[k] || 0), 0);
-      const fat25 = sum(siga, 'receber');
+      const fat25  = sum(siga, 'receber');
       const desp25 = sum(siga, 'pagar');
-      const luc25 = sum(siga, 'lucro');
-      const margens = siga.filter(s => s.receber > 0).map(s => s.lucro / s.receber * 100);
-      const avgMargem25 = margens.length ? margens.reduce((a,b) => a+b, 0) / margens.length : 0;
+      const luc25  = sum(siga, 'lucro');
+      const remSocioTotal = sum(siga, 'rem_socio');
+      const lucroOp = sum(siga, 'lucro_op');
+      const nMeses  = siga.filter(s => s.receber > 0).length || 1;
+      const receitaMedia = fat25 / nMeses;
+      const margens   = siga.filter(s => s.receber > 0).map(s => s.lucro    / s.receber * 100);
+      const margensOp = siga.filter(s => s.receber > 0).map(s => s.lucro_op / s.receber * 100);
+      const avgMargem25  = margens.length   ? margens.reduce((a,b)=>a+b,0)   / margens.length   : 0;
+      const avgMargemOp  = margensOp.length ? margensOp.reduce((a,b)=>a+b,0) / margensOp.length : 0;
       const bestMes = siga.length ? [...siga].sort((a, b) => b.lucro - a.lucro)[0] : null;
-      return { fat25, luc25, desp25, avgMargem25, bestMes };
+      return { fat25, luc25, desp25, avgMargem25, bestMes, receitaMedia, lucroOp, avgMargemOp, remSocioTotal, nMeses };
     },
 
     get mesLabel() {
@@ -2937,6 +2978,38 @@ window.finApp = function() {
             scales: {
               x: { grid: { color: '#1c1c1c' }, ticks: { font: { size: 10 } } },
               y: { grid: { color: '#1c1c1c' }, ticks: { callback: v => 'R$'+(v/1000).toFixed(0)+'k' } },
+            },
+          },
+        });
+      }
+
+      // Margem % mensal — contábil vs operacional
+      const c9 = destroyCanvas('chart-margem-mensal');
+      if (c9 && siga.length) {
+        const pct = (lucro, rec) => rec > 0 ? parseFloat((lucro / rec * 100).toFixed(1)) : null;
+        c9._ci = new Chart(c9, {
+          type: 'line',
+          data: {
+            labels: siga.map(s => s.mes),
+            datasets: [
+              { label: 'Margem Contábil %', data: siga.map(s => pct(s.lucro, s.receber)),
+                borderColor: '#ef5350', backgroundColor: 'rgba(239,83,80,0.08)',
+                borderWidth: 2, pointRadius: 3, tension: 0.3, fill: true },
+              { label: 'Margem Operacional %', data: siga.map(s => pct(s.lucro_op, s.receber)),
+                borderColor: '#26c6da', backgroundColor: 'rgba(38,198,218,0.08)',
+                borderWidth: 2, pointRadius: 3, tension: 0.3, fill: true },
+            ],
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+              legend: { labels: { boxWidth: 11 } },
+              tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.raw !== null ? ctx.raw + '%' : '—'}` } },
+            },
+            scales: {
+              x: { grid: { color: '#1c1c1c' }, ticks: { font: { size: 10 } } },
+              y: { grid: { color: '#1c1c1c' }, ticks: { callback: v => v + '%' } },
             },
           },
         });
