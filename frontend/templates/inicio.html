@@ -265,7 +265,7 @@
 function iniApp() {
   return {
     loading: true,
-    showValues: localStorage.getItem('inicio_show_values') !== 'false',
+    showValues: localStorage.getItem('sinapse_show_values') !== 'false',
     displayName: '{{ nav_username or "" }}'.split(' ')[0] || 'Victor',
     kpis: { clientes_ativos: 0, mrr_total: 0, mrr_risco: 0, tarefas_abertas: 0 },
     foco: { hoje: 0, atrasadas: 0, sem_contato_7d: 0 },
@@ -307,7 +307,7 @@ function iniApp() {
 
     toggleVisibility() {
       this.showValues = !this.showValues;
-      localStorage.setItem('inicio_show_values', this.showValues ? 'true' : 'false');
+      localStorage.setItem('sinapse_show_values', this.showValues ? 'true' : 'false');
     },
 
     formatBRL(v) {

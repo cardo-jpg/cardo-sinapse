@@ -36,6 +36,21 @@
     .cd-chip-mini { background: rgba(255, 77, 0, .12); color: #fb923c; padding: 3px 9px; border-radius: 999px; font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
 
     .cd-h-right { display: flex; gap: 14px; align-items: center; }
+    .cd-eye-btn { background: none; border: 1px solid var(--border); color: var(--muted); cursor: pointer; font-size: .78rem; display: inline-flex; align-items: center; gap: 5px; padding: 6px 10px; border-radius: 7px; }
+    .cd-eye-btn:hover { color: var(--text); border-color: var(--accent); }
+
+    /* Inline edit */
+    .cd-editable { cursor: pointer; position: relative; padding-right: 18px; display: inline-block; }
+    .cd-editable:hover { color: var(--accent); }
+    .cd-editable:hover::after { content: '✏️'; position: absolute; right: 0; top: 50%; transform: translateY(-50%); font-size: .68rem; opacity: .6; }
+    .cd-edit-input {
+      background: #0f0f0f; border: 1px solid var(--accent); color: var(--text);
+      padding: 4px 8px; border-radius: 6px; font-size: .85rem; width: 100%; font-family: inherit;
+    }
+    .cd-edit-input:focus { outline: none; }
+    .cd-edit-actions { display: flex; gap: 6px; margin-top: 6px; }
+    .cd-edit-btn { background: var(--accent); border: none; color: #fff; padding: 4px 10px; border-radius: 5px; cursor: pointer; font-size: .75rem; }
+    .cd-edit-btn-cancel { background: var(--surface); color: var(--muted); }
     .cd-h-metric { text-align: center; padding: 0 8px; }
     .cd-h-metric-val { font-size: 1.45rem; font-weight: 700; line-height: 1; }
     .cd-h-metric-label { font-size: .64rem; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-top: 4px; }
@@ -137,9 +152,9 @@
         <div class="cd-header">
           <div class="cd-avatar" x-text="cliente.sigla"></div>
           <div>
-            <div class="cd-h-name" x-text="cliente.razao_social"></div>
+            <div class="cd-h-name" x-text="showValues ? cliente.razao_social : `[${cliente.sigla}]`"></div>
             <div class="cd-h-sub">
-              <span class="cd-h-pill" x-show="cliente.nome_fantasia">
+              <span class="cd-h-pill" x-show="showValues && cliente.nome_fantasia">
                 <strong x-text="cliente.nome_fantasia"></strong>
               </span>
               <span class="cd-h-pill" x-show="cliente.account">
@@ -152,7 +167,7 @@
                 📅 Desde <span x-text="fmtDate(cliente.entrada_em)"></span>
               </span>
               <span class="cd-h-pill" x-show="cliente.valor_mensal">
-                💰 <strong x-text="formatBRL(cliente.valor_mensal)"></strong>/mês
+                💰 <strong x-text="showValues ? formatBRL(cliente.valor_mensal) : '••••••'"></strong>/mês
               </span>
             </div>
             <div class="cd-h-chips" x-show="(cliente.plataformas || []).length">
@@ -170,6 +185,9 @@
               <div class="cd-h-metric-val" style="font-size: 1rem; font-weight: 600;" x-text="cliente.performance || '—'"></div>
               <div class="cd-h-metric-label">Performance</div>
             </div>
+            <button class="cd-eye-btn" @click="toggleVisibility()" :title="showValues ? 'Ocultar' : 'Mostrar'">
+              <span x-text="showValues ? '🙈' : '👁'"></span>
+            </button>
             <a class="cd-btn" :href="`/clientes?edit=${cliente.id}`">✏️ Editar</a>
           </div>
         </div>
@@ -341,7 +359,7 @@
               </div>
               <div class="cd-side-item">
                 <div class="cd-side-label">Verba de mídia</div>
-                <div class="cd-side-val" :class="!cliente.verba_midia ? 'muted' : ''" x-text="cliente.verba_midia ? formatBRL(cliente.verba_midia) : '—'"></div>
+                <div class="cd-side-val" :class="!cliente.verba_midia ? 'muted' : ''" x-text="cliente.verba_midia ? (showValues ? formatBRL(cliente.verba_midia) : '••••••') : '—'"></div>
               </div>
               <div class="cd-side-item">
                 <div class="cd-side-label">Forma de pagamento</div>
@@ -357,7 +375,20 @@
               </div>
               <div class="cd-side-item">
                 <div class="cd-side-label">Entrada</div>
-                <div class="cd-side-val" :class="!cliente.entrada_em ? 'muted' : ''" x-text="cliente.entrada_em ? fmtDate(cliente.entrada_em) : '—'"></div>
+                <template x-if="editingField !== 'entrada_em'">
+                  <div class="cd-side-val cd-editable" :class="!cliente.entrada_em ? 'muted' : ''"
+                       @click="startEdit('entrada_em', cliente.entrada_em)"
+                       x-text="cliente.entrada_em ? fmtDate(cliente.entrada_em) : 'Definir data'"></div>
+                </template>
+                <template x-if="editingField === 'entrada_em'">
+                  <div>
+                    <input type="date" class="cd-edit-input" x-model="editValue" @keydown.enter="saveEdit()" @keydown.escape="cancelEdit()" x-init="$nextTick(() => $el.focus())">
+                    <div class="cd-edit-actions">
+                      <button class="cd-edit-btn" @click="saveEdit()">Salvar</button>
+                      <button class="cd-edit-btn cd-edit-btn-cancel" @click="cancelEdit()">Cancelar</button>
+                    </div>
+                  </div>
+                </template>
               </div>
               <div class="cd-side-item">
                 <div class="cd-side-label">Reuniões</div>
@@ -386,6 +417,9 @@ function dossieApp(clienteId) {
     cliente: null,
     loading: true,
     tab: 'overview',
+    showValues: localStorage.getItem('sinapse_show_values') !== 'false',
+    editingField: null,
+    editValue: '',
 
     get contratos() {
       return (this.cliente?.arquivos || []).filter(a => a.tipo === 'contrato');
@@ -403,6 +437,50 @@ function dossieApp(clienteId) {
         if (r.ok) this.cliente = await r.json();
       } catch (e) { console.error(e); }
       this.loading = false;
+    },
+
+    toggleVisibility() {
+      this.showValues = !this.showValues;
+      localStorage.setItem('sinapse_show_values', this.showValues ? 'true' : 'false');
+    },
+
+    startEdit(field, currentValue) {
+      this.editingField = field;
+      // Normaliza data para YYYY-MM-DD que <input type=date> espera
+      if (field === 'entrada_em' && currentValue) {
+        this.editValue = String(currentValue).slice(0, 10);
+      } else {
+        this.editValue = currentValue || '';
+      }
+    },
+
+    cancelEdit() {
+      this.editingField = null;
+      this.editValue = '';
+    },
+
+    async saveEdit() {
+      if (!this.editingField) return;
+      const field = this.editingField;
+      const value = this.editValue;
+      try {
+        const r = await fetch(`/api/clientes/${this.clienteId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ [field]: value || null }),
+        });
+        if (!r.ok) { alert('Falha ao salvar'); return; }
+        const d = await r.json();
+        // Atualiza só o campo editado pra preservar o resto (arquivos/atas)
+        if (d.cliente && d.cliente[field] !== undefined) {
+          this.cliente[field] = d.cliente[field];
+        }
+      } catch (e) {
+        console.error(e);
+        alert('Erro de rede');
+      }
+      this.editingField = null;
+      this.editValue = '';
     },
 
     formatBRL(v) { return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0); },

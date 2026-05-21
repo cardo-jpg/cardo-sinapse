@@ -141,7 +141,11 @@
         <div class="cl-title">Clientes</div>
         <div class="cl-title-sub">Núcleo de gestão de contas — substitui Gestão de Contas do Operacional</div>
       </div>
-      <div style="display: flex; gap: 8px;">
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <button class="cl-btn cl-btn-ghost" @click="toggleVisibility()" :title="showValues ? 'Ocultar dados sensíveis' : 'Mostrar dados sensíveis'">
+          <span x-text="showValues ? '🙈' : '👁'"></span>
+          <span x-text="showValues ? 'Ocultar' : 'Mostrar'"></span>
+        </button>
         <button class="cl-btn cl-btn-ghost" @click="migrarDoPainel()" x-show="!clientes.length">
           ⇪ Importar do Painel
         </button>
@@ -160,7 +164,7 @@
 
     <div class="cl-summary">
       <strong x-text="clientes.length"></strong> cliente(s)
-      · MRR: <strong x-text="formatBRL(mrrTotal)"></strong>
+      · MRR: <strong x-text="showValues ? formatBRL(mrrTotal) : '••••••'"></strong>
     </div>
 
     <template x-if="!loading && !clientes.length">
@@ -189,12 +193,12 @@
                 <div class="cl-cliente-cell">
                   <div class="cl-avatar" x-text="c.sigla"></div>
                   <div class="cl-cliente-info">
-                    <div class="cl-cliente-nome" x-text="c.razao_social"></div>
-                    <div class="cl-cliente-nicho" x-text="c.nicho || c.nome_fantasia || ''"></div>
+                    <div class="cl-cliente-nome" x-text="showValues ? c.razao_social : `[${c.sigla}]`"></div>
+                    <div class="cl-cliente-nicho" x-show="showValues" x-text="c.nicho || c.nome_fantasia || ''"></div>
                   </div>
                 </div>
               </td>
-              <td x-text="formatBRL(c.valor_mensal)"></td>
+              <td x-text="showValues ? formatBRL(c.valor_mensal) : '••••'"></td>
               <td>
                 <span class="cl-badge" :class="perfBadge(c.performance)" x-text="c.performance || '—'"></span>
               </td>
@@ -425,6 +429,7 @@ function clientesApp() {
     loading: true,
     clientes: [],
     filters: { q: '', status: 'ativo', account: '' },
+    showValues: localStorage.getItem('sinapse_show_values') !== 'false',
 
     showModal: false,
     tab: 'info',
@@ -466,6 +471,11 @@ function clientesApp() {
     },
 
     openDossie(c) { window.location.href = `/clientes/${c.id}`; },
+
+    toggleVisibility() {
+      this.showValues = !this.showValues;
+      localStorage.setItem('sinapse_show_values', this.showValues ? 'true' : 'false');
+    },
 
     async load() {
       this.loading = true;
