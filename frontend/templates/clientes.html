@@ -156,12 +156,6 @@
         <option value="">Todos</option>
         <option value="inativo">Apenas inativos</option>
       </select>
-      <select class="cl-input" x-model="filters.account" @change="load()">
-        <option value="">Todos os accounts</option>
-        <template x-for="a in accounts" :key="a">
-          <option :value="a" x-text="a"></option>
-        </template>
-      </select>
     </div>
 
     <div class="cl-summary">
@@ -181,8 +175,6 @@
         <thead>
           <tr>
             <th>Cliente</th>
-            <th>Account</th>
-            <th>Plano</th>
             <th>Valor</th>
             <th>Perf.</th>
             <th style="text-align:center;">Saúde</th>
@@ -202,8 +194,6 @@
                   </div>
                 </div>
               </td>
-              <td x-text="c.account || '—'"></td>
-              <td x-text="c.plano_pacote || '—'"></td>
               <td x-text="formatBRL(c.valor_mensal)"></td>
               <td>
                 <span class="cl-badge" :class="perfBadge(c.performance)" x-text="c.performance || '—'"></span>
