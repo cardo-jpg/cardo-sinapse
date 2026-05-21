@@ -30,6 +30,7 @@ from backend.crm import router as crm_router, init_crm_db
 from backend.briefings import router as briefings_router, init_briefings_db
 from backend.atas_sinapse import router as atas_sinapse_router
 from backend.habitos import router as habitos_router, init_db as habitos_init_db
+from backend.inicio import router as inicio_router
 
 load_dotenv()
 
@@ -657,6 +658,7 @@ app.include_router(crm_router)
 app.include_router(briefings_router)
 app.include_router(atas_sinapse_router)
 app.include_router(habitos_router)
+app.include_router(inicio_router)
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))

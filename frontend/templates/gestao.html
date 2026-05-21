@@ -1816,6 +1816,12 @@
       </a>
       {% endif %}
       <button class="g-nav-link" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit"
+              :class="mainMode==='embed' && iframeUrl==='/inicio' ? 'active' : ''"
+              @click="openEmbed('/inicio')" data-label="Início">
+        <span class="g-nav-icon">🏠</span>
+        <span>Início</span>
+      </button>
+      <button class="g-nav-link" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit"
               :class="mainMode==='embed' && iframeUrl==='/conversar' ? 'active' : ''"
               @click="openEmbed('/conversar')" data-label="Cérebro">
         <span class="g-nav-icon">🧠</span>

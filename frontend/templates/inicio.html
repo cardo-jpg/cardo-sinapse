@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Início — Sinapse</title>
+  <link rel="stylesheet" href="/static/style.css?v=2">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    body { overflow: hidden; }
+    .ini-shell { display: flex; height: 100vh; overflow: hidden; }
+    .ini-main { flex: 1; overflow: auto; padding: 22px 26px 64px; background: var(--bg); }
+
+    /* ── Topbar ── */
+    .ini-topbar {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 18px;
+    }
+    .ini-page-title { font-size: 1.3rem; font-weight: 700; }
+    .ini-search-input {
+      width: 280px; padding: 9px 14px;
+      background: var(--surface); border: 1px solid var(--border); color: var(--text);
+      border-radius: 8px; font-size: .85rem;
+    }
+    .ini-search-input:focus { outline: none; border-color: var(--accent); }
+
+    /* ── Hero header (gradiente Cardô) ── */
+    .ini-hero {
+      background: linear-gradient(135deg, #2b0d04 0%, #4a1606 35%, #ff4d00 130%);
+      border-radius: 16px; padding: 22px 26px; margin-bottom: 22px;
+      display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: center;
+      border: 1px solid rgba(255, 77, 0, .25);
+      box-shadow: 0 4px 20px rgba(255, 77, 0, .08);
+    }
+    .ini-hero-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 2px; }
+    .ini-hero-sub { font-size: .9rem; color: rgba(255,255,255,.7); }
+    .ini-hero-greeting { font-size: .82rem; color: rgba(255,255,255,.6); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+
+    .ini-hero-cards { display: flex; gap: 10px; }
+    .ini-mini-card {
+      background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.12);
+      padding: 14px 18px; border-radius: 12px; text-align: center; min-width: 92px;
+      backdrop-filter: blur(8px);
+    }
+    .ini-mini-card.accent { background: rgba(255, 77, 0, .25); border-color: rgba(255, 77, 0, .5); }
+    .ini-mini-card-num { font-size: 1.5rem; font-weight: 700; line-height: 1.1; }
+    .ini-mini-card-label { font-size: .68rem; color: rgba(255,255,255,.7); margin-top: 4px; text-transform: lowercase; letter-spacing: .02em; }
+
+    /* ── Section label ── */
+    .ini-section-row {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 12px;
+    }
+    .ini-section-label {
+      font-size: .72rem; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .08em;
+    }
+    .ini-eye-btn {
+      background: none; border: none; color: var(--muted); cursor: pointer;
+      font-size: .78rem; display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 8px; border-radius: 6px;
+    }
+    .ini-eye-btn:hover { background: var(--surface); color: var(--text); }
+
+    /* ── KPIs ── */
+    .ini-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 28px; }
+    .ini-kpi {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 16px 18px; display: flex; flex-direction: column; gap: 8px;
+      position: relative; transition: border-color .15s;
+    }
+    .ini-kpi:hover { border-color: rgba(255, 77, 0, .35); }
+    .ini-kpi-head { display: flex; justify-content: space-between; align-items: flex-start; }
+    .ini-kpi-label { font-size: .68rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; }
+    .ini-kpi-icon { font-size: 1.1rem; opacity: .55; }
+    .ini-kpi-value { font-size: 1.6rem; font-weight: 700; letter-spacing: -.02em; }
+    .ini-kpi-value.hidden { letter-spacing: .15em; color: var(--muted); }
+
+    .ini-kpi-clientes { border-top: 3px solid #a78bfa; }
+    .ini-kpi-mrr { border-top: 3px solid #4ade80; }
+    .ini-kpi-tarefas { border-top: 3px solid #60a5fa; }
+    .ini-kpi-risco { border-top: 3px solid #f87171; }
+
+    /* ── Saúde dos clientes ── */
+    .ini-layout { display: grid; grid-template-columns: 1fr 320px; gap: 18px; align-items: start; }
+    .ini-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+    .ini-card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .ini-card-title { font-size: .95rem; font-weight: 700; }
+
+    .ini-client-row {
+      display: grid; grid-template-columns: 44px 1fr auto auto; gap: 14px; align-items: center;
+      padding: 12px 6px; border-radius: 8px; transition: background .12s;
+    }
+    .ini-client-row:hover { background: rgba(255, 77, 0, .04); }
+    .ini-client-row + .ini-client-row { border-top: 1px solid var(--border); }
+    .ini-client-avatar {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: #2a1208; border: 2px solid var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: .8rem; font-weight: 700; color: var(--accent);
+    }
+    .ini-client-avatar.saude-boa { border-color: #4ade80; color: #4ade80; background: #052e16; }
+    .ini-client-avatar.saude-media { border-color: #fbbf24; color: #fbbf24; background: #2c1d05; }
+    .ini-client-avatar.saude-ruim { border-color: #f87171; color: #f87171; background: #2c0608; }
+    .ini-client-avatar.saude-neutra { border-color: var(--muted); color: var(--muted); background: #161616; }
+
+    .ini-client-info { display: flex; flex-direction: column; gap: 2px; }
+    .ini-client-name { font-size: .9rem; font-weight: 600; }
+    .ini-client-sub { font-size: .72rem; color: var(--muted); }
+
+    .ini-client-fee { text-align: right; font-size: .85rem; font-weight: 600; }
+    .ini-client-fee.hidden { letter-spacing: .15em; color: var(--muted); }
+
+    .ini-badge {
+      display: inline-block; padding: 3px 8px; border-radius: 6px;
+      font-size: .68rem; font-weight: 600; line-height: 1.2;
+    }
+    .ini-badge-boa { background: #052e16; color: #4ade80; }
+    .ini-badge-media { background: #2c1d05; color: #fbbf24; }
+    .ini-badge-ruim { background: #2c0608; color: #f87171; }
+    .ini-badge-neutra { background: #161616; color: var(--muted); border: 1px solid var(--border); }
+    .ini-badge-ativo { background: #052e16; color: #4ade80; }
+    .ini-badge-inativo { background: #1f1f1f; color: var(--muted); }
+
+    .ini-client-badges { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+
+    /* ── Empty states ── */
+    .ini-empty {
+      text-align: center; padding: 32px 16px; color: var(--muted); font-size: .85rem;
+    }
+
+    .ini-alert-item {
+      padding: 12px; border-radius: 8px; background: rgba(74, 222, 128, .08);
+      border: 1px solid rgba(74, 222, 128, .2); color: #86efac;
+      font-size: .82rem; display: flex; align-items: center; gap: 8px;
+    }
+  </style>
+</head>
+<body>
+<div class="ini-shell" x-data="iniApp()" x-init="init()" x-cloak>
+  {% include "_sidebar.html" %}
+
+  <main class="ini-main">
+    <div class="ini-topbar">
+      <div class="ini-page-title">Início</div>
+      <input class="ini-search-input" type="text" placeholder="Buscar cliente ou tarefa…" disabled>
+    </div>
+
+    <!-- Hero -->
+    <div class="ini-hero">
+      <div>
+        <div class="ini-hero-greeting">
+          <span x-text="greetingEmoji"></span>
+          <span x-text="greetingText"></span>
+        </div>
+        <div class="ini-hero-title" x-text="`${greeting}, ${displayName}!`"></div>
+        <div class="ini-hero-sub">Aqui está seu foco de hoje</div>
+      </div>
+      <div class="ini-hero-cards">
+        <div class="ini-mini-card">
+          <div class="ini-mini-card-num" x-text="foco.hoje"></div>
+          <div class="ini-mini-card-label">tarefas hoje</div>
+        </div>
+        <div class="ini-mini-card">
+          <div class="ini-mini-card-num" x-text="foco.atrasadas"></div>
+          <div class="ini-mini-card-label">atrasadas</div>
+        </div>
+        <div class="ini-mini-card accent">
+          <div class="ini-mini-card-num" x-text="foco.sem_contato_7d"></div>
+          <div class="ini-mini-card-label">sem contato +7d</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="ini-section-row">
+      <div class="ini-section-label">Visão geral</div>
+      <button class="ini-eye-btn" @click="toggleVisibility()">
+        <span x-text="showValues ? '🙈' : '👁'"></span>
+        <span x-text="showValues ? 'Ocultar' : 'Mostrar'"></span>
+      </button>
+    </div>
+
+    <div class="ini-kpis">
+      <div class="ini-kpi ini-kpi-clientes">
+        <div class="ini-kpi-head">
+          <div class="ini-kpi-label">Clientes ativos</div>
+          <span class="ini-kpi-icon">👥</span>
+        </div>
+        <div class="ini-kpi-value" :class="showValues ? '' : 'hidden'" x-text="showValues ? kpis.clientes_ativos : '••••'"></div>
+      </div>
+
+      <div class="ini-kpi ini-kpi-mrr">
+        <div class="ini-kpi-head">
+          <div class="ini-kpi-label">MRR total</div>
+          <span class="ini-kpi-icon">📈</span>
+        </div>
+        <div class="ini-kpi-value" :class="showValues ? '' : 'hidden'" x-text="showValues ? formatBRL(kpis.mrr_total) : '••••••'"></div>
+      </div>
+
+      <div class="ini-kpi ini-kpi-tarefas">
+        <div class="ini-kpi-head">
+          <div class="ini-kpi-label">Tarefas abertas</div>
+          <span class="ini-kpi-icon">✅</span>
+        </div>
+        <div class="ini-kpi-value" :class="showValues ? '' : 'hidden'" x-text="showValues ? kpis.tarefas_abertas : '••••'"></div>
+      </div>
+
+      <div class="ini-kpi ini-kpi-risco">
+        <div class="ini-kpi-head">
+          <div class="ini-kpi-label">MRR em risco</div>
+          <span class="ini-kpi-icon">⚠️</span>
+        </div>
+        <div class="ini-kpi-value" :class="showValues ? '' : 'hidden'" x-text="showValues ? formatBRL(kpis.mrr_risco) : '••••••'"></div>
+      </div>
+    </div>
+
+    <!-- Layout: Saúde + Tarefas urgentes -->
+    <div class="ini-layout">
+      <div class="ini-card">
+        <div class="ini-card-head">
+          <div class="ini-card-title">Saúde dos clientes</div>
+        </div>
+        <template x-if="loading">
+          <div class="ini-empty">Carregando...</div>
+        </template>
+        <template x-if="!loading && !clients.length">
+          <div class="ini-empty">Nenhum cliente ativo no Painel de Clientes.</div>
+        </template>
+        <template x-for="c in clients" :key="c.sigla">
+          <div class="ini-client-row">
+            <div class="ini-client-avatar" :class="saudeClass(c)">
+              <span x-text="c.saude !== null ? c.saude : c.sigla"></span>
+            </div>
+            <div class="ini-client-info">
+              <div class="ini-client-name" x-text="c.nome"></div>
+              <div class="ini-client-sub" x-text="c.responsavel || `[${c.sigla}]`"></div>
+            </div>
+            <div class="ini-client-fee" :class="showValues ? '' : 'hidden'" x-text="showValues ? formatBRL(c.fee_mensal) : '••••'"></div>
+            <div class="ini-client-badges">
+              <span class="ini-badge" :class="saudeBadgeClass(c)" x-text="c.saude_label"></span>
+              <span class="ini-badge ini-badge-ativo">Ativo</span>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <div class="ini-card">
+        <div class="ini-card-head">
+          <div class="ini-card-title">⚠ Tarefas urgentes</div>
+        </div>
+        <template x-if="!alertas.length">
+          <div class="ini-alert-item">✓ Nenhum prazo vencido hoje</div>
+        </template>
+        <template x-for="a in alertas" :key="a.id">
+          <div class="ini-alert-item" x-text="a.text"></div>
+        </template>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+function iniApp() {
+  return {
+    loading: true,
+    showValues: localStorage.getItem('inicio_show_values') !== 'false',
+    displayName: '{{ nav_username or "" }}'.split(' ')[0] || 'Victor',
+    kpis: { clientes_ativos: 0, mrr_total: 0, mrr_risco: 0, tarefas_abertas: 0 },
+    foco: { hoje: 0, atrasadas: 0, sem_contato_7d: 0 },
+    clients: [],
+    alertas: [],
+
+    get greeting() {
+      const h = new Date().getHours();
+      if (h < 12) return 'Bom dia';
+      if (h < 18) return 'Boa tarde';
+      return 'Boa noite';
+    },
+    get greetingEmoji() {
+      const h = new Date().getHours();
+      if (h < 12) return '🌅';
+      if (h < 18) return '☀️';
+      return '🌙';
+    },
+    get greetingText() {
+      const meses = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+      const d = new Date();
+      const dias = ['dom','seg','ter','qua','qui','sex','sáb'];
+      return `${dias[d.getDay()]}, ${d.getDate()} de ${meses[d.getMonth()]}`;
+    },
+
+    async init() {
+      try {
+        const r = await fetch('/api/inicio/overview');
+        if (r.ok) {
+          const d = await r.json();
+          this.kpis = d.kpis;
+          this.foco = d.foco;
+          this.clients = d.clients;
+          this.alertas = d.alertas || [];
+        }
+      } catch (e) { console.error(e); }
+      this.loading = false;
+    },
+
+    toggleVisibility() {
+      this.showValues = !this.showValues;
+      localStorage.setItem('inicio_show_values', this.showValues ? 'true' : 'false');
+    },
+
+    formatBRL(v) {
+      return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
+    },
+
+    saudeClass(c) {
+      if (c.saude === null || c.saude === undefined) return 'saude-neutra';
+      if (c.saude >= 75) return 'saude-boa';
+      if (c.saude >= 50) return 'saude-media';
+      return 'saude-ruim';
+    },
+
+    saudeBadgeClass(c) {
+      const lbl = (c.saude_label || '').toLowerCase();
+      if (lbl === 'boa') return 'ini-badge-boa';
+      if (lbl === 'média' || lbl === 'media') return 'ini-badge-media';
+      if (lbl === 'ruim') return 'ini-badge-ruim';
+      return 'ini-badge-neutra';
+    },
+  };
+}
+</script>
+{% include "_twemoji.html" %}
+</body>
+</html>
