@@ -328,17 +328,12 @@
                 </template>
                 <template x-for="a in cliente.atas" :key="a.id">
                   <div>
-                    <div class="cd-ata-row" style="cursor: default;">
-                      <span class="cd-ata-icon">📝</span>
+                    <div class="cd-ata-row" style="cursor: pointer;" @click="toggleAtaPreview(a.id)">
+                      <span class="cd-ata-icon" x-text="ataPreviews[a.id] ? '▼' : '▶'"></span>
                       <div class="cd-ata-info">
                         <div class="cd-ata-title" x-text="a.title"></div>
-                        <div class="cd-ata-date">
-                          <span x-text="fmtDateTime(a.updated_at || a.created_at)"></span>
-                          <span x-show="a.path" style="margin-left: 8px; opacity: .7;" x-text="' · ' + (a.path || '')"></span>
-                        </div>
+                        <div class="cd-ata-date" x-text="fmtDateTime(a.updated_at || a.created_at)"></div>
                       </div>
-                      <button class="cd-ata-toggle" @click="toggleAtaPreview(a.id)" x-text="ataPreviews[a.id] ? '▼ ocultar' : '▶ ler aqui'"></button>
-                      <a class="cd-ata-toggle" :href="`/gestao?doc=${a.id}`" target="_blank" style="text-decoration: none;">editor ↗</a>
                     </div>
                     <div class="cd-ata-preview cd-html" x-show="ataPreviews[a.id]" x-html="ataPreviews[a.id]"></div>
                   </div>
@@ -448,9 +443,7 @@
             <!-- ── Tab: Ficha (legado) ── -->
             <div x-show="tab === 'ficha'">
               <div class="cd-card">
-                <div class="cd-card-title">📄 Ficha do cliente (legado)
-                  <a class="cd-btn cd-btn-sm" style="margin-left: auto; padding: 4px 10px; font-size: .72rem;" :href="`/gestao?doc=${fichaLegacy.id}`" target="_blank">abrir no editor ↗</a>
-                </div>
+                <div class="cd-card-title">📄 Ficha do cliente (legado)</div>
                 <div class="cd-empty" x-show="fichaLoading">Carregando…</div>
                 <div class="cd-prose cd-html" x-html="fichaLegacy.content" x-show="!fichaLoading && fichaLegacy.content"></div>
                 <div class="cd-empty" x-show="!fichaLoading && !fichaLegacy.content">
