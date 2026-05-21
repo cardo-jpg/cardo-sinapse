@@ -107,6 +107,12 @@ def init_db():
                 ) THEN
                     ALTER TABLE clientes ADD COLUMN ficha TEXT;
                 END IF;
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                     WHERE table_name='clientes' AND column_name='briefing_legado'
+                ) THEN
+                    ALTER TABLE clientes ADD COLUMN briefing_legado TEXT;
+                END IF;
             END $$;
         """)
 
@@ -409,6 +415,7 @@ async def cliente_dossie(cliente_id: int, request: Request):
         atas = []
         outros = []
         ficha_legacy_id = None
+        briefing_legacy_id = None
         for d in documentos:
             path_lower = (d.get("path") or "").lower()
             title = d.get("title") or ""
@@ -420,29 +427,35 @@ async def cliente_dossie(cliente_id: int, request: Request):
             if is_container:
                 continue
             if title_lc == "ficha do cliente":
-                # Marca pra possível auto-importação
                 ficha_legacy_id = d.get("id")
+                continue
+            if title_lc in ("briefing inicial", "briefing", "briefing do cliente"):
+                briefing_legacy_id = d.get("id")
                 continue
             if "ata" in path_lower or re.match(r"^\d{1,2}/\d{1,2}/\d{2,4}", title):
                 atas.append(d)
             else:
                 outros.append(d)
 
-        # Auto-importação idempotente da ficha legada para o campo cliente.ficha
-        # (só executa se cliente.ficha está vazio e existe doc "Ficha do Cliente")
-        if ficha_legacy_id and not (cliente.get("ficha") or "").strip():
+        # Auto-importação idempotente de ficha + briefing legado pro banco do cliente
+        def _import_doc(doc_id: str, target_col: str):
+            if not doc_id or (cliente.get(target_col) or "").strip():
+                return
             try:
-                cur.execute("SELECT content FROM documents WHERE id=%s", (ficha_legacy_id,))
+                cur.execute("SELECT content FROM documents WHERE id=%s", (doc_id,))
                 f = cur.fetchone()
                 if f and (f.get("content") or "").strip():
                     cur.execute(
-                        "UPDATE clientes SET ficha=%s, updated_at=CURRENT_TIMESTAMP WHERE id=%s",
+                        f"UPDATE clientes SET {target_col}=%s, updated_at=CURRENT_TIMESTAMP WHERE id=%s",
                         (f["content"], cliente_id),
                     )
                     conn.commit()
-                    cliente["ficha"] = f["content"]
+                    cliente[target_col] = f["content"]
             except Exception:
                 conn.rollback()
+
+        _import_doc(ficha_legacy_id, "ficha")
+        _import_doc(briefing_legacy_id, "briefing_legado")
     finally:
         cur.close()
         conn.close()
@@ -647,6 +660,7 @@ async def update_cliente(cliente_id: int, request: Request):
         "entrada_em": ("entrada_em", "date"),
         "data_final_contrato": ("data_final_contrato", "date"),
         "ficha": ("ficha", str),
+        "briefing_legado": ("briefing_legado", str),
         "sigla": ("sigla", str),
     }
 
