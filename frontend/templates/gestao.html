@@ -1825,10 +1825,12 @@
         <span class="g-nav-icon">💰</span>
         <span>Financeiro</span>
       </a>
-      <a href="/habitos" class="g-nav-link" data-label="Hábitos">
+      <button class="g-nav-link" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit"
+              :class="mainMode==='embed' && iframeUrl==='/habitos' ? 'active' : ''"
+              @click="openEmbed('/habitos')" data-label="Hábitos">
         <span class="g-nav-icon">🎯</span>
         <span>Hábitos</span>
-      </a>
+      </button>
     </div>
 
     <!-- Espaços tree -->
