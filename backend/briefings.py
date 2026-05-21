@@ -64,6 +64,19 @@ def init_briefings_db() -> None:
                 submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
         """)
+        # Migration idempotente: adicionar cliente_id pra vincular ao dossiê nativo
+        cur.execute("""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                     WHERE table_name='briefing_responses' AND column_name='cliente_id'
+                ) THEN
+                    ALTER TABLE briefing_responses ADD COLUMN cliente_id INTEGER;
+                END IF;
+            END $$;
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_briefing_cliente ON briefing_responses(cliente_id)")
         conn.commit()
     finally:
         cur.close()

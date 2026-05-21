@@ -69,6 +69,43 @@
     .cd-stat.accent-good { border-left-color: #4ade80; }
     .cd-stat.accent-warn { border-left-color: #fbbf24; }
     .cd-stat.accent-bad { border-left-color: #f87171; }
+
+    /* Briefing Q&A */
+    .cd-briefing-list { display: flex; flex-direction: column; gap: 14px; }
+    .cd-briefing-item { border-left: 2px solid var(--border); padding-left: 14px; }
+    .cd-briefing-q { font-size: .78rem; font-weight: 600; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .04em; }
+    .cd-briefing-a { font-size: .9rem; line-height: 1.55; }
+
+    /* HTML render dos documents legados */
+    .cd-html { padding: 0; background: transparent; border: none; min-height: 0; }
+    .cd-html h1, .cd-html h2, .cd-html h3 { color: var(--text); margin-top: 16px; margin-bottom: 8px; }
+    .cd-html h1 { font-size: 1.3rem; }
+    .cd-html h2 { font-size: 1.1rem; }
+    .cd-html h3 { font-size: 1rem; }
+    .cd-html p { margin: 6px 0; }
+    .cd-html ul, .cd-html ol { padding-left: 22px; margin: 8px 0; }
+    .cd-html li { margin: 3px 0; }
+    .cd-html strong { color: var(--text); }
+    .cd-html a { color: var(--accent); }
+    .cd-html blockquote { border-left: 3px solid var(--accent); padding: 4px 12px; color: var(--muted); margin: 8px 0; }
+    .cd-html code { background: #0a0a0a; padding: 1px 5px; border-radius: 3px; font-size: .85em; }
+
+    /* Ata preview expansível */
+    .cd-ata-preview { padding: 14px 18px; background: #0a0a0a; border: 1px solid var(--border); border-radius: 8px; margin: 8px 12px 14px; }
+    .cd-ata-toggle { background: none; border: none; color: var(--muted); cursor: pointer; font-size: .72rem; padding: 4px 8px; border-radius: 6px; }
+    .cd-ata-toggle:hover { color: var(--accent); background: var(--surface); }
+
+    /* Mais ações menu */
+    .cd-more-menu {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 6px; margin-bottom: 14px; max-width: 480px; margin-left: auto;
+    }
+    .cd-more-item {
+      width: 100%; text-align: left; background: none; border: none; color: var(--text);
+      padding: 10px 12px; border-radius: 7px; cursor: pointer; font-size: .85rem; font-weight: 500;
+    }
+    .cd-more-item:hover { background: rgba(255, 77, 0, .08); }
+    .cd-more-hint { font-size: .72rem; color: var(--muted); margin-top: 4px; font-weight: 400; }
     .cd-h-metric { text-align: center; padding: 0 8px; }
     .cd-h-metric-val { font-size: 1.45rem; font-weight: 700; line-height: 1; }
     .cd-h-metric-label { font-size: .64rem; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-top: 4px; }
@@ -206,8 +243,17 @@
             <button class="cd-eye-btn" @click="toggleVisibility()" :title="showValues ? 'Ocultar' : 'Mostrar'">
               <span x-text="showValues ? '🙈' : '👁'"></span>
             </button>
+            <button class="cd-eye-btn" @click="showMore = !showMore" title="Mais ações">⋯</button>
             <a class="cd-btn" :href="`/clientes?edit=${cliente.id}`">✏️ Editar</a>
           </div>
+        </div>
+
+        <!-- ── Menu "Mais ações" ── -->
+        <div x-show="showMore" @click.outside="showMore = false" class="cd-more-menu">
+          <button class="cd-more-item" @click="arquivarDocumentacao(); showMore = false">
+            🗄️ Arquivar histórico do espaço Documentação
+            <div class="cd-more-hint">Move a árvore [{{ cliente_sigla }}] para "Arquivado". O dossiê continua mostrando tudo.</div>
+          </button>
         </div>
 
         <!-- ── Tabs ── -->
@@ -220,7 +266,8 @@
             Documentos <span class="cd-tab-count" x-text="(cliente.arquivos || []).length"></span>
           </button>
           <button class="cd-tab" :class="tab === 'contrato' ? 'active' : ''" @click="tab = 'contrato'">Contrato</button>
-          <button class="cd-tab" :class="tab === 'onboarding' ? 'active' : ''" @click="tab = 'onboarding'">Onboarding</button>
+          <button class="cd-tab" :class="tab === 'briefing' ? 'active' : ''" @click="tab = 'briefing'; loadBriefing()">Briefing</button>
+          <button class="cd-tab" :class="tab === 'ficha' ? 'active' : ''" @click="tab = 'ficha'; loadFicha()" x-show="fichaLegacy.id">Ficha (legado)</button>
           <button class="cd-tab" :class="tab === 'venda' ? 'active' : ''" @click="tab = 'venda'">Reunião de Venda</button>
           <button class="cd-tab" :class="tab === 'plano' ? 'active' : ''" @click="tab = 'plano'">Plano de Ação</button>
         </div>
@@ -280,17 +327,21 @@
                   </div>
                 </template>
                 <template x-for="a in cliente.atas" :key="a.id">
-                  <a class="cd-ata-row" :href="`/gestao?doc=${a.id}`" target="_blank" style="text-decoration: none; color: inherit;">
-                    <span class="cd-ata-icon">📝</span>
-                    <div class="cd-ata-info">
-                      <div class="cd-ata-title" x-text="a.title"></div>
-                      <div class="cd-ata-date">
-                        <span x-text="fmtDateTime(a.updated_at || a.created_at)"></span>
-                        <span x-show="a.path" style="margin-left: 8px; opacity: .7;" x-text="' · ' + (a.path || '')"></span>
+                  <div>
+                    <div class="cd-ata-row" style="cursor: default;">
+                      <span class="cd-ata-icon">📝</span>
+                      <div class="cd-ata-info">
+                        <div class="cd-ata-title" x-text="a.title"></div>
+                        <div class="cd-ata-date">
+                          <span x-text="fmtDateTime(a.updated_at || a.created_at)"></span>
+                          <span x-show="a.path" style="margin-left: 8px; opacity: .7;" x-text="' · ' + (a.path || '')"></span>
+                        </div>
                       </div>
+                      <button class="cd-ata-toggle" @click="toggleAtaPreview(a.id)" x-text="ataPreviews[a.id] ? '▼ ocultar' : '▶ ler aqui'"></button>
+                      <a class="cd-ata-toggle" :href="`/gestao?doc=${a.id}`" target="_blank" style="text-decoration: none;">editor ↗</a>
                     </div>
-                    <span style="font-size: .72rem; color: var(--muted);">abrir ↗</span>
-                  </a>
+                    <div class="cd-ata-preview cd-html" x-show="ataPreviews[a.id]" x-html="ataPreviews[a.id]"></div>
+                  </div>
                 </template>
               </div>
             </div>
@@ -354,13 +405,56 @@
               </div>
             </div>
 
-            <!-- ── Tab: Onboarding ── -->
-            <div x-show="tab === 'onboarding'">
+            <!-- ── Tab: Briefing ── -->
+            <div x-show="tab === 'briefing'">
               <div class="cd-card">
-                <div class="cd-card-title">🚀 Onboarding</div>
-                <div class="cd-empty">
-                  <span class="cd-empty-strong">Em construção</span>
-                  Checklist de onboarding chega na próxima iteração — por enquanto consulte o plano de ação.
+                <div class="cd-card-title">📝 Briefing inicial</div>
+
+                <template x-if="briefingLoading">
+                  <div class="cd-empty">Carregando…</div>
+                </template>
+
+                <template x-if="!briefingLoading && !briefing">
+                  <div class="cd-empty">
+                    <span class="cd-empty-strong">Sem briefing cadastrado</span>
+                    Envie o link público do briefing pro cliente preencher.
+                    <div style="margin-top: 14px; display: flex; gap: 8px; justify-content: center;">
+                      <a class="cd-btn cd-btn-primary" href="/briefing" target="_blank">↗ Abrir form do briefing</a>
+                      <button class="cd-btn" @click="copyBriefingLink()" x-text="briefingCopied ? '✓ Link copiado' : '📋 Copiar link'"></button>
+                    </div>
+                  </div>
+                </template>
+
+                <template x-if="!briefingLoading && briefing">
+                  <div>
+                    <div style="font-size: .75rem; color: var(--muted); margin-bottom: 12px;">
+                      Respondido por <strong x-text="briefing.client_name || '—'"></strong>
+                      <span x-show="briefing.client_email">(<span x-text="briefing.client_email"></span>)</span>
+                      em <span x-text="fmtDateTime(briefing.submitted_at)"></span>
+                    </div>
+                    <div class="cd-briefing-list">
+                      <template x-for="qa in briefingPairs" :key="qa.key">
+                        <div class="cd-briefing-item">
+                          <div class="cd-briefing-q" x-text="qa.label"></div>
+                          <div class="cd-briefing-a cd-prose" x-text="qa.value || '(em branco)'"></div>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- ── Tab: Ficha (legado) ── -->
+            <div x-show="tab === 'ficha'">
+              <div class="cd-card">
+                <div class="cd-card-title">📄 Ficha do cliente (legado)
+                  <a class="cd-btn cd-btn-sm" style="margin-left: auto; padding: 4px 10px; font-size: .72rem;" :href="`/gestao?doc=${fichaLegacy.id}`" target="_blank">abrir no editor ↗</a>
+                </div>
+                <div class="cd-empty" x-show="fichaLoading">Carregando…</div>
+                <div class="cd-prose cd-html" x-html="fichaLegacy.content" x-show="!fichaLoading && fichaLegacy.content"></div>
+                <div class="cd-empty" x-show="!fichaLoading && !fichaLegacy.content">
+                  Ficha legada existe mas está vazia.
                 </div>
               </div>
             </div>
@@ -586,6 +680,19 @@ function dossieApp(clienteId) {
     showValues: localStorage.getItem('sinapse_show_values') !== 'false',
     editingField: null,
     editValue: '',
+    showMore: false,
+
+    briefing: null,
+    briefingDefinition: null,
+    briefingLoading: false,
+    briefingLoaded: false,
+    briefingCopied: false,
+
+    fichaLegacy: { id: null, content: '' },
+    fichaLoading: false,
+    fichaLoaded: false,
+
+    ataPreviews: {},  // doc_id → content HTML
 
     get contratos() {
       return (this.cliente?.arquivos || []).filter(a => a.tipo === 'contrato');
@@ -673,7 +780,107 @@ function dossieApp(clienteId) {
         const r = await fetch(`/api/clientes/${this.clienteId}/dossie`);
         if (r.ok) this.cliente = await r.json();
       } catch (e) { console.error(e); }
+      // Detecta se há uma "Ficha do Cliente" legada na árvore
+      const docs = [...(this.cliente?.atas || []), ...(this.cliente?.documentos_vinculados || [])];
+      const ficha = docs.find(d => /ficha\s*do\s*cliente/i.test(d.title || ''));
+      if (ficha) this.fichaLegacy = { id: ficha.id, content: '' };
       this.loading = false;
+    },
+
+    get briefingPairs() {
+      if (!this.briefing || !this.briefing.responses) return [];
+      const def = this.briefingDefinition || {};
+      const fields = (def.fields || def.steps?.flatMap(s => s.fields) || []);
+      const responses = this.briefing.responses;
+      const labelMap = {};
+      for (const f of fields) {
+        if (f && f.id) labelMap[f.id] = f.label || f.id;
+      }
+      return Object.entries(responses).map(([key, value]) => ({
+        key,
+        label: labelMap[key] || this._humanizeKey(key),
+        value: this._stringify(value),
+      }));
+    },
+
+    _humanizeKey(k) {
+      return String(k || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    },
+    _stringify(v) {
+      if (v === null || v === undefined) return '';
+      if (Array.isArray(v)) return v.join(', ');
+      if (typeof v === 'object') return JSON.stringify(v, null, 2);
+      return String(v);
+    },
+
+    async loadBriefing() {
+      if (this.briefingLoaded) return;
+      this.briefingLoading = true;
+      try {
+        const r = await fetch(`/api/clientes/${this.clienteId}/briefing`);
+        if (r.ok) {
+          const d = await r.json();
+          this.briefing = d.briefing;
+          this.briefingDefinition = d.definition;
+        }
+      } catch (e) { console.error(e); }
+      this.briefingLoaded = true;
+      this.briefingLoading = false;
+    },
+
+    async loadFicha() {
+      if (this.fichaLoaded || !this.fichaLegacy.id) return;
+      this.fichaLoading = true;
+      try {
+        const r = await fetch(`/api/clientes/${this.clienteId}/documents/${this.fichaLegacy.id}`);
+        if (r.ok) {
+          const d = await r.json();
+          this.fichaLegacy.content = d.content || '';
+        }
+      } catch (e) { console.error(e); }
+      this.fichaLoaded = true;
+      this.fichaLoading = false;
+    },
+
+    async toggleAtaPreview(docId) {
+      if (this.ataPreviews[docId]) {
+        delete this.ataPreviews[docId];
+        this.ataPreviews = { ...this.ataPreviews };
+        return;
+      }
+      try {
+        const r = await fetch(`/api/clientes/${this.clienteId}/documents/${docId}`);
+        if (r.ok) {
+          const d = await r.json();
+          this.ataPreviews[docId] = d.content || '<em>(vazio)</em>';
+          this.ataPreviews = { ...this.ataPreviews };
+        }
+      } catch (e) { console.error(e); }
+    },
+
+    async copyBriefingLink() {
+      try {
+        await navigator.clipboard.writeText(`${window.location.origin}/briefing`);
+        this.briefingCopied = true;
+        setTimeout(() => { this.briefingCopied = false; }, 2000);
+      } catch (e) { alert('Não foi possível copiar.'); }
+    },
+
+    async arquivarDocumentacao() {
+      const msg = `Arquivar a árvore [${this.cliente.sigla}] do espaço Documentação?\n\n` +
+                  `• O conteúdo continua acessível pelo dossiê\n` +
+                  `• A árvore some da visualização do espaço Documentação\n` +
+                  `• Pode ser revertido manualmente movendo de volta`;
+      if (!confirm(msg)) return;
+      try {
+        const r = await fetch(`/api/clientes/${this.clienteId}/arquivar-documentacao`, { method: 'POST' });
+        if (!r.ok) { alert('Falha ao arquivar'); return; }
+        const d = await r.json();
+        alert(`Arquivado: ${d.archived} documento(s) movidos para "[ARQUIVADO] Documentação legada".`);
+      } catch (e) {
+        console.error(e);
+        alert('Erro de rede');
+      }
     },
 
     toggleVisibility() {

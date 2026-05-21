@@ -14,6 +14,7 @@ filesystem efêmero do Railway.
 import json
 import re
 import io
+import uuid
 from datetime import datetime, date
 from pathlib import Path
 from typing import Optional
@@ -770,6 +771,263 @@ async def delete_arquivo(cliente_id: int, arquivo_id: int, request: Request):
         cur.close()
         conn.close()
     return {"ok": True}
+
+
+# ── Briefing vinculado ────────────────────────────────────────────────────────
+
+def _normaliza(s: str) -> str:
+    """Remove acentos e lowercase pra fuzzy match."""
+    import unicodedata
+    if not s:
+        return ""
+    nfkd = unicodedata.normalize("NFKD", s)
+    return "".join(c for c in nfkd if not unicodedata.combining(c)).lower().strip()
+
+
+@router.get("/api/clientes/{cliente_id}/briefing")
+async def get_briefing(cliente_id: int, request: Request):
+    """
+    Retorna o briefing vinculado ao cliente.
+    Estratégia:
+      1. Tenta match direto via briefing_responses.cliente_id (vínculo explícito)
+      2. Fallback: fuzzy match por client_name/empresa contendo a razão social ou sigla
+    """
+    _require(request)
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT razao_social, sigla FROM clientes WHERE id=%s", (cliente_id,))
+        cli = cur.fetchone()
+        if not cli:
+            raise HTTPException(404, "Cliente não encontrado")
+
+        # 1) Vínculo direto
+        cur.execute(
+            "SELECT id, client_name, client_email, responses, submitted_at "
+            "FROM briefing_responses WHERE cliente_id=%s ORDER BY submitted_at DESC LIMIT 1",
+            (cliente_id,),
+        )
+        row = cur.fetchone()
+
+        # 2) Fuzzy match
+        if not row:
+            cur.execute(
+                "SELECT id, client_name, client_email, responses, submitted_at FROM briefing_responses ORDER BY submitted_at DESC"
+            )
+            razao_n = _normaliza(cli["razao_social"])
+            sigla_n = _normaliza(cli["sigla"])
+            for candidate in cur.fetchall():
+                try:
+                    resp = json.loads(candidate.get("responses") or "{}")
+                except Exception:
+                    resp = {}
+                empresa = _normaliza(resp.get("empresa_nome") or "")
+                nome = _normaliza(candidate.get("client_name") or "")
+                if not razao_n:
+                    continue
+                if razao_n in empresa or empresa in razao_n or razao_n in nome or nome in razao_n:
+                    row = candidate
+                    break
+                if sigla_n and len(sigla_n) >= 2 and (sigla_n in empresa or sigla_n in nome):
+                    row = candidate
+                    break
+
+        if not row:
+            return {"briefing": None, "definition": _briefing_definition()}
+
+        try:
+            responses = json.loads(row.get("responses") or "{}")
+        except Exception:
+            responses = {}
+        submitted = row.get("submitted_at")
+        if isinstance(submitted, datetime):
+            submitted = submitted.isoformat()
+
+        return {
+            "briefing": {
+                "id": row["id"],
+                "client_name": row.get("client_name") or "",
+                "client_email": row.get("client_email") or "",
+                "responses": responses,
+                "submitted_at": submitted,
+            },
+            "definition": _briefing_definition(),
+        }
+    finally:
+        cur.close()
+        conn.close()
+
+
+@router.post("/api/clientes/{cliente_id}/briefing/link/{response_id}")
+async def link_briefing(cliente_id: int, response_id: str, request: Request):
+    """Vincula explicitamente um briefing_response a um cliente."""
+    _require(request)
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("UPDATE briefing_responses SET cliente_id=%s WHERE id=%s", (cliente_id, response_id))
+        if cur.rowcount == 0:
+            raise HTTPException(404, "Briefing não encontrado")
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
+    return {"ok": True}
+
+
+def _briefing_definition():
+    """Importa a definição do módulo briefings sem ciclo."""
+    try:
+        from backend.briefings import BRIEFING_DEFINITION
+        return BRIEFING_DEFINITION
+    except Exception:
+        return {}
+
+
+# ── Conteúdo inline de documents (atas e ficha do espaço Documentação) ───────
+
+@router.get("/api/clientes/{cliente_id}/documents/{doc_id}")
+async def get_document_content(cliente_id: int, doc_id: str, request: Request):
+    """
+    Retorna o conteúdo HTML do documento — usado pelo dossiê pra preview
+    inline de atas e ficha (legado do espaço Documentação).
+
+    Validação: doc_id precisa estar na hierarquia do cliente (segurança).
+    """
+    _require(request)
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT sigla FROM clientes WHERE id=%s", (cliente_id,))
+        cli = cur.fetchone()
+        if not cli:
+            raise HTTPException(404, "Cliente não encontrado")
+        sigla = (cli["sigla"] or "").upper()
+
+        # Verifica se o doc pertence à árvore do cliente
+        cur.execute(
+            """
+            WITH RECURSIVE
+            cliente_root AS (
+                SELECT id FROM documents WHERE title ILIKE %s
+            ),
+            arvore AS (
+                SELECT d.id FROM documents d JOIN cliente_root cr ON d.parent_id = cr.id
+                UNION ALL
+                SELECT d.id FROM documents d JOIN arvore a ON d.parent_id = a.id
+            )
+            SELECT id FROM cliente_root WHERE id=%s
+            UNION
+            SELECT id FROM arvore WHERE id=%s
+            """,
+            (f"[{sigla}]%", doc_id, doc_id),
+        )
+        if not cur.fetchone():
+            raise HTTPException(403, "Documento não pertence a este cliente")
+
+        cur.execute("SELECT id, title, content FROM documents WHERE id=%s", (doc_id,))
+        doc = cur.fetchone()
+        if not doc:
+            raise HTTPException(404, "Documento não encontrado")
+        return {
+            "id": doc["id"],
+            "title": doc["title"],
+            "content": doc["content"] or "",
+        }
+    finally:
+        cur.close()
+        conn.close()
+
+
+# ── Arquivar histórico de Documentação ────────────────────────────────────────
+
+@router.post("/api/clientes/{cliente_id}/arquivar-documentacao")
+async def arquivar_documentacao(cliente_id: int, request: Request):
+    """
+    Move toda a subárvore [SIGLA] X do espaço Documentação para o estado
+    "arquivado" — implementado via prefixo no título (não destrutivo).
+
+    Reversão manual: editar título removendo o prefixo.
+    """
+    _require(request)
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    archived = 0
+    try:
+        cur.execute("SELECT sigla FROM clientes WHERE id=%s", (cliente_id,))
+        cli = cur.fetchone()
+        if not cli:
+            raise HTTPException(404, "Cliente não encontrado")
+        sigla = (cli["sigla"] or "").upper()
+
+        # Coleta todos os IDs da árvore
+        cur.execute(
+            """
+            WITH RECURSIVE
+            cliente_root AS (
+                SELECT id FROM documents WHERE title ILIKE %s
+            ),
+            arvore AS (
+                SELECT d.id FROM documents d JOIN cliente_root cr ON d.parent_id = cr.id
+                UNION ALL
+                SELECT d.id FROM documents d JOIN arvore a ON d.parent_id = a.id
+            )
+            SELECT id FROM cliente_root
+            UNION
+            SELECT id FROM arvore
+            """,
+            (f"[{sigla}]%",),
+        )
+        ids = [r["id"] for r in cur.fetchall()]
+
+        if ids:
+            # Estratégia não-destrutiva: move pra debaixo de um document raiz "[ARQUIVADO]"
+            # Cria o nó raiz arquivado se não existir
+            cur.execute(
+                "SELECT id FROM documents WHERE title='[ARQUIVADO] Documentação legada' LIMIT 1"
+            )
+            arquiv = cur.fetchone()
+            if not arquiv:
+                # Acha o space_id da primeira raiz do cliente para herdar
+                cur.execute(
+                    "SELECT space_id, folder_id FROM documents WHERE id=%s",
+                    (ids[0],),
+                )
+                home = cur.fetchone()
+                if home:
+                    new_id = str(uuid.uuid4())
+                    now = datetime.now().isoformat()
+                    cur.execute(
+                        "INSERT INTO documents (id,title,content,space_id,folder_id,parent_id,position,created_at,updated_at) "
+                        "VALUES (%s,%s,%s,%s,%s,NULL,9999,%s,%s)",
+                        (
+                            new_id,
+                            "[ARQUIVADO] Documentação legada",
+                            "<p>Documentos legados do espaço Documentação. Visualize pelo dossiê do cliente.</p>",
+                            home["space_id"],
+                            home["folder_id"],
+                            now, now,
+                        ),
+                    )
+                    arquiv_id = new_id
+                else:
+                    raise HTTPException(500, "Não foi possível resolver o space_id pra arquivamento")
+            else:
+                arquiv_id = arquiv["id"]
+
+            # Re-parent só a raiz [SIGLA] X (filhos seguem ela automaticamente)
+            cur.execute(
+                "UPDATE documents SET parent_id=%s, updated_at=NOW() WHERE title ILIKE %s",
+                (arquiv_id, f"[{sigla}]%"),
+            )
+            archived = cur.rowcount
+
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
+
+    return {"archived": archived, "sigla": sigla}
 
 
 # ── Migração do Painel de Clientes (ClickUp) ──────────────────────────────────
