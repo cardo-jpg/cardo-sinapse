@@ -92,6 +92,24 @@
     .hab-hm-pad { background: transparent; }
     .hab-hm-legend { display: flex; align-items: center; gap: 6px; margin-top: 14px; font-size: .72rem; color: var(--muted); padding-left: 28px; }
 
+    /* Custom tooltip */
+    .hab-tooltip {
+      position: fixed;
+      background: #0a0a0a;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: .72rem;
+      pointer-events: none;
+      z-index: 200;
+      white-space: nowrap;
+      box-shadow: 0 4px 12px rgba(0,0,0,.5);
+      opacity: 0;
+      transition: opacity .1s;
+    }
+    .hab-tooltip.visible { opacity: 1; }
+
     /* Month view */
     .hab-hm-month-wrap { max-width: 480px; }
     .hab-hm-month-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
@@ -268,7 +286,10 @@
                 </div>
                 <div class="hab-heatmap">
                   <template x-for="(cell, i) in heatmapData.cells" :key="i">
-                    <div class="hab-hm-cell" :class="cell.cls" :title="cell.title"></div>
+                    <div class="hab-hm-cell" :class="cell.cls"
+                         @mouseenter="showTooltip($event, cell.title)"
+                         @mousemove="moveTooltip($event)"
+                         @mouseleave="hideTooltip()"></div>
                   </template>
                 </div>
               </div>
@@ -299,7 +320,9 @@
                 <template x-for="(cell, i) in monthData.cells" :key="i">
                   <div class="hab-hm-month-cell"
                        :class="cell.cls"
-                       :title="cell.title">
+                       @mouseenter="cell.title && showTooltip($event, cell.title)"
+                       @mousemove="moveTooltip($event)"
+                       @mouseleave="hideTooltip()">
                     <span x-text="cell.day || ''"></span>
                   </div>
                 </template>
@@ -382,6 +405,11 @@
       </div>
     </div>
   </template>
+
+  <!-- Custom tooltip -->
+  <div class="hab-tooltip" :class="tooltip.visible ? 'visible' : ''"
+       :style="`left: ${tooltip.x}px; top: ${tooltip.y}px;`"
+       x-text="tooltip.text"></div>
 </div>
 
 <script>
@@ -401,6 +429,8 @@ function habApp() {
 
     hmView: 'year',          // 'year' | 'month'
     monthOffset: 0,           // 0 = mês atual, -1 anterior, etc
+
+    tooltip: { visible: false, text: '', x: 0, y: 0 },
 
     get weekLabel() {
       if (!this.week.days.length) return '';
@@ -564,6 +594,19 @@ function habApp() {
 
     prevMonth() { this.monthOffset -= 1; },
     nextMonth() { if (this.monthOffset < 0) this.monthOffset += 1; },
+
+    showTooltip(ev, text) {
+      this.tooltip.text = text;
+      this.tooltip.x = ev.clientX + 12;
+      this.tooltip.y = ev.clientY + 12;
+      this.tooltip.visible = true;
+    },
+    moveTooltip(ev) {
+      if (!this.tooltip.visible) return;
+      this.tooltip.x = ev.clientX + 12;
+      this.tooltip.y = ev.clientY + 12;
+    },
+    hideTooltip() { this.tooltip.visible = false; },
 
     get heatmapTotal() {
       return Object.values(this.heatmap.days || {}).reduce((a, d) => a + (d.done || 0), 0);
