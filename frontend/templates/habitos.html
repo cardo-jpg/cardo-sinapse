@@ -72,15 +72,20 @@
 
     /* ── Heatmap ── */
     .hab-heatmap-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; overflow-x: auto; }
-    .hab-heatmap { display: inline-grid; grid-template-rows: repeat(7, 12px); grid-auto-flow: column; grid-auto-columns: 12px; gap: 3px; }
-    .hab-hm-cell { width: 12px; height: 12px; border-radius: 2px; background: #1a1a1a; }
+    .hab-hm-scroll { display: inline-flex; flex-direction: column; gap: 6px; }
+    .hab-hm-months { display: grid; grid-auto-flow: column; grid-auto-columns: 14px; gap: 3px; height: 14px; font-size: .68rem; color: var(--muted); padding-left: 28px; }
+    .hab-hm-month-label { grid-row: 1; white-space: nowrap; }
+    .hab-hm-body { display: inline-grid; grid-template-columns: 24px auto; gap: 4px; }
+    .hab-hm-dow { display: grid; grid-template-rows: repeat(7, 14px); gap: 3px; font-size: .62rem; color: var(--muted); line-height: 14px; }
+    .hab-heatmap { display: inline-grid; grid-template-rows: repeat(7, 14px); grid-auto-flow: column; grid-auto-columns: 14px; gap: 3px; }
+    .hab-hm-cell { width: 14px; height: 14px; border-radius: 3px; background: #1a1a1a; }
     .hab-hm-l1 { background: #14532d; }
     .hab-hm-l2 { background: #166534; }
     .hab-hm-l3 { background: #16a34a; }
     .hab-hm-l4 { background: #22c55e; }
-    .hab-hm-future { background: #0a0a0a; opacity: .35; }
-    .hab-hm-legend { display: flex; align-items: center; gap: 6px; margin-top: 12px; font-size: .72rem; color: var(--muted); }
-    .hab-hm-months { display: grid; grid-template-columns: repeat(12, 1fr); gap: 0; font-size: .68rem; color: var(--muted); margin-bottom: 6px; padding-left: 22px; max-width: 730px; }
+    .hab-hm-future { background: #0d0d0d; }
+    .hab-hm-pad { background: transparent; }
+    .hab-hm-legend { display: flex; align-items: center; gap: 6px; margin-top: 12px; font-size: .72rem; color: var(--muted); padding-left: 28px; }
 
     /* ── Empty state ── */
     .hab-empty { background: var(--surface); border: 1px dashed var(--border); border-radius: 12px; padding: 48px 24px; text-align: center; color: var(--muted); }
@@ -221,24 +226,37 @@
           </span>
         </div>
         <div class="hab-heatmap-wrap">
-          <div class="hab-hm-months">
-            <template x-for="(m, i) in ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']" :key="i">
-              <div x-text="m"></div>
-            </template>
-          </div>
-          <div class="hab-heatmap">
-            <template x-for="cell in heatmapCells" :key="cell.date">
-              <div class="hab-hm-cell" :class="cell.cls" :title="cell.title"></div>
-            </template>
-          </div>
-          <div class="hab-hm-legend">
-            <span>Menos</span>
-            <div class="hab-hm-cell"></div>
-            <div class="hab-hm-cell hab-hm-l1"></div>
-            <div class="hab-hm-cell hab-hm-l2"></div>
-            <div class="hab-hm-cell hab-hm-l3"></div>
-            <div class="hab-hm-cell hab-hm-l4"></div>
-            <span>Mais</span>
+          <div class="hab-hm-scroll">
+            <div class="hab-hm-months" :style="`grid-template-columns: repeat(${heatmapData.weeks}, 14px);`">
+              <template x-for="lbl in heatmapData.monthLabels" :key="lbl.col + lbl.name">
+                <div class="hab-hm-month-label" :style="`grid-column: ${lbl.col} / span ${lbl.span};`" x-text="lbl.name"></div>
+              </template>
+            </div>
+            <div class="hab-hm-body">
+              <div class="hab-hm-dow">
+                <div>Seg</div>
+                <div></div>
+                <div>Qua</div>
+                <div></div>
+                <div>Sex</div>
+                <div></div>
+                <div>Dom</div>
+              </div>
+              <div class="hab-heatmap">
+                <template x-for="(cell, i) in heatmapData.cells" :key="i">
+                  <div class="hab-hm-cell" :class="cell.cls" :title="cell.title"></div>
+                </template>
+              </div>
+            </div>
+            <div class="hab-hm-legend">
+              <span>Menos</span>
+              <div class="hab-hm-cell"></div>
+              <div class="hab-hm-cell hab-hm-l1"></div>
+              <div class="hab-hm-cell hab-hm-l2"></div>
+              <div class="hab-hm-cell hab-hm-l3"></div>
+              <div class="hab-hm-cell hab-hm-l4"></div>
+              <span>Mais</span>
+            </div>
           </div>
         </div>
       </div>
@@ -338,23 +356,49 @@ function habApp() {
     get isCurrent() { return this.weekOffset === 0; },
     get isCurrentOrFuture() { return this.weekOffset >= 0; },
 
-    get heatmapCells() {
+    get heatmapData() {
       const y = this.heatmap.year;
-      const start = new Date(y, 0, 1);
-      // Padding pra começar na segunda da semana do dia 1
-      const startDow = (start.getDay() + 6) % 7;  // 0=seg, 6=dom
-      const cells = [];
-      for (let i = 0; i < startDow; i++) {
-        cells.push({ date: `pad-${i}`, cls: 'hab-hm-future', title: '' });
-      }
+      const monthNames = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
       const todayDate = new Date();
-      for (let m = 0; m < 12; m++) {
-        const daysInMonth = new Date(y, m + 1, 0).getDate();
-        for (let d = 1; d <= daysInMonth; d++) {
-          const dt = new Date(y, m, d);
-          const iso = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      todayDate.setHours(0, 0, 0, 0);
+
+      // Coluna 1 começa na segunda da semana que contém 1/Jan
+      const jan1 = new Date(y, 0, 1);
+      const jan1Dow = (jan1.getDay() + 6) % 7;  // 0=seg, 6=dom
+      const firstMonday = new Date(jan1);
+      firstMonday.setDate(firstMonday.getDate() - jan1Dow);
+
+      // Última coluna inclui domingo da semana que contém 31/Dez
+      const dec31 = new Date(y, 11, 31);
+      const dec31Dow = (dec31.getDay() + 6) % 7;
+      const lastSunday = new Date(dec31);
+      lastSunday.setDate(lastSunday.getDate() + (6 - dec31Dow));
+
+      const cells = [];
+      const monthFirstCol = new Array(12).fill(null);
+      const cursor = new Date(firstMonday);
+      let col = 1;
+
+      while (cursor <= lastSunday) {
+        const dow = (cursor.getDay() + 6) % 7;
+        const yearOfCursor = cursor.getFullYear();
+        const monthOfCursor = cursor.getMonth();
+
+        if (yearOfCursor !== y) {
+          cells.push({ cls: 'hab-hm-pad', title: '' });
+        } else {
+          // Detecta primeira segunda do mês para posicionar label
+          if (dow === 0 && monthFirstCol[monthOfCursor] === null) {
+            monthFirstCol[monthOfCursor] = col;
+          }
+          // Caso o mês comece num dia que não é segunda (mês 0 sempre), pega 1a coluna disponível
+          if (cursor.getDate() === 1 && monthFirstCol[monthOfCursor] === null) {
+            monthFirstCol[monthOfCursor] = col;
+          }
+
+          const iso = `${y}-${String(monthOfCursor+1).padStart(2,'0')}-${String(cursor.getDate()).padStart(2,'0')}`;
           const count = this.heatmap.days[iso] || 0;
-          const isFuture = dt > todayDate;
+          const isFuture = cursor > todayDate;
           let cls = '';
           if (isFuture) { cls = 'hab-hm-future'; }
           else if (count === 0) { cls = ''; }
@@ -367,13 +411,34 @@ function habApp() {
             else cls = 'hab-hm-l1';
           }
           cells.push({
-            date: iso,
             cls,
             title: `${iso} — ${count} ${count === 1 ? 'marcação' : 'marcações'}`,
           });
         }
+
+        cursor.setDate(cursor.getDate() + 1);
+        if (dow === 6) col++;  // domingo fecha semana
       }
-      return cells;
+      const totalWeeks = col - (cursor > lastSunday && ((cursor.getDay() + 6) % 7) !== 0 ? 0 : 0);
+
+      // Calcula span de cada label (até a coluna do próximo mês - 1)
+      const monthLabels = [];
+      for (let m = 0; m < 12; m++) {
+        if (monthFirstCol[m] === null) continue;
+        const nextCol = (() => {
+          for (let n = m + 1; n < 12; n++) {
+            if (monthFirstCol[n] !== null) return monthFirstCol[n];
+          }
+          return totalWeeks + 1;
+        })();
+        const span = Math.max(1, nextCol - monthFirstCol[m]);
+        // Só mostra label se cabe (mês muito curto na borda some)
+        if (span >= 2 || m === 0) {
+          monthLabels.push({ name: monthNames[m], col: monthFirstCol[m], span });
+        }
+      }
+
+      return { weeks: totalWeeks, cells, monthLabels };
     },
 
     get heatmapTotal() {
