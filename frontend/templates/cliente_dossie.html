@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ cliente_nome }} — Sinapse</title>
+  <link rel="stylesheet" href="/static/style.css?v=2">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    body { overflow: hidden; }
+    .cd-shell { display: flex; height: 100vh; overflow: hidden; }
+    .cd-main { flex: 1; overflow: auto; padding: 22px 26px 64px; background: var(--bg); }
+
+    .cd-breadcrumb { font-size: .8rem; color: var(--muted); margin-bottom: 12px; }
+    .cd-breadcrumb a { color: var(--muted); text-decoration: none; }
+    .cd-breadcrumb a:hover { color: var(--accent); }
+
+    /* ── Header card ── */
+    .cd-header {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 22px 26px; margin-bottom: 18px;
+      display: grid; grid-template-columns: 72px 1fr auto; gap: 20px; align-items: center;
+    }
+    .cd-avatar {
+      width: 72px; height: 72px; border-radius: 50%;
+      background: #2a1208; border: 2px solid var(--accent); color: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem; font-weight: 700;
+    }
+    .cd-h-name { font-size: 1.6rem; font-weight: 700; line-height: 1.2; }
+    .cd-h-sub { font-size: .82rem; color: var(--muted); margin-top: 4px; display: flex; gap: 14px; flex-wrap: wrap; }
+    .cd-h-pill { display: inline-flex; align-items: center; gap: 5px; }
+    .cd-h-pill strong { color: var(--text); font-weight: 500; }
+    .cd-h-chips { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+    .cd-chip-mini { background: rgba(255, 77, 0, .12); color: #fb923c; padding: 3px 9px; border-radius: 999px; font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+
+    .cd-h-right { display: flex; gap: 14px; align-items: center; }
+    .cd-h-metric { text-align: center; padding: 0 8px; }
+    .cd-h-metric-val { font-size: 1.45rem; font-weight: 700; line-height: 1; }
+    .cd-h-metric-label { font-size: .64rem; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-top: 4px; }
+    .cd-h-metric.boa { color: #4ade80; }
+    .cd-h-metric.media { color: #fbbf24; }
+    .cd-h-metric.ruim { color: #f87171; }
+    .cd-h-metric.neutra { color: var(--muted); }
+
+    .cd-btn {
+      background: var(--surface); border: 1px solid var(--border); color: var(--text);
+      padding: 8px 14px; border-radius: 8px; font-size: .82rem; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 6px; font-weight: 500;
+      text-decoration: none;
+    }
+    .cd-btn:hover { border-color: var(--accent); }
+    .cd-btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .cd-btn-primary:hover { background: var(--accent-hover); }
+
+    /* ── Quick actions ── */
+    .cd-actions { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+
+    /* ── Layout main + side ── */
+    .cd-layout { display: grid; grid-template-columns: 1fr 320px; gap: 18px; align-items: start; }
+
+    /* ── Tabs ── */
+    .cd-tabs {
+      display: flex; gap: 4px; background: transparent;
+      border-bottom: 1px solid var(--border); margin-bottom: 14px; overflow-x: auto;
+    }
+    .cd-tab {
+      background: transparent; border: none; color: var(--muted);
+      padding: 10px 14px; font-size: .85rem; cursor: pointer;
+      border-bottom: 2px solid transparent; transition: border-color .15s, color .15s;
+      white-space: nowrap;
+    }
+    .cd-tab:hover { color: var(--text); }
+    .cd-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+    .cd-tab-count { background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 1px 7px; font-size: .68rem; margin-left: 4px; color: var(--muted); }
+
+    /* ── Card ── */
+    .cd-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 22px; }
+    .cd-card + .cd-card { margin-top: 14px; }
+    .cd-card-title { font-size: .95rem; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+
+    .cd-empty { padding: 36px 16px; text-align: center; color: var(--muted); font-size: .85rem; }
+    .cd-empty-strong { color: var(--text); font-weight: 600; display: block; margin-bottom: 4px; font-size: .95rem; }
+
+    /* ── Info side ── */
+    .cd-side-list { display: flex; flex-direction: column; gap: 12px; }
+    .cd-side-item { display: flex; flex-direction: column; gap: 3px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+    .cd-side-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .cd-side-label { font-size: .66rem; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; font-weight: 600; }
+    .cd-side-val { font-size: .85rem; color: var(--text); }
+    .cd-side-val.muted { color: var(--muted); }
+
+    /* ── Atas list ── */
+    .cd-ata-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; transition: background .12s; }
+    .cd-ata-row + .cd-ata-row { border-top: 1px solid var(--border); }
+    .cd-ata-row:hover { background: rgba(255, 77, 0, .04); }
+    .cd-ata-icon { font-size: 1rem; color: var(--muted); }
+    .cd-ata-info { flex: 1; min-width: 0; }
+    .cd-ata-title { font-size: .88rem; font-weight: 500; }
+    .cd-ata-date { font-size: .7rem; color: var(--muted); }
+
+    /* ── Pre/textarea views ── */
+    .cd-prose {
+      background: #0f0f0f; border: 1px solid var(--border); border-radius: 8px;
+      padding: 14px 16px; font-size: .85rem; line-height: 1.6;
+      white-space: pre-wrap; word-break: break-word; min-height: 80px;
+    }
+    .cd-prose:empty::before { content: 'Vazio'; color: var(--muted); font-style: italic; }
+
+    .cd-arq-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    .cd-arq {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px; background: #0f0f0f; border: 1px solid var(--border); border-radius: 8px;
+      text-decoration: none; color: inherit;
+    }
+    .cd-arq:hover { border-color: var(--accent); }
+    .cd-arq-icon { font-size: 1.4rem; }
+    .cd-arq-info { flex: 1; min-width: 0; }
+    .cd-arq-name { font-weight: 500; font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cd-arq-meta { font-size: .72rem; color: var(--muted); }
+    .cd-arq-tipo { background: var(--surface); border: 1px solid var(--border); padding: 2px 8px; border-radius: 6px; font-size: .68rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+<div class="cd-shell" x-data="dossieApp({{ cliente_id }})" x-init="init()" x-cloak>
+  {% include "_sidebar.html" %}
+
+  <main class="cd-main">
+    <div class="cd-breadcrumb">
+      <a href="/clientes">Clientes</a> / Dossiê do cliente
+    </div>
+
+    <template x-if="cliente">
+      <div>
+        <!-- ── Header ── -->
+        <div class="cd-header">
+          <div class="cd-avatar" x-text="cliente.sigla"></div>
+          <div>
+            <div class="cd-h-name" x-text="cliente.razao_social"></div>
+            <div class="cd-h-sub">
+              <span class="cd-h-pill" x-show="cliente.nome_fantasia">
+                <strong x-text="cliente.nome_fantasia"></strong>
+              </span>
+              <span class="cd-h-pill" x-show="cliente.account">
+                👤 <span x-text="cliente.account"></span>
+              </span>
+              <span class="cd-h-pill" x-show="cliente.nicho">
+                # <span x-text="cliente.nicho"></span>
+              </span>
+              <span class="cd-h-pill" x-show="cliente.entrada_em">
+                📅 Desde <span x-text="fmtDate(cliente.entrada_em)"></span>
+              </span>
+              <span class="cd-h-pill" x-show="cliente.valor_mensal">
+                💰 <strong x-text="formatBRL(cliente.valor_mensal)"></strong>/mês
+              </span>
+            </div>
+            <div class="cd-h-chips" x-show="(cliente.plataformas || []).length">
+              <template x-for="p in cliente.plataformas" :key="p">
+                <span class="cd-chip-mini" x-text="p"></span>
+              </template>
+            </div>
+          </div>
+          <div class="cd-h-right">
+            <div class="cd-h-metric" :class="saudeColor(cliente.saude)">
+              <div class="cd-h-metric-val" x-text="cliente.saude !== null && cliente.saude !== undefined ? cliente.saude : '—'"></div>
+              <div class="cd-h-metric-label">Saúde</div>
+            </div>
+            <div class="cd-h-metric" :class="perfColor(cliente.performance)">
+              <div class="cd-h-metric-val" style="font-size: 1rem; font-weight: 600;" x-text="cliente.performance || '—'"></div>
+              <div class="cd-h-metric-label">Performance</div>
+            </div>
+            <a class="cd-btn" :href="`/clientes?edit=${cliente.id}`">✏️ Editar</a>
+          </div>
+        </div>
+
+        <!-- ── Tabs ── -->
+        <div class="cd-tabs">
+          <button class="cd-tab" :class="tab === 'overview' ? 'active' : ''" @click="tab = 'overview'">Visão Geral</button>
+          <button class="cd-tab" :class="tab === 'reunioes' ? 'active' : ''" @click="tab = 'reunioes'">
+            Reuniões <span class="cd-tab-count" x-text="(cliente.atas || []).length"></span>
+          </button>
+          <button class="cd-tab" :class="tab === 'documentos' ? 'active' : ''" @click="tab = 'documentos'">
+            Documentos <span class="cd-tab-count" x-text="(cliente.arquivos || []).length"></span>
+          </button>
+          <button class="cd-tab" :class="tab === 'contrato' ? 'active' : ''" @click="tab = 'contrato'">Contrato</button>
+          <button class="cd-tab" :class="tab === 'onboarding' ? 'active' : ''" @click="tab = 'onboarding'">Onboarding</button>
+          <button class="cd-tab" :class="tab === 'venda' ? 'active' : ''" @click="tab = 'venda'">Reunião de Venda</button>
+          <button class="cd-tab" :class="tab === 'plano' ? 'active' : ''" @click="tab = 'plano'">Plano de Ação</button>
+        </div>
+
+        <div class="cd-layout">
+          <div>
+            <!-- ── Tab: Visão Geral ── -->
+            <div x-show="tab === 'overview'">
+              <div class="cd-card">
+                <div class="cd-card-title">📋 Observações</div>
+                <div class="cd-prose" x-text="cliente.observacoes || ''"></div>
+              </div>
+              <div class="cd-card" x-show="(cliente.canais_ativos || []).length">
+                <div class="cd-card-title">📡 Canais ativos</div>
+                <div class="cd-h-chips">
+                  <template x-for="c in cliente.canais_ativos" :key="c">
+                    <span class="cd-chip-mini" x-text="c"></span>
+                  </template>
+                </div>
+              </div>
+            </div>
+
+            <!-- ── Tab: Reuniões ── -->
+            <div x-show="tab === 'reunioes'">
+              <div class="cd-card">
+                <div class="cd-card-title">📅 Atas de reunião vinculadas</div>
+                <template x-if="!(cliente.atas || []).length">
+                  <div class="cd-empty">
+                    <span class="cd-empty-strong">Nenhuma ata ainda</span>
+                    As atas geradas pelo <a href="/ata" style="color: var(--accent);">Gerador de Atas</a> com a sigla <strong x-text="`[${cliente.sigla}]`"></strong> aparecem aqui automaticamente.
+                  </div>
+                </template>
+                <template x-for="a in cliente.atas" :key="a.id">
+                  <div class="cd-ata-row">
+                    <span class="cd-ata-icon">📝</span>
+                    <div class="cd-ata-info">
+                      <div class="cd-ata-title" x-text="a.title"></div>
+                      <div class="cd-ata-date" x-text="fmtDateTime(a.updated_at || a.created_at)"></div>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- ── Tab: Documentos ── -->
+            <div x-show="tab === 'documentos'">
+              <div class="cd-card">
+                <div class="cd-card-title">
+                  📎 Arquivos
+                  <a class="cd-btn cd-btn-primary" :href="`/clientes?edit=${cliente.id}&tab=fin`" style="margin-left: auto; padding: 5px 10px; font-size: .75rem;">+ Upload</a>
+                </div>
+                <template x-if="!(cliente.arquivos || []).length">
+                  <div class="cd-empty">
+                    <span class="cd-empty-strong">Nenhum arquivo</span>
+                    Faça upload pela tela de edição (aba Financeiro)
+                  </div>
+                </template>
+                <div class="cd-arq-grid">
+                  <template x-for="a in cliente.arquivos" :key="a.id">
+                    <a class="cd-arq" :href="`/api/clientes/${cliente.id}/arquivos/${a.id}/download`" target="_blank">
+                      <span class="cd-arq-icon" x-text="iconForType(a.mime_type)"></span>
+                      <div class="cd-arq-info">
+                        <div class="cd-arq-name" x-text="a.titulo || a.filename"></div>
+                        <div class="cd-arq-meta">
+                          <span x-text="formatSize(a.size_bytes)"></span> ·
+                          <span x-text="fmtDate(a.uploaded_at)"></span>
+                        </div>
+                      </div>
+                      <span class="cd-arq-tipo" x-text="a.tipo"></span>
+                    </a>
+                  </template>
+                </div>
+              </div>
+            </div>
+
+            <!-- ── Tab: Contrato ── -->
+            <div x-show="tab === 'contrato'">
+              <div class="cd-card">
+                <div class="cd-card-title">📜 Contrato</div>
+                <template x-if="!contratos.length">
+                  <div class="cd-empty">
+                    <span class="cd-empty-strong">Contrato não anexado</span>
+                    Faça upload do contrato assinado pela tela de edição (aba Financeiro). Arquivos com "contrato" no nome são classificados automaticamente.
+                  </div>
+                </template>
+                <div class="cd-arq-grid">
+                  <template x-for="a in contratos" :key="a.id">
+                    <a class="cd-arq" :href="`/api/clientes/${cliente.id}/arquivos/${a.id}/download`" target="_blank">
+                      <span class="cd-arq-icon" x-text="iconForType(a.mime_type)"></span>
+                      <div class="cd-arq-info">
+                        <div class="cd-arq-name" x-text="a.titulo || a.filename"></div>
+                        <div class="cd-arq-meta">
+                          <span x-text="formatSize(a.size_bytes)"></span> ·
+                          <span x-text="fmtDate(a.uploaded_at)"></span>
+                        </div>
+                      </div>
+                      <span class="cd-arq-tipo">contrato</span>
+                    </a>
+                  </template>
+                </div>
+              </div>
+            </div>
+
+            <!-- ── Tab: Onboarding ── -->
+            <div x-show="tab === 'onboarding'">
+              <div class="cd-card">
+                <div class="cd-card-title">🚀 Onboarding</div>
+                <div class="cd-empty">
+                  <span class="cd-empty-strong">Em construção</span>
+                  Checklist de onboarding chega na próxima iteração — por enquanto consulte o plano de ação.
+                </div>
+              </div>
+            </div>
+
+            <!-- ── Tab: Reunião de Venda ── -->
+            <div x-show="tab === 'venda'">
+              <div class="cd-card">
+                <div class="cd-card-title">💼 Resumo da venda</div>
+                <div class="cd-prose" x-text="cliente.reuniao_venda_resumo || ''"></div>
+              </div>
+              <div class="cd-card" x-show="cliente.reuniao_venda_transcricao">
+                <div class="cd-card-title">📝 Transcrição</div>
+                <div class="cd-prose" x-text="cliente.reuniao_venda_transcricao || ''"></div>
+              </div>
+            </div>
+
+            <!-- ── Tab: Plano de Ação ── -->
+            <div x-show="tab === 'plano'">
+              <div class="cd-card">
+                <div class="cd-card-title">🎯 Plano de ação</div>
+                <div class="cd-prose" x-text="cliente.plano_acao || ''"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Side info ── -->
+          <div class="cd-card" style="position: sticky; top: 0;">
+            <div class="cd-card-title">Informações</div>
+            <div class="cd-side-list">
+              <div class="cd-side-item">
+                <div class="cd-side-label">Status</div>
+                <div class="cd-side-val">
+                  <span x-text="cliente.ativo ? '🟢 Ativo' : '⚫ Inativo'"></span>
+                  <span x-show="cliente.inadimplente" style="color: #f87171; margin-left: 6px;">⚠ Inadimplente</span>
+                </div>
+              </div>
+              <div class="cd-side-item" x-show="cliente.vencimento_dia">
+                <div class="cd-side-label">Vencimento</div>
+                <div class="cd-side-val" x-text="`Dia ${cliente.vencimento_dia}`"></div>
+              </div>
+              <div class="cd-side-item">
+                <div class="cd-side-label">Verba de mídia</div>
+                <div class="cd-side-val" :class="!cliente.verba_midia ? 'muted' : ''" x-text="cliente.verba_midia ? formatBRL(cliente.verba_midia) : '—'"></div>
+              </div>
+              <div class="cd-side-item">
+                <div class="cd-side-label">Forma de pagamento</div>
+                <div class="cd-side-val" :class="!cliente.forma_pagamento ? 'muted' : ''" x-text="cliente.forma_pagamento || '—'"></div>
+              </div>
+              <div class="cd-side-item" x-show="(cliente.plataformas || []).length">
+                <div class="cd-side-label">Plataformas</div>
+                <div class="cd-side-val" x-text="(cliente.plataformas || []).join(', ')"></div>
+              </div>
+              <div class="cd-side-item" x-show="cliente.status_contrato">
+                <div class="cd-side-label">Status do contrato</div>
+                <div class="cd-side-val" x-text="cliente.status_contrato"></div>
+              </div>
+              <div class="cd-side-item">
+                <div class="cd-side-label">Entrada</div>
+                <div class="cd-side-val" :class="!cliente.entrada_em ? 'muted' : ''" x-text="cliente.entrada_em ? fmtDate(cliente.entrada_em) : '—'"></div>
+              </div>
+              <div class="cd-side-item">
+                <div class="cd-side-label">Reuniões</div>
+                <div class="cd-side-val" x-text="(cliente.atas || []).length"></div>
+              </div>
+              <div class="cd-side-item">
+                <div class="cd-side-label">Última reunião</div>
+                <div class="cd-side-val" :class="!ultimaReuniao ? 'muted' : ''" x-text="ultimaReuniao ? fmtDate(ultimaReuniao) : '—'"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <template x-if="!cliente && !loading">
+      <div class="cd-empty">Cliente não encontrado. <a href="/clientes" style="color: var(--accent);">← Voltar para Clientes</a></div>
+    </template>
+  </main>
+</div>
+
+<script>
+function dossieApp(clienteId) {
+  return {
+    clienteId,
+    cliente: null,
+    loading: true,
+    tab: 'overview',
+
+    get contratos() {
+      return (this.cliente?.arquivos || []).filter(a => a.tipo === 'contrato');
+    },
+
+    get ultimaReuniao() {
+      const atas = this.cliente?.atas || [];
+      if (!atas.length) return null;
+      return atas[0].updated_at || atas[0].created_at;
+    },
+
+    async init() {
+      try {
+        const r = await fetch(`/api/clientes/${this.clienteId}/dossie`);
+        if (r.ok) this.cliente = await r.json();
+      } catch (e) { console.error(e); }
+      this.loading = false;
+    },
+
+    formatBRL(v) { return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0); },
+    formatSize(b) {
+      if (!b) return '0 B';
+      const u = ['B', 'KB', 'MB']; let i = 0; let n = b;
+      while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+      return `${n.toFixed(n < 10 && i > 0 ? 1 : 0)} ${u[i]}`;
+    },
+    fmtDate(iso) { if (!iso) return ''; const d = new Date(iso); return d.toLocaleDateString('pt-BR'); },
+    fmtDateTime(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+    },
+
+    iconForType(mt) {
+      if (!mt) return '📎';
+      if (mt.startsWith('image/')) return '🖼️';
+      if (mt.includes('pdf')) return '📕';
+      if (mt.includes('word')) return '📘';
+      return '📄';
+    },
+
+    saudeColor(s) {
+      if (s === null || s === undefined) return 'neutra';
+      if (s >= 75) return 'boa';
+      if (s >= 50) return 'media';
+      return 'ruim';
+    },
+
+    perfColor(p) {
+      const v = (p || '').toLowerCase();
+      if (v === 'ótimo' || v === 'otimo') return 'boa';
+      if (v === 'bom') return 'boa';
+      if (v === 'médio' || v === 'medio') return 'media';
+      if (v === 'ruim') return 'ruim';
+      return 'neutra';
+    },
+  };
+}
+</script>
+{% include "_twemoji.html" %}
+</body>
+</html>

@@ -197,6 +197,112 @@ async def page_clientes(request: Request):
     )
 
 
+@router.get("/clientes/{cliente_id}", response_class=HTMLResponse)
+async def page_cliente_dossie(cliente_id: int, request: Request):
+    user = _verify(request)
+    if not user:
+        return RedirectResponse("/login")
+    from backend.main import _nav_base
+    # Valida existência antes de renderizar
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT sigla, razao_social FROM clientes WHERE id=%s", (cliente_id,))
+        row = cur.fetchone()
+    finally:
+        cur.close()
+        conn.close()
+    if not row:
+        return RedirectResponse("/clientes")
+    return templates.TemplateResponse(
+        "cliente_dossie.html",
+        {
+            "request": request,
+            "cliente_id": cliente_id,
+            "cliente_sigla": row["sigla"],
+            "cliente_nome": row["razao_social"],
+            **_nav_base(request, "clientes"),
+        },
+    )
+
+
+@router.get("/api/clientes/{cliente_id}/dossie")
+async def cliente_dossie(cliente_id: int, request: Request):
+    """
+    Retorna o cliente + arquivos + atas/documentos vinculados pela sigla.
+    Atas são documents cujo título contém [SIGLA] OU que estão em pasta
+    cujo nome contém [SIGLA] (mesma lógica do _sinapse_client_context).
+    """
+    _require(request)
+
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT * FROM clientes WHERE id=%s", (cliente_id,))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, "Cliente não encontrado")
+        cliente = _row_to_dict(row)
+        sigla = (cliente.get("sigla") or "").upper()
+
+        # Arquivos uploadados
+        cur.execute(
+            "SELECT id, tipo, titulo, filename, mime_type, size_bytes, uploaded_by, uploaded_at "
+            "FROM clientes_arquivos WHERE cliente_id=%s ORDER BY uploaded_at DESC",
+            (cliente_id,),
+        )
+        arquivos = []
+        for r in cur.fetchall():
+            d = dict(r)
+            if isinstance(d.get("uploaded_at"), datetime):
+                d["uploaded_at"] = d["uploaded_at"].isoformat()
+            arquivos.append(d)
+
+        # Atas e documentos vinculados (best-effort — tabela 'documents' pode não existir
+        # ou estar vazia; em qualquer erro, retorna lista vazia sem quebrar o dossiê)
+        documentos = []
+        try:
+            cur.execute(
+                """
+                SELECT id, title, parent_id, created_at, updated_at
+                  FROM documents
+                 WHERE title ILIKE %s
+                 ORDER BY COALESCE(updated_at, created_at) DESC NULLS LAST
+                 LIMIT 200
+                """,
+                (f"%[{sigla}]%",),
+            )
+            for r in cur.fetchall():
+                d = dict(r)
+                for k in ("created_at", "updated_at"):
+                    if isinstance(d.get(k), datetime):
+                        d[k] = d[k].isoformat()
+                documentos.append(d)
+        except Exception:
+            pass
+
+        # Heurística pra separar atas de outros documentos:
+        # Atas são docs cujo título começa com data (DD/MM/AAAA - …) ou cujo parent path
+        # contém "Atas". Pra MVP simples: tudo cujo title contém "ata" ou começa com data.
+        atas = []
+        outros = []
+        for d in documentos:
+            t = (d.get("title") or "").lower()
+            if re.match(r"^\d{1,2}/\d{1,2}/\d{2,4}", d.get("title") or "") or "ata" in t:
+                atas.append(d)
+            else:
+                outros.append(d)
+    finally:
+        cur.close()
+        conn.close()
+
+    cliente["arquivos"] = arquivos
+    cliente["atas"] = atas
+    cliente["documentos_vinculados"] = outros
+
+    return cliente
+
+
 @router.get("/api/clientes")
 async def list_clientes(request: Request, q: str = "", status: str = "", account: str = ""):
     _require(request)
