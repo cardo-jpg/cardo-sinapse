@@ -1988,18 +1988,90 @@ async def generate_ata(request: Request):
     doc_title = doc.get("title") or ""
     date = extract_date_from_title(doc_title) or (doc.get("created_at") or "")[:10]
 
+    # 1. Notas formatadas do Granola (já é um resumo estruturado)
     ata_text = sanitize_ata_content(doc.get("notes_markdown") or doc.get("notes_plain") or "")
+    source = "notes" if ata_text else None
 
+    # 2. Painéis estruturados (resumo das seções)
     if not ata_text:
         ata_text = await granola_get_panels_markdown(meeting_id)
+        if ata_text:
+            source = "panels"
 
+    # 3. Fallback: só tem transcript bruto — passa pelo Claude pra estruturar
     if not ata_text:
         transcript = await granola_get_transcript(meeting_id)
         if not transcript:
             raise HTTPException(status_code=422, detail="Esta reunião não tem notas nem transcript disponível.")
-        ata_text = transcript
+        ata_text = _resumir_transcript_para_ata(transcript, doc_title)
+        source = "transcript+claude"
 
-    return JSONResponse({"ata": ata_text, "title": doc_title, "date": date})
+    return JSONResponse({"ata": ata_text, "title": doc_title, "date": date, "source": source})
+
+
+def _resumir_transcript_para_ata(transcript: str, meeting_title: str = "") -> str:
+    """
+    Quando o Granola não tem notes nem panels, transforma a transcrição
+    bruta numa ata estruturada em markdown via Claude.
+    """
+    if not transcript or not transcript.strip():
+        return ""
+
+    # Limita transcript pra ficar dentro do budget de tokens
+    max_chars = 80_000
+    transcript = transcript[:max_chars]
+
+    title_line = f"Título da reunião: {meeting_title}\n\n" if meeting_title else ""
+    prompt = f"""{title_line}A reunião abaixo está em forma de transcrição bruta (linhas "Microfone: ..."). Transforme em uma ata de reunião estruturada em markdown, no formato exato:
+
+## Resumo executivo
+3-5 bullets curtos com os pontos centrais da conversa.
+
+## Decisões tomadas
+- Decisão 1
+- Decisão 2
+(omita esta seção se nenhuma decisão clara foi tomada)
+
+## Próximos passos
+- Ação responsável: prazo (se mencionado)
+(omita esta seção se nenhuma ação ficou definida)
+
+## Pontos de atenção
+- Riscos, dependências, dúvidas em aberto
+(omita esta seção se não houver)
+
+## Detalhes da conversa
+Resumo narrativo dividido por tópico, em parágrafos curtos. Use H3 (###) pra cada tópico discutido.
+
+Diretrizes:
+- Português brasileiro
+- Tom profissional e direto
+- NÃO copie a transcrição literal — sintetize
+- NÃO invente nada que não está na transcrição
+- Use nomes próprios quando aparecerem
+- Valores monetários, datas, prazos: preserve com fidelidade
+
+Transcrição:
+\"\"\"
+{transcript}
+\"\"\""""
+
+    try:
+        response = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=4096,
+            system="Você é um redator de atas de reunião. Produza atas estruturadas, objetivas e fiéis ao que foi discutido. Responda apenas com a ata em markdown, sem comentários antes ou depois.",
+            messages=[{"role": "user", "content": prompt}],
+        )
+        out = next((b.text for b in response.content if hasattr(b, "text")), "").strip()
+        # Limpa code fences acidentais
+        if out.startswith("```"):
+            out = re.sub(r"^```[a-z]*\n?", "", out)
+            out = re.sub(r"\n?```$", "", out).strip()
+        return out or transcript  # se o Claude falhar em retornar texto, devolve o transcript bruto como último recurso
+    except Exception as e:
+        # Não deixa o gerador quebrar — devolve transcript bruto com aviso
+        return f"> ⚠️ Falha ao resumir transcript via IA ({e.__class__.__name__}). Texto bruto abaixo.\n\n{transcript}"
 
 
 @app.post("/api/ata/publish")
