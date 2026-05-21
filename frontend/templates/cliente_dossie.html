@@ -218,13 +218,17 @@
                   </div>
                 </template>
                 <template x-for="a in cliente.atas" :key="a.id">
-                  <div class="cd-ata-row">
+                  <a class="cd-ata-row" :href="`/gestao?doc=${a.id}`" target="_blank" style="text-decoration: none; color: inherit;">
                     <span class="cd-ata-icon">📝</span>
                     <div class="cd-ata-info">
                       <div class="cd-ata-title" x-text="a.title"></div>
-                      <div class="cd-ata-date" x-text="fmtDateTime(a.updated_at || a.created_at)"></div>
+                      <div class="cd-ata-date">
+                        <span x-text="fmtDateTime(a.updated_at || a.created_at)"></span>
+                        <span x-show="a.path" style="margin-left: 8px; opacity: .7;" x-text="' · ' + (a.path || '')"></span>
+                      </div>
                     </div>
-                  </div>
+                    <span style="font-size: .72rem; color: var(--muted);">abrir ↗</span>
+                  </a>
                 </template>
               </div>
             </div>

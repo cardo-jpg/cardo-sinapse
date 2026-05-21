@@ -258,19 +258,43 @@ async def cliente_dossie(cliente_id: int, request: Request):
                 d["uploaded_at"] = d["uploaded_at"].isoformat()
             arquivos.append(d)
 
-        # Atas e documentos vinculados (best-effort — tabela 'documents' pode não existir
-        # ou estar vazia; em qualquer erro, retorna lista vazia sem quebrar o dossiê)
+        # Atas e documentos vinculados — navega recursivamente a árvore de
+        # documents a partir de qualquer nó cujo título inicia com [SIGLA].
+        # Cobre a estrutura atual do Sinapse:
+        #   Documentação > [SIGLA] Cliente > Atas de Reunião > Ata X
+        # e qualquer outra estrutura customizada que tenha o cliente como raiz.
         documentos = []
         try:
             cur.execute(
                 """
-                SELECT id, title, parent_id, created_at, updated_at
-                  FROM documents
-                 WHERE title ILIKE %s
+                WITH RECURSIVE
+                cliente_root AS (
+                    SELECT id, title, parent_id, title AS path, 0 AS depth
+                      FROM documents
+                     WHERE title ILIKE %s
+                ),
+                arvore AS (
+                    SELECT d.id, d.title, d.parent_id,
+                           d.created_at, d.updated_at,
+                           (cr.path || ' > ' || d.title) AS path,
+                           1 AS depth
+                      FROM documents d
+                      JOIN cliente_root cr ON d.parent_id = cr.id
+                    UNION ALL
+                    SELECT d.id, d.title, d.parent_id,
+                           d.created_at, d.updated_at,
+                           (a.path || ' > ' || d.title) AS path,
+                           a.depth + 1
+                      FROM documents d
+                      JOIN arvore a ON d.parent_id = a.id
+                     WHERE a.depth < 6
+                )
+                SELECT id, title, parent_id, created_at, updated_at, path
+                  FROM arvore
                  ORDER BY COALESCE(updated_at, created_at) DESC NULLS LAST
-                 LIMIT 200
+                 LIMIT 500
                 """,
-                (f"%[{sigla}]%",),
+                (f"[{sigla}]%",),
             )
             for r in cur.fetchall():
                 d = dict(r)
@@ -281,14 +305,20 @@ async def cliente_dossie(cliente_id: int, request: Request):
         except Exception:
             pass
 
-        # Heurística pra separar atas de outros documentos:
-        # Atas são docs cujo título começa com data (DD/MM/AAAA - …) ou cujo parent path
-        # contém "Atas". Pra MVP simples: tudo cujo title contém "ata" ou começa com data.
+        # Classifica: se o "path" passa por um nó com "Ata" (ou o título começa
+        # com data DD/MM/AAAA), é uma ata; senão, é documento auxiliar.
         atas = []
         outros = []
         for d in documentos:
-            t = (d.get("title") or "").lower()
-            if re.match(r"^\d{1,2}/\d{1,2}/\d{2,4}", d.get("title") or "") or "ata" in t:
+            path_lower = (d.get("path") or "").lower()
+            title = d.get("title") or ""
+            is_container = title.strip().lower() in (
+                "ficha do cliente", "arquivos", "atas de reunião", "atas de reuniao",
+                "onboarding", "contrato", "documentos",
+            )
+            if is_container:
+                continue  # nós de organização, não conteúdo
+            if "ata" in path_lower or re.match(r"^\d{1,2}/\d{1,2}/\d{2,4}", title):
                 atas.append(d)
             else:
                 outros.append(d)

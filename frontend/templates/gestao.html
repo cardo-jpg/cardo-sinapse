@@ -5353,7 +5353,14 @@ document.addEventListener('alpine:init', () => {
       await this.loadTree();
       const saved = this._loadNavState();
       let restored = false;
-      if (saved) {
+      // Deep-link: /gestao?doc=<id> abre o documento direto (usado pelo dossiê)
+      const urlParams = new URLSearchParams(window.location.search);
+      const docDeepLink = urlParams.get('doc');
+      if (docDeepLink) {
+        await this.openDocById(docDeepLink);
+        restored = true;
+      }
+      if (!restored && saved) {
         if (saved.mode === 'embed' && saved.url) {
           this.openEmbed(saved.url); restored = true;
         } else if (saved.mode === 'tasks' && saved.listId) {
