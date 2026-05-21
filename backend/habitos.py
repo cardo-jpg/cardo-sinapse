@@ -440,9 +440,13 @@ async def heatmap(request: Request, year: int | None = None):
     Response:
     {
       year: 2026,
-      max_count: 5,
-      days: { 'YYYY-MM-DD': count }
+      days: { 'YYYY-MM-DD': { done: 3, total: 5, pct: 60 } }
     }
+
+    Critério de intensidade: percentual de hábitos completados naquele dia.
+    O denominador (total) é o número de hábitos ativos que já existiam até aquela data
+    (created_at <= dia + 1). Hábitos desativados ainda contam pois não temos
+    timestamp de desativação — soft delete simples.
     """
     user = _require(request)
     y = year or date.today().year
@@ -452,6 +456,7 @@ async def heatmap(request: Request, year: int | None = None):
     conn = get_conn()
     cur = dict_cursor(conn)
     try:
+        # Marcações done por dia
         cur.execute(
             """
             SELECT data, COUNT(*) AS c
@@ -461,10 +466,37 @@ async def heatmap(request: Request, year: int | None = None):
             """,
             (user, start, end),
         )
-        days = {r["data"].isoformat(): int(r["c"]) for r in cur.fetchall()}
+        done_by_day = {r["data"]: int(r["c"]) for r in cur.fetchall()}
+
+        # Datas de criação de todos os hábitos do usuário (ativos ou não)
+        cur.execute(
+            """
+            SELECT DATE(created_at) AS d
+              FROM hab_habits
+             WHERE username=%s
+            """,
+            (user,),
+        )
+        created_dates = sorted(r["d"] for r in cur.fetchall() if r["d"] is not None)
     finally:
         cur.close()
         conn.close()
 
-    max_count = max(days.values()) if days else 0
-    return {"year": y, "max_count": max_count, "days": days}
+    def total_active_on(d: date) -> int:
+        # Hábitos cuja data de criação é <= d
+        n = 0
+        for cd in created_dates:
+            if cd <= d:
+                n += 1
+            else:
+                break
+        return n
+
+    days_out: dict = {}
+    for iso_str, done in done_by_day.items():
+        d = iso_str if isinstance(iso_str, date) else datetime.strptime(iso_str, "%Y-%m-%d").date()
+        total = total_active_on(d)
+        pct = round(done / total * 100) if total > 0 else 0
+        days_out[d.isoformat()] = {"done": done, "total": total, "pct": pct}
+
+    return {"year": y, "days": days_out}

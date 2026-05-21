@@ -273,13 +273,13 @@
                 </div>
               </div>
               <div class="hab-hm-legend">
-                <span>Menos</span>
+                <span>0%</span>
                 <div class="hab-hm-cell"></div>
                 <div class="hab-hm-cell hab-hm-l1"></div>
                 <div class="hab-hm-cell hab-hm-l2"></div>
                 <div class="hab-hm-cell hab-hm-l3"></div>
                 <div class="hab-hm-cell hab-hm-l4"></div>
-                <span>Mais</span>
+                <span>100% dos hábitos</span>
               </div>
             </div>
           </template>
@@ -305,13 +305,13 @@
                 </template>
               </div>
               <div class="hab-hm-legend" style="padding-left: 0;">
-                <span>Sem marcação</span>
+                <span>0%</span>
                 <div class="hab-hm-cell"></div>
                 <div class="hab-hm-cell hab-hm-l1"></div>
                 <div class="hab-hm-cell hab-hm-l2"></div>
                 <div class="hab-hm-cell hab-hm-l3"></div>
                 <div class="hab-hm-cell hab-hm-l4"></div>
-                <span>Mais marcações</span>
+                <span>100% dos hábitos</span>
               </div>
             </div>
           </template>
@@ -416,14 +416,25 @@ function habApp() {
     get isCurrent() { return this.weekOffset === 0; },
     get isCurrentOrFuture() { return this.weekOffset >= 0; },
 
-    _intensityClass(count) {
-      if (count === 0) return '';
-      if (this.heatmap.max_count <= 1) return 'hab-hm-l4';
-      const ratio = count / this.heatmap.max_count;
-      if (ratio >= 0.75) return 'hab-hm-l4';
-      if (ratio >= 0.5) return 'hab-hm-l3';
-      if (ratio >= 0.25) return 'hab-hm-l2';
+    _dayInfo(iso) {
+      const d = this.heatmap.days[iso];
+      if (!d) return { done: 0, total: 0, pct: 0 };
+      return d;
+    },
+
+    _intensityClass(iso) {
+      const { done, pct } = this._dayInfo(iso);
+      if (done === 0) return '';
+      if (pct >= 76) return 'hab-hm-l4';
+      if (pct >= 51) return 'hab-hm-l3';
+      if (pct >= 26) return 'hab-hm-l2';
       return 'hab-hm-l1';
+    },
+
+    _cellTitle(iso) {
+      const { done, total } = this._dayInfo(iso);
+      if (total === 0) return `${iso} — sem hábitos`;
+      return `${iso} — ${done} de ${total} hábito${total === 1 ? '' : 's'}`;
     },
 
     get heatmapData() {
@@ -463,12 +474,11 @@ function habApp() {
           }
 
           const iso = `${y}-${String(monthOfCursor+1).padStart(2,'0')}-${String(cursor.getDate()).padStart(2,'0')}`;
-          const count = this.heatmap.days[iso] || 0;
           const isFuture = cursor > todayDate;
-          let cls = isFuture ? 'hab-hm-future' : this._intensityClass(count);
+          const cls = isFuture ? 'hab-hm-future' : this._intensityClass(iso);
           cells.push({
             cls,
-            title: `${iso} — ${count} ${count === 1 ? 'marcação' : 'marcações'}`,
+            title: this._cellTitle(iso),
           });
         }
 
@@ -530,20 +540,20 @@ function habApp() {
       for (let day = 1; day <= daysInMonth; day++) {
         const dt = new Date(y, m, day);
         const iso = `${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-        const count = this.heatmap.days[iso] || 0;
+        const info = this._dayInfo(iso);
         const isFuture = dt > todayDate;
         const isToday = iso === todayIso;
-        const intensity = isFuture ? '' : this._intensityClass(count);
+        const intensity = isFuture ? '' : this._intensityClass(iso);
         const cls = [
           intensity,
           isFuture ? 'is-future' : '',
           isToday ? 'is-today' : '',
-          (count > 0 ? 'has-data' : ''),
+          (info.done > 0 ? 'has-data' : ''),
         ].filter(Boolean).join(' ');
         cells.push({
           cls,
           day,
-          title: `${iso} — ${count} ${count === 1 ? 'marcação' : 'marcações'}`,
+          title: this._cellTitle(iso),
         });
       }
       // padding até completar últimas semanas
@@ -556,7 +566,7 @@ function habApp() {
     nextMonth() { if (this.monthOffset < 0) this.monthOffset += 1; },
 
     get heatmapTotal() {
-      return Object.values(this.heatmap.days || {}).reduce((a, b) => a + b, 0);
+      return Object.values(this.heatmap.days || {}).reduce((a, d) => a + (d.done || 0), 0);
     },
 
     async init() {
