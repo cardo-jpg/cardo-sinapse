@@ -51,6 +51,24 @@
     .cd-edit-actions { display: flex; gap: 6px; margin-top: 6px; }
     .cd-edit-btn { background: var(--accent); border: none; color: #fff; padding: 4px 10px; border-radius: 5px; cursor: pointer; font-size: .75rem; }
     .cd-edit-btn-cancel { background: var(--surface); color: var(--muted); }
+
+    .cd-contrato-status { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 6px; font-size: .66rem; font-weight: 600; }
+    .cd-contrato-vigente { background: #052e16; color: #4ade80; }
+    .cd-contrato-atencao { background: #2c1d05; color: #fbbf24; }
+    .cd-contrato-expirado { background: #2c0608; color: #f87171; }
+
+    /* Resumo do relacionamento */
+    .cd-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+    .cd-stat {
+      background: #0f0f0f; border: 1px solid var(--border); border-radius: 10px;
+      padding: 14px 16px; border-left: 3px solid var(--accent);
+    }
+    .cd-stat-label { font-size: .66rem; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; font-weight: 600; }
+    .cd-stat-val { font-size: 1.3rem; font-weight: 700; margin-top: 4px; line-height: 1.15; }
+    .cd-stat-sub { font-size: .7rem; color: var(--muted); margin-top: 2px; }
+    .cd-stat.accent-good { border-left-color: #4ade80; }
+    .cd-stat.accent-warn { border-left-color: #fbbf24; }
+    .cd-stat.accent-bad { border-left-color: #f87171; }
     .cd-h-metric { text-align: center; padding: 0 8px; }
     .cd-h-metric-val { font-size: 1.45rem; font-weight: 700; line-height: 1; }
     .cd-h-metric-label { font-size: .64rem; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-top: 4px; }
@@ -212,6 +230,32 @@
             <!-- ── Tab: Visão Geral ── -->
             <div x-show="tab === 'overview'">
               <div class="cd-card">
+                <div class="cd-card-title">📊 Resumo do relacionamento</div>
+                <div class="cd-stats">
+                  <div class="cd-stat">
+                    <div class="cd-stat-label">Tempo como cliente</div>
+                    <div class="cd-stat-val" x-text="tempoComoClienteText"></div>
+                    <div class="cd-stat-sub" x-show="cliente.entrada_em" x-text="`desde ${fmtDate(cliente.entrada_em)}`"></div>
+                  </div>
+                  <div class="cd-stat accent-good">
+                    <div class="cd-stat-label">LTV estimado</div>
+                    <div class="cd-stat-val" x-text="showValues ? formatBRL(cliente.metricas?.ltv_estimado || 0) : '••••••'"></div>
+                    <div class="cd-stat-sub">valor mensal × meses ativos</div>
+                  </div>
+                  <div class="cd-stat" :class="proxVencColor">
+                    <div class="cd-stat-label">Próximo vencimento</div>
+                    <div class="cd-stat-val" x-text="proxVencText"></div>
+                    <div class="cd-stat-sub" x-text="proxVencSub"></div>
+                  </div>
+                  <div class="cd-stat" :class="contratoColor">
+                    <div class="cd-stat-label">Fim do contrato</div>
+                    <div class="cd-stat-val" x-text="fimContratoText"></div>
+                    <div class="cd-stat-sub" x-text="fimContratoSub"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="cd-card">
                 <div class="cd-card-title">📋 Observações</div>
                 <div class="cd-prose" x-text="cliente.observacoes || ''"></div>
               </div>
@@ -346,33 +390,133 @@
           <div class="cd-card" style="position: sticky; top: 0;">
             <div class="cd-card-title">Informações</div>
             <div class="cd-side-list">
+
+              <!-- Status (ativo/inativo) — editável via select -->
               <div class="cd-side-item">
                 <div class="cd-side-label">Status</div>
-                <div class="cd-side-val">
-                  <span x-text="cliente.ativo ? '🟢 Ativo' : '⚫ Inativo'"></span>
-                  <span x-show="cliente.inadimplente" style="color: #f87171; margin-left: 6px;">⚠ Inadimplente</span>
-                </div>
+                <template x-if="editingField !== 'ativo'">
+                  <div class="cd-side-val cd-editable" @click="startEdit('ativo', cliente.ativo)">
+                    <span x-text="cliente.ativo ? '🟢 Ativo' : '⚫ Inativo'"></span>
+                    <span x-show="cliente.inadimplente" style="color: #f87171; margin-left: 6px;">⚠ Inadimplente</span>
+                  </div>
+                </template>
+                <template x-if="editingField === 'ativo'">
+                  <div>
+                    <select class="cd-edit-input" x-model="editValue" x-init="$nextTick(() => $el.focus())" @keydown.escape="cancelEdit()">
+                      <option :value="true">🟢 Ativo</option>
+                      <option :value="false">⚫ Inativo</option>
+                    </select>
+                    <div class="cd-edit-actions">
+                      <button class="cd-edit-btn" @click="saveEdit()">Salvar</button>
+                      <button class="cd-edit-btn cd-edit-btn-cancel" @click="cancelEdit()">Cancelar</button>
+                    </div>
+                  </div>
+                </template>
               </div>
-              <div class="cd-side-item" x-show="cliente.vencimento_dia">
+
+              <!-- Inadimplente -->
+              <div class="cd-side-item">
+                <div class="cd-side-label">Inadimplente</div>
+                <template x-if="editingField !== 'inadimplente'">
+                  <div class="cd-side-val cd-editable" @click="startEdit('inadimplente', cliente.inadimplente)" x-text="cliente.inadimplente ? '⚠ Sim' : 'Não'"></div>
+                </template>
+                <template x-if="editingField === 'inadimplente'">
+                  <div>
+                    <select class="cd-edit-input" x-model="editValue" x-init="$nextTick(() => $el.focus())" @keydown.escape="cancelEdit()">
+                      <option :value="false">Não</option>
+                      <option :value="true">Sim</option>
+                    </select>
+                    <div class="cd-edit-actions">
+                      <button class="cd-edit-btn" @click="saveEdit()">Salvar</button>
+                      <button class="cd-edit-btn cd-edit-btn-cancel" @click="cancelEdit()">Cancelar</button>
+                    </div>
+                  </div>
+                </template>
+              </div>
+
+              <!-- Vencimento -->
+              <div class="cd-side-item">
                 <div class="cd-side-label">Vencimento</div>
-                <div class="cd-side-val" x-text="`Dia ${cliente.vencimento_dia}`"></div>
+                <template x-if="editingField !== 'vencimento_dia'">
+                  <div class="cd-side-val cd-editable" :class="!cliente.vencimento_dia ? 'muted' : ''"
+                       @click="startEdit('vencimento_dia', cliente.vencimento_dia)"
+                       x-text="cliente.vencimento_dia ? `Dia ${cliente.vencimento_dia}` : 'Definir vencimento'"></div>
+                </template>
+                <template x-if="editingField === 'vencimento_dia'">
+                  <div>
+                    <input type="number" min="1" max="31" class="cd-edit-input" x-model.number="editValue" @keydown.enter="saveEdit()" @keydown.escape="cancelEdit()" x-init="$nextTick(() => $el.focus())">
+                    <div class="cd-edit-actions">
+                      <button class="cd-edit-btn" @click="saveEdit()">Salvar</button>
+                      <button class="cd-edit-btn cd-edit-btn-cancel" @click="cancelEdit()">Cancelar</button>
+                    </div>
+                  </div>
+                </template>
               </div>
+
+              <!-- Verba de mídia -->
               <div class="cd-side-item">
                 <div class="cd-side-label">Verba de mídia</div>
-                <div class="cd-side-val" :class="!cliente.verba_midia ? 'muted' : ''" x-text="cliente.verba_midia ? (showValues ? formatBRL(cliente.verba_midia) : '••••••') : '—'"></div>
+                <template x-if="editingField !== 'verba_midia'">
+                  <div class="cd-side-val cd-editable" :class="!cliente.verba_midia ? 'muted' : ''"
+                       @click="startEdit('verba_midia', cliente.verba_midia)"
+                       x-text="cliente.verba_midia ? (showValues ? formatBRL(cliente.verba_midia) : '••••••') : 'Definir verba'"></div>
+                </template>
+                <template x-if="editingField === 'verba_midia'">
+                  <div>
+                    <input type="number" step="0.01" class="cd-edit-input" x-model.number="editValue" @keydown.enter="saveEdit()" @keydown.escape="cancelEdit()" x-init="$nextTick(() => $el.focus())">
+                    <div class="cd-edit-actions">
+                      <button class="cd-edit-btn" @click="saveEdit()">Salvar</button>
+                      <button class="cd-edit-btn cd-edit-btn-cancel" @click="cancelEdit()">Cancelar</button>
+                    </div>
+                  </div>
+                </template>
               </div>
+
+              <!-- Forma de pagamento -->
               <div class="cd-side-item">
                 <div class="cd-side-label">Forma de pagamento</div>
-                <div class="cd-side-val" :class="!cliente.forma_pagamento ? 'muted' : ''" x-text="cliente.forma_pagamento || '—'"></div>
+                <template x-if="editingField !== 'forma_pagamento'">
+                  <div class="cd-side-val cd-editable" :class="!cliente.forma_pagamento ? 'muted' : ''"
+                       @click="startEdit('forma_pagamento', cliente.forma_pagamento)"
+                       x-text="cliente.forma_pagamento || 'Definir'"></div>
+                </template>
+                <template x-if="editingField === 'forma_pagamento'">
+                  <div>
+                    <input type="text" class="cd-edit-input" x-model="editValue" placeholder="Boleto / Cartão / PIX" @keydown.enter="saveEdit()" @keydown.escape="cancelEdit()" x-init="$nextTick(() => $el.focus())">
+                    <div class="cd-edit-actions">
+                      <button class="cd-edit-btn" @click="saveEdit()">Salvar</button>
+                      <button class="cd-edit-btn cd-edit-btn-cancel" @click="cancelEdit()">Cancelar</button>
+                    </div>
+                  </div>
+                </template>
               </div>
+
+              <!-- Plataformas (read-only — usa modal completo) -->
               <div class="cd-side-item" x-show="(cliente.plataformas || []).length">
                 <div class="cd-side-label">Plataformas</div>
                 <div class="cd-side-val" x-text="(cliente.plataformas || []).join(', ')"></div>
               </div>
-              <div class="cd-side-item" x-show="cliente.status_contrato">
+
+              <!-- Status do contrato -->
+              <div class="cd-side-item">
                 <div class="cd-side-label">Status do contrato</div>
-                <div class="cd-side-val" x-text="cliente.status_contrato"></div>
+                <template x-if="editingField !== 'status_contrato'">
+                  <div class="cd-side-val cd-editable" :class="!cliente.status_contrato ? 'muted' : ''"
+                       @click="startEdit('status_contrato', cliente.status_contrato)"
+                       x-text="cliente.status_contrato || 'Definir'"></div>
+                </template>
+                <template x-if="editingField === 'status_contrato'">
+                  <div>
+                    <input type="text" class="cd-edit-input" x-model="editValue" placeholder="Vigente / Em renovação" @keydown.enter="saveEdit()" @keydown.escape="cancelEdit()" x-init="$nextTick(() => $el.focus())">
+                    <div class="cd-edit-actions">
+                      <button class="cd-edit-btn" @click="saveEdit()">Salvar</button>
+                      <button class="cd-edit-btn cd-edit-btn-cancel" @click="cancelEdit()">Cancelar</button>
+                    </div>
+                  </div>
+                </template>
               </div>
+
+              <!-- Entrada -->
               <div class="cd-side-item">
                 <div class="cd-side-label">Entrada</div>
                 <template x-if="editingField !== 'entrada_em'">
@@ -390,6 +534,28 @@
                   </div>
                 </template>
               </div>
+
+              <!-- Data final do contrato -->
+              <div class="cd-side-item">
+                <div class="cd-side-label">Fim do contrato</div>
+                <template x-if="editingField !== 'data_final_contrato'">
+                  <div class="cd-side-val cd-editable" :class="!cliente.data_final_contrato ? 'muted' : ''"
+                       @click="startEdit('data_final_contrato', cliente.data_final_contrato)">
+                    <span x-text="cliente.data_final_contrato ? fmtDate(cliente.data_final_contrato) : 'Sem prazo'"></span>
+                    <span x-show="cliente.data_final_contrato && cliente.metricas?.dias_ate_fim_contrato !== null" class="cd-contrato-status" :class="contratoStatusClass" x-text="contratoStatusLabel"></span>
+                  </div>
+                </template>
+                <template x-if="editingField === 'data_final_contrato'">
+                  <div>
+                    <input type="date" class="cd-edit-input" x-model="editValue" @keydown.enter="saveEdit()" @keydown.escape="cancelEdit()" x-init="$nextTick(() => $el.focus())">
+                    <div class="cd-edit-actions">
+                      <button class="cd-edit-btn" @click="saveEdit()">Salvar</button>
+                      <button class="cd-edit-btn cd-edit-btn-cancel" @click="cancelEdit()">Cancelar</button>
+                    </div>
+                  </div>
+                </template>
+              </div>
+
               <div class="cd-side-item">
                 <div class="cd-side-label">Reuniões</div>
                 <div class="cd-side-val" x-text="(cliente.atas || []).length"></div>
@@ -431,6 +597,77 @@ function dossieApp(clienteId) {
       return atas[0].updated_at || atas[0].created_at;
     },
 
+    // ── Resumo do relacionamento ─────────────────────────────────────
+    get tempoComoClienteText() {
+      const m = this.cliente?.metricas;
+      if (!m || !this.cliente?.entrada_em) return '—';
+      const meses = m.meses_como_cliente || 0;
+      if (meses === 0) {
+        const dias = m.dias_como_cliente || 0;
+        return dias === 0 ? 'Hoje' : (dias === 1 ? '1 dia' : `${dias} dias`);
+      }
+      if (meses < 12) return meses === 1 ? '1 mês' : `${meses} meses`;
+      const anos = Math.floor(meses / 12);
+      const restMeses = meses % 12;
+      return restMeses ? `${anos}a ${restMeses}m` : (anos === 1 ? '1 ano' : `${anos} anos`);
+    },
+
+    get proxVencText() {
+      const d = this.cliente?.metricas?.dias_ate_vencimento;
+      if (d === null || d === undefined) return '—';
+      if (d === 0) return 'Hoje';
+      if (d === 1) return 'Amanhã';
+      return `${d} dias`;
+    },
+    get proxVencSub() {
+      const venc = this.cliente?.vencimento_dia;
+      return venc ? `Dia ${venc} do mês` : 'Vencimento não definido';
+    },
+    get proxVencColor() {
+      const d = this.cliente?.metricas?.dias_ate_vencimento;
+      if (d === null || d === undefined) return '';
+      if (d <= 3) return 'accent-warn';
+      return '';
+    },
+
+    get fimContratoText() {
+      const d = this.cliente?.metricas?.dias_ate_fim_contrato;
+      if (d === null || d === undefined) return 'Sem prazo';
+      if (d < 0) return 'Expirado';
+      if (d === 0) return 'Hoje';
+      if (d === 1) return 'Amanhã';
+      if (d < 60) return `${d} dias`;
+      const meses = Math.round(d / 30);
+      return `~${meses} meses`;
+    },
+    get fimContratoSub() {
+      if (!this.cliente?.data_final_contrato) return 'Defina uma data para acompanhar';
+      const d = this.cliente?.metricas?.dias_ate_fim_contrato;
+      if (d < 0) return `Expirou em ${this.fmtDate(this.cliente.data_final_contrato)}`;
+      return `Em ${this.fmtDate(this.cliente.data_final_contrato)}`;
+    },
+    get contratoColor() {
+      const d = this.cliente?.metricas?.dias_ate_fim_contrato;
+      if (d === null || d === undefined) return '';
+      if (d < 0) return 'accent-bad';
+      if (d <= 30) return 'accent-warn';
+      return 'accent-good';
+    },
+    get contratoStatusLabel() {
+      const d = this.cliente?.metricas?.dias_ate_fim_contrato;
+      if (d === null || d === undefined) return '';
+      if (d < 0) return 'Expirado';
+      if (d <= 30) return `${d} dias`;
+      return '';
+    },
+    get contratoStatusClass() {
+      const d = this.cliente?.metricas?.dias_ate_fim_contrato;
+      if (d === null || d === undefined) return '';
+      if (d < 0) return 'cd-contrato-expirado';
+      if (d <= 30) return 'cd-contrato-atencao';
+      return 'cd-contrato-vigente';
+    },
+
     async init() {
       try {
         const r = await fetch(`/api/clientes/${this.clienteId}/dossie`);
@@ -462,18 +699,39 @@ function dossieApp(clienteId) {
     async saveEdit() {
       if (!this.editingField) return;
       const field = this.editingField;
-      const value = this.editValue;
+      let value = this.editValue;
+
+      // Normalização por tipo de campo
+      const boolFields = ['ativo', 'inadimplente'];
+      const numFields = ['vencimento_dia', 'verba_midia', 'valor_mensal', 'saude'];
+      if (boolFields.includes(field)) {
+        // <select> mantém o tipo do :value, mas se vier string, converte
+        value = (value === true || value === 'true');
+      } else if (numFields.includes(field)) {
+        value = value === '' || value === null ? null : Number(value);
+      } else if (typeof value === 'string') {
+        value = value.trim() || null;
+      }
+
       try {
         const r = await fetch(`/api/clientes/${this.clienteId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ [field]: value || null }),
+          body: JSON.stringify({ [field]: value }),
         });
         if (!r.ok) { alert('Falha ao salvar'); return; }
         const d = await r.json();
-        // Atualiza só o campo editado pra preservar o resto (arquivos/atas)
+        // Atualiza o campo editado E recalcula métricas se afetar
         if (d.cliente && d.cliente[field] !== undefined) {
           this.cliente[field] = d.cliente[field];
+        }
+        // Recarrega o dossiê pra atualizar métricas calculadas (ltv, dias, etc)
+        if (['entrada_em', 'valor_mensal', 'vencimento_dia', 'data_final_contrato'].includes(field)) {
+          const dr = await fetch(`/api/clientes/${this.clienteId}/dossie`);
+          if (dr.ok) {
+            const fresh = await dr.json();
+            this.cliente.metricas = fresh.metricas;
+          }
         }
       } catch (e) {
         console.error(e);

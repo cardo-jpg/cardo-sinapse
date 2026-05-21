@@ -282,6 +282,16 @@
             </div>
             <div class="cl-form-row">
               <div class="cl-form-field">
+                <label>Data de entrada</label>
+                <input type="date" x-model="form.entrada_em">
+              </div>
+              <div class="cl-form-field">
+                <label>Fim do contrato</label>
+                <input type="date" x-model="form.data_final_contrato">
+              </div>
+            </div>
+            <div class="cl-form-row">
+              <div class="cl-form-field">
                 <label>Performance</label>
                 <select x-model="form.performance">
                   <option value="">—</option>
@@ -505,6 +515,7 @@ function clientesApp() {
         reuniao_venda_transcricao: '', reuniao_venda_resumo: '',
         plano_acao: '',
         saude: null, saude_label: null, em_risco: false, ativo: true,
+        entrada_em: null, data_final_contrato: null,
       };
     },
 

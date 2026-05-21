@@ -78,6 +78,7 @@ def init_db():
                 -- Status
                 ativo               BOOLEAN DEFAULT TRUE,
                 entrada_em          DATE,
+                data_final_contrato DATE,
 
                 created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -85,6 +86,19 @@ def init_db():
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS idx_clientes_ativo ON clientes(ativo)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_clientes_account ON clientes(account)")
+
+        # Migrations idempotentes pra colunas adicionadas depois da criação inicial
+        cur.execute("""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                     WHERE table_name='clientes' AND column_name='data_final_contrato'
+                ) THEN
+                    ALTER TABLE clientes ADD COLUMN data_final_contrato DATE;
+                END IF;
+            END $$;
+        """)
 
         cur.execute("""
             CREATE TABLE IF NOT EXISTS clientes_arquivos (
@@ -158,6 +172,81 @@ def _parse_date(v):
         return None
 
 
+def _to_date(v):
+    """Aceita date, datetime ou string ISO. Retorna date ou None."""
+    if v is None or v == "":
+        return None
+    if isinstance(v, datetime):
+        return v.date()
+    if isinstance(v, date):
+        return v
+    try:
+        return datetime.strptime(str(v)[:10], "%Y-%m-%d").date()
+    except Exception:
+        return None
+
+
+def _metricas_relacionamento(cliente: dict) -> dict:
+    """
+    Calcula métricas derivadas pra exibir no dossiê:
+      - meses_como_cliente, dias_como_cliente
+      - ltv_estimado (valor_mensal × meses)
+      - dias_ate_vencimento (próximo mês corrente baseado em vencimento_dia)
+      - dias_ate_fim_contrato (negativo = expirado)
+    """
+    import calendar
+    today = date.today()
+    entrada = _to_date(cliente.get("entrada_em"))
+    fim = _to_date(cliente.get("data_final_contrato"))
+
+    meses = 0
+    dias_cliente = 0
+    if entrada:
+        dias_cliente = (today - entrada).days
+        meses = (today.year - entrada.year) * 12 + (today.month - entrada.month)
+        if today.day < entrada.day:
+            meses -= 1
+        meses = max(meses, 0)
+
+    valor = float(cliente.get("valor_mensal") or 0)
+    # LTV estimado considera fração de mês como mês completo se entrada faz >1 dia
+    # (evita LTV=0 pra cliente novo). Conservador: usa meses inteiros + 1 mês corrente.
+    meses_efetivos = meses + (1 if entrada and dias_cliente >= 1 else 0)
+    ltv_estimado = round(valor * meses_efetivos, 2)
+
+    dias_ate_venc = None
+    venc_dia = cliente.get("vencimento_dia")
+    if isinstance(venc_dia, int) and 1 <= venc_dia <= 31:
+        try:
+            last_this = calendar.monthrange(today.year, today.month)[1]
+            real_day = min(venc_dia, last_this)
+            this_month = date(today.year, today.month, real_day)
+            if this_month >= today:
+                dias_ate_venc = (this_month - today).days
+            else:
+                if today.month == 12:
+                    nx_year, nx_month = today.year + 1, 1
+                else:
+                    nx_year, nx_month = today.year, today.month + 1
+                last_nx = calendar.monthrange(nx_year, nx_month)[1]
+                nx = date(nx_year, nx_month, min(venc_dia, last_nx))
+                dias_ate_venc = (nx - today).days
+        except Exception:
+            pass
+
+    dias_ate_fim = None
+    if fim:
+        dias_ate_fim = (fim - today).days
+
+    return {
+        "meses_como_cliente": meses,
+        "dias_como_cliente": dias_cliente,
+        "ltv_estimado": ltv_estimado,
+        "dias_ate_vencimento": dias_ate_venc,
+        "dias_ate_fim_contrato": dias_ate_fim,
+    }
+
+
 def _row_to_dict(row):
     if not row:
         return None
@@ -170,7 +259,7 @@ def _row_to_dict(row):
             except Exception:
                 d[k] = []
     # Datas → ISO
-    for k in ("entrada_em",):
+    for k in ("entrada_em", "data_final_contrato"):
         if isinstance(d.get(k), date):
             d[k] = d[k].isoformat()
     for k in ("created_at", "updated_at"):
@@ -329,6 +418,7 @@ async def cliente_dossie(cliente_id: int, request: Request):
     cliente["arquivos"] = arquivos
     cliente["atas"] = atas
     cliente["documentos_vinculados"] = outros
+    cliente["metricas"] = _metricas_relacionamento(cliente)
 
     return cliente
 
@@ -523,6 +613,7 @@ async def update_cliente(cliente_id: int, request: Request):
         "em_risco": ("em_risco", "bool"),
         "ativo": ("ativo", "bool"),
         "entrada_em": ("entrada_em", "date"),
+        "data_final_contrato": ("data_final_contrato", "date"),
         "sigla": ("sigla", str),
     }
 
