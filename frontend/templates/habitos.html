@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hábitos — Sinapse</title>
+  <link rel="stylesheet" href="/static/style.css?v=2">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    body { overflow: hidden; }
+    .hab-shell { display: flex; height: 100vh; overflow: hidden; }
+    .hab-main { flex: 1; overflow: auto; padding: 24px 28px 64px; background: var(--bg); }
+
+    .hab-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; gap: 16px; flex-wrap: wrap; }
+    .hab-title { font-size: 1.45rem; font-weight: 700; }
+    .hab-title-sub { color: var(--muted); font-size: .85rem; margin-top: 2px; }
+    .hab-actions { display: flex; gap: 10px; align-items: center; }
+    .hab-btn {
+      background: var(--surface); border: 1px solid var(--border); color: var(--text);
+      padding: 8px 14px; border-radius: 8px; font-size: .85rem; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 6px; transition: border-color .15s, background .15s;
+    }
+    .hab-btn:hover { border-color: var(--accent); }
+    .hab-btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .hab-btn-primary:hover { background: var(--accent-hover, var(--accent)); filter: brightness(1.1); }
+
+    /* ── Week nav ── */
+    .hab-week-nav { display: flex; align-items: center; gap: 8px; }
+    .hab-week-label { font-size: .92rem; font-weight: 600; min-width: 220px; text-align: center; }
+
+    /* ── Stats cards ── */
+    .hab-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-bottom: 24px; }
+    .hab-stat-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;
+      border-left: 3px solid var(--accent);
+    }
+    .hab-stat-name { font-size: .85rem; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+    .hab-stat-streak { font-size: 1.6rem; font-weight: 700; line-height: 1.1; }
+    .hab-stat-streak-zero { color: var(--muted); }
+    .hab-stat-meta { font-size: .72rem; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
+    .hab-stat-meta-rec { color: #fbbf24; }
+
+    /* ── Week grid ── */
+    .hab-section-title { font-size: .85rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; }
+    .hab-week-table { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; border-collapse: collapse; margin-bottom: 28px; }
+    .hab-week-table th, .hab-week-table td { padding: 10px 8px; text-align: center; font-size: .82rem; border-bottom: 1px solid var(--border); }
+    .hab-week-table th { background: #161616; font-weight: 600; color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; }
+    .hab-week-table th.hab-th-name { text-align: left; padding-left: 16px; }
+    .hab-week-table td.hab-td-name { text-align: left; padding-left: 16px; font-weight: 600; }
+    .hab-week-table tr:last-child td { border-bottom: none; }
+    .hab-week-table td.hab-td-today { background: rgba(168, 85, 247, 0.06); }
+    .hab-week-table th.hab-th-today { background: rgba(168, 85, 247, 0.12); color: #c084fc; }
+
+    .hab-mark {
+      width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--border);
+      background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+      font-size: .9rem; line-height: 1; transition: transform .1s, background .15s, border-color .15s;
+    }
+    .hab-mark:hover { border-color: var(--accent); transform: scale(1.08); }
+    .hab-mark.done { background: #16a34a; border-color: #16a34a; color: #fff; }
+    .hab-mark.skip { background: #dc2626; border-color: #dc2626; color: #fff; }
+    .hab-mark.neutro { color: var(--muted); }
+
+    .hab-aderencia { font-weight: 700; padding: 3px 8px; border-radius: 6px; font-size: .78rem; }
+    .hab-ader-100 { background: #14532d; color: #86efac; }
+    .hab-ader-good { background: #166534; color: #bbf7d0; }
+    .hab-ader-mid { background: #713f12; color: #fde68a; }
+    .hab-ader-low { background: #7f1d1d; color: #fecaca; }
+    .hab-ader-zero { background: #1f2937; color: #6b7280; }
+
+    /* ── Heatmap ── */
+    .hab-heatmap-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; overflow-x: auto; }
+    .hab-heatmap { display: inline-grid; grid-template-rows: repeat(7, 12px); grid-auto-flow: column; grid-auto-columns: 12px; gap: 3px; }
+    .hab-hm-cell { width: 12px; height: 12px; border-radius: 2px; background: #1a1a1a; }
+    .hab-hm-l1 { background: #14532d; }
+    .hab-hm-l2 { background: #166534; }
+    .hab-hm-l3 { background: #16a34a; }
+    .hab-hm-l4 { background: #22c55e; }
+    .hab-hm-future { background: #0a0a0a; opacity: .35; }
+    .hab-hm-legend { display: flex; align-items: center; gap: 6px; margin-top: 12px; font-size: .72rem; color: var(--muted); }
+    .hab-hm-months { display: grid; grid-template-columns: repeat(12, 1fr); gap: 0; font-size: .68rem; color: var(--muted); margin-bottom: 6px; padding-left: 22px; max-width: 730px; }
+
+    /* ── Empty state ── */
+    .hab-empty { background: var(--surface); border: 1px dashed var(--border); border-radius: 12px; padding: 48px 24px; text-align: center; color: var(--muted); }
+    .hab-empty h3 { color: var(--text); margin-bottom: 8px; font-size: 1.1rem; }
+    .hab-empty p { font-size: .88rem; margin-bottom: 16px; max-width: 460px; margin-left: auto; margin-right: auto; line-height: 1.5; }
+
+    /* ── Modal ── */
+    .hab-modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.65); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .hab-modal { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 24px; width: 100%; max-width: 540px; max-height: 88vh; overflow: auto; }
+    .hab-modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+    .hab-modal-title { font-size: 1.05rem; font-weight: 700; }
+    .hab-modal-close { background: none; border: none; color: var(--muted); font-size: 1.4rem; cursor: pointer; padding: 0; width: 28px; height: 28px; }
+    .hab-form-row { margin-bottom: 14px; }
+    .hab-form-row label { display: block; font-size: .78rem; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+    .hab-form-row input { width: 100%; background: #111; border: 1px solid var(--border); color: var(--text); padding: 10px 12px; border-radius: 8px; font-size: .9rem; box-sizing: border-box; }
+    .hab-form-row input:focus { outline: none; border-color: var(--accent); }
+    .hab-freq-buttons { display: flex; gap: 6px; }
+    .hab-freq-btn { flex: 1; padding: 8px; background: #111; border: 1px solid var(--border); color: var(--text); border-radius: 6px; cursor: pointer; font-size: .85rem; }
+    .hab-freq-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+    .hab-list-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; }
+    .hab-list-item-name { flex: 1; font-size: .88rem; font-weight: 500; }
+    .hab-list-item-freq { font-size: .72rem; color: var(--muted); }
+    .hab-list-item-del { background: none; border: 1px solid var(--border); color: var(--muted); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: .75rem; }
+    .hab-list-item-del:hover { border-color: #dc2626; color: #f87171; }
+  </style>
+</head>
+<body>
+<div class="hab-shell" x-data="habApp()" x-init="init()" x-cloak>
+  {% include "_sidebar.html" %}
+
+  <main class="hab-main">
+    <div class="hab-header">
+      <div>
+        <div class="hab-title">Hábitos 🎯</div>
+        <div class="hab-title-sub">Consistência diária — sua versão do "Rastreador de Hábitos"</div>
+      </div>
+      <div class="hab-actions">
+        <button class="hab-btn" @click="openManage()">⚙️ Gerenciar</button>
+        <button class="hab-btn hab-btn-primary" @click="openCreate()">+ Novo hábito</button>
+      </div>
+    </div>
+
+    <!-- Stats cards (streaks) -->
+    <template x-if="stats.length">
+      <div class="hab-stats">
+        <template x-for="h in stats" :key="h.id">
+          <div class="hab-stat-card" :style="`border-left-color: ${h.cor}`">
+            <div class="hab-stat-name">
+              <span x-text="h.emoji"></span>
+              <span x-text="h.nome"></span>
+            </div>
+            <div class="hab-stat-streak" :class="h.streak === 0 ? 'hab-stat-streak-zero' : ''">
+              <span x-text="h.streak"></span>
+              <span style="font-size: 1.2rem;" x-text="h.streak > 0 ? '🔥' : '·'"></span>
+            </div>
+            <div class="hab-stat-meta">
+              <span class="hab-stat-meta-rec">★ Recorde: <span x-text="h.record"></span></span>
+              <span>Mês: <span x-text="h.mes_pct"></span>%</span>
+            </div>
+          </div>
+        </template>
+      </div>
+    </template>
+
+    <!-- Empty state -->
+    <template x-if="!loading && !stats.length">
+      <div class="hab-empty">
+        <h3>Nenhum hábito ainda</h3>
+        <p>Crie seu primeiro hábito pra começar a trackear. Sugestões: leitura, musculação, estudo, alimentação, jejum, escrita.</p>
+        <button class="hab-btn hab-btn-primary" @click="openCreate()">+ Criar primeiro hábito</button>
+      </div>
+    </template>
+
+    <!-- Week grid -->
+    <template x-if="week.habits && week.habits.length">
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <div class="hab-section-title">Semana</div>
+          <div class="hab-week-nav">
+            <button class="hab-btn" @click="prevWeek()">←</button>
+            <span class="hab-week-label" x-text="weekLabel"></span>
+            <button class="hab-btn" @click="nextWeek()" :disabled="isCurrentOrFuture">→</button>
+            <button class="hab-btn" @click="goToday()" x-show="!isCurrent">Hoje</button>
+          </div>
+        </div>
+        <table class="hab-week-table">
+          <thead>
+            <tr>
+              <th class="hab-th-name">Hábito</th>
+              <th>Meta</th>
+              <template x-for="(d, i) in week.days" :key="d">
+                <th :class="d === today ? 'hab-th-today' : ''" x-text="dayLabel(d, i)"></th>
+              </template>
+              <th>✓</th>
+              <th>Aderência</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="h in week.habits" :key="h.id">
+              <tr>
+                <td class="hab-td-name">
+                  <span x-text="h.emoji"></span> <span x-text="h.nome"></span>
+                </td>
+                <td><span x-text="h.freq_alvo"></span>x</td>
+                <template x-for="d in week.days" :key="d">
+                  <td :class="d === today ? 'hab-td-today' : ''">
+                    <button class="hab-mark"
+                            :class="markClass(h.marks[d])"
+                            @click="toggleMark(h, d, 'done')"
+                            @contextmenu.prevent="toggleMark(h, d, 'skip')"
+                            :title="markTitle(h.marks[d])">
+                      <span x-text="markIcon(h.marks[d])"></span>
+                    </button>
+                  </td>
+                </template>
+                <td><strong x-text="h.realizado"></strong></td>
+                <td>
+                  <span class="hab-aderencia" :class="aderenciaClass(h.aderencia)" x-text="h.aderencia + '%'"></span>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+        <div style="font-size: .72rem; color: var(--muted); margin-top: -18px; margin-bottom: 28px; padding-left: 4px;">
+          💡 <strong>Clique</strong> pra marcar como feito · <strong>Botão direito</strong> pra marcar como falho · <strong>Clique de novo</strong> pra desmarcar
+        </div>
+      </div>
+    </template>
+
+    <!-- Heatmap -->
+    <template x-if="heatmap.days">
+      <div>
+        <div class="hab-section-title" style="display:flex; justify-content: space-between; align-items: center;">
+          <span>Heatmap <span x-text="heatmap.year"></span></span>
+          <span style="font-size: .72rem; color: var(--muted); text-transform: none; letter-spacing: 0;">
+            Total: <strong x-text="heatmapTotal"></strong> marcações
+          </span>
+        </div>
+        <div class="hab-heatmap-wrap">
+          <div class="hab-hm-months">
+            <template x-for="(m, i) in ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']" :key="i">
+              <div x-text="m"></div>
+            </template>
+          </div>
+          <div class="hab-heatmap">
+            <template x-for="cell in heatmapCells" :key="cell.date">
+              <div class="hab-hm-cell" :class="cell.cls" :title="cell.title"></div>
+            </template>
+          </div>
+          <div class="hab-hm-legend">
+            <span>Menos</span>
+            <div class="hab-hm-cell"></div>
+            <div class="hab-hm-cell hab-hm-l1"></div>
+            <div class="hab-hm-cell hab-hm-l2"></div>
+            <div class="hab-hm-cell hab-hm-l3"></div>
+            <div class="hab-hm-cell hab-hm-l4"></div>
+            <span>Mais</span>
+          </div>
+        </div>
+      </div>
+    </template>
+  </main>
+
+  <!-- Modal: Criar hábito -->
+  <template x-if="showCreate">
+    <div class="hab-modal-bg" @click.self="showCreate = false">
+      <div class="hab-modal">
+        <div class="hab-modal-head">
+          <div class="hab-modal-title">Novo hábito</div>
+          <button class="hab-modal-close" @click="showCreate = false">×</button>
+        </div>
+        <div class="hab-form-row">
+          <label>Nome</label>
+          <input type="text" x-model="form.nome" placeholder="Ex: Musculação" @keydown.enter="saveHabit()">
+        </div>
+        <div style="display: grid; grid-template-columns: 80px 1fr; gap: 12px;">
+          <div class="hab-form-row">
+            <label>Emoji</label>
+            <input type="text" x-model="form.emoji" maxlength="4" style="text-align: center;">
+          </div>
+          <div class="hab-form-row">
+            <label>Cor</label>
+            <input type="color" x-model="form.cor" style="height: 42px; padding: 4px;">
+          </div>
+        </div>
+        <div class="hab-form-row">
+          <label>Frequência alvo (dias/semana)</label>
+          <div class="hab-freq-buttons">
+            <template x-for="n in [1,2,3,4,5,6,7]" :key="n">
+              <button class="hab-freq-btn" :class="form.freq_alvo === n ? 'active' : ''" @click="form.freq_alvo = n" x-text="n"></button>
+            </template>
+          </div>
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px;">
+          <button class="hab-btn" @click="showCreate = false">Cancelar</button>
+          <button class="hab-btn hab-btn-primary" @click="saveHabit()" :disabled="!form.nome.trim()">Salvar</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Modal: Gerenciar hábitos -->
+  <template x-if="showManage">
+    <div class="hab-modal-bg" @click.self="showManage = false">
+      <div class="hab-modal">
+        <div class="hab-modal-head">
+          <div class="hab-modal-title">Gerenciar hábitos</div>
+          <button class="hab-modal-close" @click="showManage = false">×</button>
+        </div>
+        <template x-if="!stats.length">
+          <p style="color: var(--muted); font-size: .88rem; padding: 12px 0;">Nenhum hábito ainda.</p>
+        </template>
+        <template x-for="h in stats" :key="h.id">
+          <div class="hab-list-item">
+            <span x-text="h.emoji"></span>
+            <div class="hab-list-item-name">
+              <div x-text="h.nome"></div>
+              <div class="hab-list-item-freq">Meta: <span x-text="h.freq_alvo"></span>x/sem · Total: <span x-text="h.total"></span> marcações</div>
+            </div>
+            <button class="hab-list-item-del" @click="deleteHabit(h)">Excluir</button>
+          </div>
+        </template>
+      </div>
+    </div>
+  </template>
+</div>
+
+<script>
+function habApp() {
+  return {
+    loading: true,
+    showCreate: false,
+    showManage: false,
+    form: { nome: '', emoji: '🎯', cor: '#4ade80', freq_alvo: 7 },
+
+    weekOffset: 0,  // 0 = semana atual, -1 = anterior, etc
+    today: new Date().toISOString().slice(0, 10),
+
+    week: { days: [], habits: [] },
+    stats: [],
+    heatmap: { year: new Date().getFullYear(), days: {}, max_count: 0 },
+
+    get weekLabel() {
+      if (!this.week.days.length) return '';
+      const start = this.week.days[0];
+      const end = this.week.days[6];
+      const fmt = (s) => {
+        const [y,m,d] = s.split('-');
+        return `${d}/${m}`;
+      };
+      return `${fmt(start)} – ${fmt(end)}`;
+    },
+
+    get isCurrent() { return this.weekOffset === 0; },
+    get isCurrentOrFuture() { return this.weekOffset >= 0; },
+
+    get heatmapCells() {
+      const y = this.heatmap.year;
+      const start = new Date(y, 0, 1);
+      // Padding pra começar na segunda da semana do dia 1
+      const startDow = (start.getDay() + 6) % 7;  // 0=seg, 6=dom
+      const cells = [];
+      for (let i = 0; i < startDow; i++) {
+        cells.push({ date: `pad-${i}`, cls: 'hab-hm-future', title: '' });
+      }
+      const todayDate = new Date();
+      for (let m = 0; m < 12; m++) {
+        const daysInMonth = new Date(y, m + 1, 0).getDate();
+        for (let d = 1; d <= daysInMonth; d++) {
+          const dt = new Date(y, m, d);
+          const iso = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+          const count = this.heatmap.days[iso] || 0;
+          const isFuture = dt > todayDate;
+          let cls = '';
+          if (isFuture) { cls = 'hab-hm-future'; }
+          else if (count === 0) { cls = ''; }
+          else if (this.heatmap.max_count <= 1) { cls = 'hab-hm-l4'; }
+          else {
+            const ratio = count / this.heatmap.max_count;
+            if (ratio >= 0.75) cls = 'hab-hm-l4';
+            else if (ratio >= 0.5) cls = 'hab-hm-l3';
+            else if (ratio >= 0.25) cls = 'hab-hm-l2';
+            else cls = 'hab-hm-l1';
+          }
+          cells.push({
+            date: iso,
+            cls,
+            title: `${iso} — ${count} ${count === 1 ? 'marcação' : 'marcações'}`,
+          });
+        }
+      }
+      return cells;
+    },
+
+    get heatmapTotal() {
+      return Object.values(this.heatmap.days || {}).reduce((a, b) => a + b, 0);
+    },
+
+    async init() {
+      await Promise.all([this.loadWeek(), this.loadStats(), this.loadHeatmap()]);
+      this.loading = false;
+    },
+
+    async loadWeek() {
+      const dateRef = this.weekRefDate();
+      const r = await fetch(`/api/habitos/week?data=${dateRef}`);
+      if (!r.ok) return;
+      this.week = await r.json();
+    },
+
+    async loadStats() {
+      const r = await fetch('/api/habitos/stats');
+      if (!r.ok) return;
+      const d = await r.json();
+      this.today = d.today;
+      this.stats = d.habits;
+    },
+
+    async loadHeatmap() {
+      const r = await fetch(`/api/habitos/heatmap?year=${this.heatmap.year}`);
+      if (!r.ok) return;
+      this.heatmap = await r.json();
+    },
+
+    weekRefDate() {
+      const t = new Date();
+      t.setDate(t.getDate() + this.weekOffset * 7);
+      return t.toISOString().slice(0, 10);
+    },
+
+    prevWeek() { this.weekOffset -= 1; this.loadWeek(); },
+    nextWeek() { if (this.weekOffset < 0) { this.weekOffset += 1; this.loadWeek(); } },
+    goToday() { this.weekOffset = 0; this.loadWeek(); },
+
+    dayLabel(d, i) {
+      const dias = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+      const day = d.split('-')[2];
+      return `${dias[i]} ${day}`;
+    },
+
+    markIcon(status) {
+      if (status === 'done') return '✓';
+      if (status === 'skip') return '✕';
+      return '·';
+    },
+    markClass(status) {
+      if (status === 'done') return 'done';
+      if (status === 'skip') return 'skip';
+      return 'neutro';
+    },
+    markTitle(status) {
+      if (status === 'done') return 'Feito (clique pra desmarcar)';
+      if (status === 'skip') return 'Falho (clique direito pra desmarcar)';
+      return 'Clique: feito · Botão direito: falho';
+    },
+
+    aderenciaClass(p) {
+      if (p >= 100) return 'hab-ader-100';
+      if (p >= 75) return 'hab-ader-good';
+      if (p >= 50) return 'hab-ader-mid';
+      if (p > 0) return 'hab-ader-low';
+      return 'hab-ader-zero';
+    },
+
+    async toggleMark(habit, data, status) {
+      const r = await fetch(`/api/habitos/${habit.id}/mark`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ data, status }),
+      });
+      if (!r.ok) return;
+      const res = await r.json();
+      // Atualiza localmente
+      if (res.status === null) {
+        delete habit.marks[data];
+      } else {
+        habit.marks[data] = res.status;
+      }
+      habit.realizado = Object.values(habit.marks).filter(s => s === 'done').length;
+      habit.aderencia = Math.round(habit.realizado / habit.freq_alvo * 1000) / 10;
+      // Refresh stats + heatmap (streak pode ter mudado)
+      this.loadStats();
+      this.loadHeatmap();
+    },
+
+    openCreate() {
+      this.form = { nome: '', emoji: '🎯', cor: '#4ade80', freq_alvo: 7 };
+      this.showCreate = true;
+    },
+
+    openManage() {
+      this.showManage = true;
+    },
+
+    async saveHabit() {
+      const nome = this.form.nome.trim();
+      if (!nome) return;
+      const r = await fetch('/api/habitos', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ ...this.form, nome }),
+      });
+      if (!r.ok) { alert('Erro ao salvar'); return; }
+      this.showCreate = false;
+      await Promise.all([this.loadWeek(), this.loadStats(), this.loadHeatmap()]);
+    },
+
+    async deleteHabit(h) {
+      if (!confirm(`Excluir "${h.nome}"? O histórico de marcações é mantido.`)) return;
+      const r = await fetch(`/api/habitos/${h.id}`, { method: 'DELETE' });
+      if (!r.ok) return;
+      await Promise.all([this.loadWeek(), this.loadStats(), this.loadHeatmap()]);
+    },
+  };
+}
+</script>
+{% include "_twemoji.html" %}
+</body>
+</html>
