@@ -777,6 +777,16 @@ function dossieApp(clienteId) {
       const docs = [...(this.cliente?.atas || []), ...(this.cliente?.documentos_vinculados || [])];
       const ficha = docs.find(d => /ficha\s*do\s*cliente/i.test(d.title || ''));
       if (ficha) this.fichaLegacy = { id: ficha.id, content: '' };
+
+      // ?tab=… deep-link (vindo do gerador de atas, por exemplo)
+      const params = new URLSearchParams(window.location.search);
+      const initialTab = params.get('tab');
+      const validTabs = ['overview', 'reunioes', 'documentos', 'contrato', 'briefing', 'ficha', 'venda', 'plano'];
+      if (initialTab && validTabs.includes(initialTab)) {
+        this.tab = initialTab;
+        if (initialTab === 'briefing') this.loadBriefing();
+        if (initialTab === 'ficha') this.loadFicha();
+      }
       this.loading = false;
     },
 

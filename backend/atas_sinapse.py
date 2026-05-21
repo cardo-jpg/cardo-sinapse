@@ -240,20 +240,38 @@ async def publish_ata_sinapse(request: Request):
     finally:
         cur.close(); conn.close()
 
-    breadcrumb = " · ".join([
-        "Operacional",
-        "Gestão de Contas",
-        "Documentação",
-        nodes["doc_cliente"]["title"],
-        "Atas de Reunião",
-        title,
-    ])
+    # Tenta achar o cliente nativo pra linkar pro dossiê (Reuniões aparece automaticamente)
+    cliente_id = None
+    try:
+        cn = get_conn(); cu = dict_cursor(cn)
+        try:
+            cu.execute("SELECT id FROM clientes WHERE sigla=%s LIMIT 1", (sigla,))
+            row = cu.fetchone()
+            if row:
+                cliente_id = row["id"]
+        finally:
+            cu.close(); cn.close()
+    except Exception:
+        cliente_id = None
+
+    if cliente_id:
+        url = f"/clientes/{cliente_id}?tab=reunioes"
+        breadcrumb = f"{nodes['doc_cliente']['title']} · Reuniões · {title}"
+    else:
+        # Fallback: cliente não está na tabela nativa, abre o doc no /gestao
+        url = f"/gestao?doc={ata['id']}"
+        breadcrumb = " · ".join([
+            "Operacional", "Gestão de Contas", "Documentação",
+            nodes["doc_cliente"]["title"], "Atas de Reunião", title,
+        ])
+
     return {
         "ok":          True,
         "doc_id":      ata["id"],
-        "url":         f"/gestao#doc:{ata['id']}",
+        "url":         url,
         "breadcrumb":  breadcrumb,
         "client_name": nodes["client_name"],
+        "cliente_id":  cliente_id,
     }
 
 
