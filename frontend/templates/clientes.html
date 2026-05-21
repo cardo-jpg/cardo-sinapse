@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clientes — Sinapse</title>
+  <link rel="stylesheet" href="/static/style.css?v=2">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    body { overflow: hidden; }
+    .cl-shell { display: flex; height: 100vh; overflow: hidden; }
+    .cl-main { flex: 1; overflow: auto; padding: 22px 26px 64px; background: var(--bg); }
+
+    /* ── Header ── */
+    .cl-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 12px; }
+    .cl-title { font-size: 1.4rem; font-weight: 700; }
+    .cl-title-sub { font-size: .8rem; color: var(--muted); margin-top: 2px; }
+    .cl-btn {
+      background: var(--surface); border: 1px solid var(--border); color: var(--text);
+      padding: 9px 16px; border-radius: 8px; font-size: .85rem; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 6px; font-weight: 500;
+    }
+    .cl-btn:hover { border-color: var(--accent); }
+    .cl-btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .cl-btn-primary:hover { background: var(--accent-hover); }
+    .cl-btn-ghost { background: transparent; border-color: transparent; color: var(--muted); }
+    .cl-btn-ghost:hover { color: var(--text); border-color: var(--border); }
+    .cl-btn-danger { color: #f87171; }
+    .cl-btn-danger:hover { border-color: #f87171; }
+    .cl-btn-sm { padding: 5px 10px; font-size: .76rem; }
+
+    /* ── Filtros ── */
+    .cl-filters { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+    .cl-input {
+      background: var(--surface); border: 1px solid var(--border); color: var(--text);
+      padding: 9px 12px; border-radius: 8px; font-size: .85rem;
+    }
+    .cl-input:focus { outline: none; border-color: var(--accent); }
+    .cl-search { flex: 1; min-width: 260px; }
+
+    .cl-summary { font-size: .78rem; color: var(--muted); margin-bottom: 10px; }
+
+    /* ── Tabela ── */
+    .cl-table { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; border-collapse: collapse; overflow: hidden; }
+    .cl-table th { text-align: left; padding: 10px 14px; font-size: .68rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; border-bottom: 1px solid var(--border); background: #161616; }
+    .cl-table td { padding: 14px; border-bottom: 1px solid var(--border); font-size: .85rem; vertical-align: middle; }
+    .cl-table tr:last-child td { border-bottom: none; }
+    .cl-table tr.cl-row { cursor: pointer; transition: background .12s; }
+    .cl-table tr.cl-row:hover { background: rgba(255, 77, 0, .05); }
+    .cl-table tr.cl-inativo { opacity: .5; }
+
+    .cl-cliente-cell { display: flex; align-items: center; gap: 12px; }
+    .cl-avatar { width: 38px; height: 38px; border-radius: 50%; background: #2a1208; border: 1.5px solid var(--accent); color: var(--accent); font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: .78rem; flex-shrink: 0; }
+    .cl-cliente-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .cl-cliente-nome { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+    .cl-cliente-nicho { font-size: .72rem; color: var(--muted); }
+
+    .cl-badge { display: inline-block; padding: 3px 9px; border-radius: 6px; font-size: .7rem; font-weight: 600; }
+    .cl-badge-ativo { background: #052e16; color: #4ade80; }
+    .cl-badge-inativo { background: #1f1f1f; color: var(--muted); }
+    .cl-badge-otimo { background: #052e16; color: #4ade80; }
+    .cl-badge-bom { background: #0c2c43; color: #60a5fa; }
+    .cl-badge-medio, .cl-badge-media { background: #2c1d05; color: #fbbf24; }
+    .cl-badge-ruim { background: #2c0608; color: #f87171; }
+    .cl-badge-neutra { background: #161616; color: var(--muted); border: 1px solid var(--border); }
+
+    .cl-saude { font-weight: 700; font-size: .9rem; }
+    .cl-saude-boa { color: #4ade80; }
+    .cl-saude-media { color: #fbbf24; }
+    .cl-saude-ruim { color: #f87171; }
+    .cl-saude-neutra { color: var(--muted); }
+
+    .cl-row-actions { display: flex; gap: 4px; justify-content: flex-end; }
+
+    .cl-empty { padding: 60px 20px; text-align: center; color: var(--muted); font-size: .9rem; }
+
+    /* ── Modal ── */
+    .cl-modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .cl-modal { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 720px; max-height: 92vh; display: flex; flex-direction: column; }
+    .cl-modal-head { padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .cl-modal-title { font-size: 1.05rem; font-weight: 700; }
+    .cl-modal-close { background: none; border: none; color: var(--muted); font-size: 1.5rem; cursor: pointer; padding: 0; line-height: 1; }
+    .cl-modal-body { padding: 18px 22px; overflow: auto; flex: 1; }
+    .cl-modal-foot { padding: 14px 22px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+
+    /* Tabs */
+    .cl-tabs { display: flex; gap: 4px; background: #0f0f0f; border: 1px solid var(--border); padding: 3px; border-radius: 10px; margin-bottom: 18px; }
+    .cl-tab { flex: 1; background: transparent; border: none; color: var(--muted); padding: 8px 12px; border-radius: 7px; font-size: .82rem; font-weight: 500; cursor: pointer; }
+    .cl-tab.active { background: var(--accent); color: #fff; }
+
+    /* Form */
+    .cl-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+    .cl-form-row.single { grid-template-columns: 1fr; }
+    .cl-form-field label { display: block; font-size: .72rem; font-weight: 600; color: var(--muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .04em; }
+    .cl-form-field input, .cl-form-field select, .cl-form-field textarea {
+      width: 100%; box-sizing: border-box;
+      background: #0f0f0f; border: 1px solid var(--border); color: var(--text);
+      padding: 9px 12px; border-radius: 7px; font-size: .85rem; font-family: inherit;
+    }
+    .cl-form-field input:focus, .cl-form-field select:focus, .cl-form-field textarea:focus { outline: none; border-color: var(--accent); }
+    .cl-form-field textarea { resize: vertical; min-height: 90px; }
+
+    .cl-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .cl-chip {
+      background: #0f0f0f; border: 1px solid var(--border); color: var(--muted);
+      padding: 5px 11px; border-radius: 999px; font-size: .76rem; cursor: pointer;
+      transition: all .12s;
+    }
+    .cl-chip:hover { color: var(--text); border-color: var(--muted); }
+    .cl-chip.active { background: rgba(255, 77, 0, .15); border-color: var(--accent); color: var(--accent); }
+
+    /* Upload contrato */
+    .cl-upload-card {
+      background: #0f0f0f; border: 1px dashed var(--border); border-radius: 10px;
+      padding: 16px; text-align: center; margin-top: 6px;
+    }
+    .cl-upload-card.has-file { border-style: solid; border-color: var(--accent); background: rgba(255, 77, 0, .04); }
+    .cl-upload-info { font-size: .85rem; }
+    .cl-upload-hint { font-size: .72rem; color: var(--muted); margin-top: 4px; }
+    .cl-upload-input { display: none; }
+
+    .cl-arquivos-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+    .cl-arquivo { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #0f0f0f; border: 1px solid var(--border); border-radius: 7px; font-size: .82rem; }
+    .cl-arquivo-icon { font-size: 1rem; }
+    .cl-arquivo-info { flex: 1; min-width: 0; }
+    .cl-arquivo-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cl-arquivo-meta { font-size: .68rem; color: var(--muted); }
+
+    .cl-hint { font-size: .72rem; color: var(--muted); margin-top: 6px; }
+    .cl-divider { border-top: 1px solid var(--border); margin: 18px 0 14px; padding-top: 14px; font-size: .72rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; }
+  </style>
+</head>
+<body>
+<div class="cl-shell" x-data="clientesApp()" x-init="init()" x-cloak>
+  {% include "_sidebar.html" %}
+
+  <main class="cl-main">
+    <div class="cl-header">
+      <div>
+        <div class="cl-title">Clientes</div>
+        <div class="cl-title-sub">Núcleo de gestão de contas — substitui Gestão de Contas do Operacional</div>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button class="cl-btn cl-btn-ghost" @click="migrarDoPainel()" x-show="!clientes.length">
+          ⇪ Importar do Painel
+        </button>
+        <button class="cl-btn cl-btn-primary" @click="openCreate()">+ Novo cliente</button>
+      </div>
+    </div>
+
+    <div class="cl-filters">
+      <input class="cl-input cl-search" type="text" x-model.debounce.300ms="filters.q" @input="load()" placeholder="🔍 Buscar cliente, sigla ou razão social…">
+      <select class="cl-input" x-model="filters.status" @change="load()">
+        <option value="ativo">Apenas ativos</option>
+        <option value="">Todos</option>
+        <option value="inativo">Apenas inativos</option>
+      </select>
+      <select class="cl-input" x-model="filters.account" @change="load()">
+        <option value="">Todos os accounts</option>
+        <template x-for="a in accounts" :key="a">
+          <option :value="a" x-text="a"></option>
+        </template>
+      </select>
+    </div>
+
+    <div class="cl-summary">
+      <strong x-text="clientes.length"></strong> cliente(s)
+      · MRR: <strong x-text="formatBRL(mrrTotal)"></strong>
+    </div>
+
+    <template x-if="!loading && !clientes.length">
+      <div class="cl-empty">
+        Nenhum cliente cadastrado ainda.<br>
+        <button class="cl-btn cl-btn-primary" style="margin-top: 14px;" @click="openCreate()">+ Cadastrar primeiro cliente</button>
+      </div>
+    </template>
+
+    <template x-if="clientes.length">
+      <table class="cl-table">
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th>Account</th>
+            <th>Plano</th>
+            <th>Valor</th>
+            <th>Perf.</th>
+            <th style="text-align:center;">Saúde</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="c in clientes" :key="c.id">
+            <tr class="cl-row" :class="!c.ativo ? 'cl-inativo' : ''" @click="openEdit(c)">
+              <td>
+                <div class="cl-cliente-cell">
+                  <div class="cl-avatar" x-text="c.sigla"></div>
+                  <div class="cl-cliente-info">
+                    <div class="cl-cliente-nome" x-text="c.razao_social"></div>
+                    <div class="cl-cliente-nicho" x-text="c.nicho || c.nome_fantasia || ''"></div>
+                  </div>
+                </div>
+              </td>
+              <td x-text="c.account || '—'"></td>
+              <td x-text="c.plano_pacote || '—'"></td>
+              <td x-text="formatBRL(c.valor_mensal)"></td>
+              <td>
+                <span class="cl-badge" :class="perfBadge(c.performance)" x-text="c.performance || '—'"></span>
+              </td>
+              <td style="text-align:center;">
+                <span class="cl-saude" :class="saudeColor(c.saude)" x-text="c.saude !== null && c.saude !== undefined ? c.saude : '—'"></span>
+              </td>
+              <td>
+                <span class="cl-badge" :class="c.ativo ? 'cl-badge-ativo' : 'cl-badge-inativo'" x-text="c.ativo ? 'Ativo' : 'Inativo'"></span>
+              </td>
+              <td>
+                <div class="cl-row-actions">
+                  <button class="cl-btn cl-btn-ghost cl-btn-sm" @click.stop="openEdit(c)" title="Editar">✏️</button>
+                  <button class="cl-btn cl-btn-ghost cl-btn-sm cl-btn-danger" @click.stop="confirmDelete(c)" title="Inativar">🗑</button>
+                </div>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </template>
+  </main>
+
+  <!-- ────────────────────── Modal Novo/Editar ────────────────────── -->
+  <template x-if="showModal">
+    <div class="cl-modal-bg" @click.self="closeModal()">
+      <div class="cl-modal">
+        <div class="cl-modal-head">
+          <div class="cl-modal-title" x-text="editing ? `Editar — ${form.sigla || form.razao_social}` : 'Novo Cliente'"></div>
+          <button class="cl-modal-close" @click="closeModal()">×</button>
+        </div>
+        <div class="cl-modal-body">
+
+          <div class="cl-tabs">
+            <button class="cl-tab" :class="tab === 'info' ? 'active' : ''" @click="tab = 'info'">Informações</button>
+            <button class="cl-tab" :class="tab === 'fin' ? 'active' : ''" @click="tab = 'fin'">Financeiro</button>
+            <button class="cl-tab" :class="tab === 'venda' ? 'active' : ''" @click="tab = 'venda'">Reunião de Venda</button>
+            <button class="cl-tab" :class="tab === 'plano' ? 'active' : ''" @click="tab = 'plano'">Plano de Ação</button>
+          </div>
+
+          <!-- ── Aba Informações ── -->
+          <div x-show="tab === 'info'">
+            <div class="cl-form-row">
+              <div class="cl-form-field">
+                <label>Razão Social *</label>
+                <input type="text" x-model="form.razao_social" placeholder="Empresa XYZ Ltda">
+              </div>
+              <div class="cl-form-field">
+                <label>Sigla</label>
+                <input type="text" x-model="form.sigla" maxlength="10" placeholder="auto se vazio" style="text-transform: uppercase;">
+              </div>
+            </div>
+            <div class="cl-form-row">
+              <div class="cl-form-field">
+                <label>Nome Fantasia</label>
+                <input type="text" x-model="form.nome_fantasia" placeholder="Nome comercial">
+              </div>
+              <div class="cl-form-field">
+                <label>CNPJ</label>
+                <input type="text" x-model="form.cnpj" placeholder="00.000.000/0000-00">
+              </div>
+            </div>
+            <div class="cl-form-row">
+              <div class="cl-form-field">
+                <label>Account responsável</label>
+                <input type="text" x-model="form.account" placeholder="Victor / José / ...">
+              </div>
+              <div class="cl-form-field">
+                <label>Nicho de mercado</label>
+                <input type="text" x-model="form.nicho" placeholder="E-commerce, B2B, Saúde…">
+              </div>
+            </div>
+            <div class="cl-form-row">
+              <div class="cl-form-field">
+                <label>Plano / Pacote</label>
+                <input type="text" x-model="form.plano_pacote" placeholder="Gestão completa Meta + Google">
+              </div>
+              <div class="cl-form-field">
+                <label>Status do contrato</label>
+                <input type="text" x-model="form.status_contrato" placeholder="Vigente / Em renovação">
+              </div>
+            </div>
+            <div class="cl-form-row">
+              <div class="cl-form-field">
+                <label>Performance</label>
+                <select x-model="form.performance">
+                  <option value="">—</option>
+                  <option value="Ótimo">Ótimo</option>
+                  <option value="Bom">Bom</option>
+                  <option value="Médio">Médio</option>
+                  <option value="Ruim">Ruim</option>
+                </select>
+              </div>
+              <div class="cl-form-field">
+                <label>Inadimplente?</label>
+                <select x-model="form.inadimplente">
+                  <option :value="false">Não</option>
+                  <option :value="true">Sim</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="cl-form-field" style="margin-bottom: 12px;">
+              <label>Canais ativos</label>
+              <div class="cl-chips">
+                <template x-for="ch in canaisOpts" :key="ch">
+                  <button class="cl-chip" :class="form.canais_ativos.includes(ch) ? 'active' : ''" @click="toggleArr('canais_ativos', ch)" x-text="ch"></button>
+                </template>
+              </div>
+            </div>
+
+            <div class="cl-form-field">
+              <label>Observações importantes</label>
+              <textarea x-model="form.observacoes" placeholder="Promessas feitas na venda, pedidos especiais…"></textarea>
+            </div>
+          </div>
+
+          <!-- ── Aba Financeiro ── -->
+          <div x-show="tab === 'fin'">
+            <div class="cl-form-row" style="grid-template-columns: 1fr 130px 1fr;">
+              <div class="cl-form-field">
+                <label>Valor mensal (honorários)</label>
+                <input type="number" step="0.01" x-model.number="form.valor_mensal" placeholder="0,00">
+              </div>
+              <div class="cl-form-field">
+                <label>Vencimento (dia)</label>
+                <input type="number" min="1" max="31" x-model.number="form.vencimento_dia" placeholder="10">
+              </div>
+              <div class="cl-form-field">
+                <label>Verba de mídia (R$)</label>
+                <input type="number" step="0.01" x-model.number="form.verba_midia" placeholder="0,00">
+              </div>
+            </div>
+            <div class="cl-form-row single">
+              <div class="cl-form-field">
+                <label>Forma de pagamento</label>
+                <input type="text" x-model="form.forma_pagamento" placeholder="Boleto / Cartão / PIX / Pós-pago">
+              </div>
+            </div>
+            <div class="cl-form-field" style="margin-bottom: 12px;">
+              <label>Plataformas de anúncio</label>
+              <div class="cl-chips">
+                <template x-for="p in plataformasOpts" :key="p">
+                  <button class="cl-chip" :class="form.plataformas.includes(p) ? 'active' : ''" @click="toggleArr('plataformas', p)" x-text="p"></button>
+                </template>
+              </div>
+            </div>
+
+            <div class="cl-divider">📎 Contrato e documentos</div>
+
+            <div class="cl-upload-card" :class="uploadFile ? 'has-file' : ''" @click="$refs.fileInput.click()" @dragover.prevent @drop.prevent="handleDrop($event)">
+              <template x-if="!uploadFile">
+                <div>
+                  <div class="cl-upload-info">📄 Clique ou arraste o contrato (PDF até 10MB)</div>
+                  <div class="cl-upload-hint">O arquivo fica salvo no Sinapse e disponível pra você ou o cliente baixar</div>
+                </div>
+              </template>
+              <template x-if="uploadFile">
+                <div>
+                  <div class="cl-upload-info">📄 <span x-text="uploadFile.name"></span></div>
+                  <div class="cl-upload-hint">
+                    <span x-text="formatSize(uploadFile.size)"></span> · pronto pra enviar quando salvar
+                    <button class="cl-btn cl-btn-ghost cl-btn-sm" @click.stop="uploadFile = null">remover</button>
+                  </div>
+                </div>
+              </template>
+              <input type="file" class="cl-upload-input" x-ref="fileInput" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" @change="uploadFile = $event.target.files[0]">
+            </div>
+
+            <template x-if="editing && arquivos.length">
+              <div class="cl-arquivos-list">
+                <template x-for="a in arquivos" :key="a.id">
+                  <div class="cl-arquivo">
+                    <span class="cl-arquivo-icon" x-text="iconForType(a.mime_type)"></span>
+                    <div class="cl-arquivo-info">
+                      <div class="cl-arquivo-name" x-text="a.titulo || a.filename"></div>
+                      <div class="cl-arquivo-meta">
+                        <span x-text="a.tipo"></span> · <span x-text="formatSize(a.size_bytes)"></span>
+                        · <span x-text="fmtDate(a.uploaded_at)"></span>
+                      </div>
+                    </div>
+                    <a :href="`/api/clientes/${form.id}/arquivos/${a.id}/download`" target="_blank" class="cl-btn cl-btn-ghost cl-btn-sm">⬇</a>
+                    <button class="cl-btn cl-btn-ghost cl-btn-sm cl-btn-danger" @click="delArquivo(a.id)">🗑</button>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+
+          <!-- ── Aba Reunião de Venda ── -->
+          <div x-show="tab === 'venda'">
+            <div style="background: rgba(96, 165, 250, .08); border: 1px solid rgba(96, 165, 250, .2); padding: 10px 14px; border-radius: 8px; font-size: .8rem; color: #93c5fd; margin-bottom: 14px;">
+              💡 Cole a transcrição da reunião de venda. No futuro, o sistema vai extrair automaticamente o objetivo e os acordos.
+            </div>
+            <div class="cl-form-field" style="margin-bottom: 12px;">
+              <label>Transcrição da reunião de venda</label>
+              <textarea x-model="form.reuniao_venda_transcricao" rows="8" placeholder="Cole a transcrição aqui…"></textarea>
+            </div>
+            <div class="cl-form-field">
+              <label>Resumo (objetivo + acordos)</label>
+              <textarea x-model="form.reuniao_venda_resumo" rows="5" placeholder="Objetivo: ...&#10;Combinado: ..."></textarea>
+              <div class="cl-hint">Edite livremente ou cole o resumo manualmente.</div>
+            </div>
+          </div>
+
+          <!-- ── Aba Plano de Ação ── -->
+          <div x-show="tab === 'plano'">
+            <div class="cl-form-field">
+              <label>Plano de ação acordado com o cliente</label>
+              <textarea x-model="form.plano_acao" rows="14" placeholder="Mês 1: ...&#10;Mês 2: ...&#10;Mês 3: ..."></textarea>
+            </div>
+          </div>
+
+        </div>
+        <div class="cl-modal-foot">
+          <button class="cl-btn" @click="closeModal()">Cancelar</button>
+          <button class="cl-btn cl-btn-primary" @click="save()" :disabled="saving || !form.razao_social.trim()">
+            <span x-text="saving ? 'Salvando…' : (editing ? 'Salvar' : 'Cadastrar cliente')"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </template>
+</div>
+
+<script>
+function clientesApp() {
+  return {
+    loading: true,
+    clientes: [],
+    filters: { q: '', status: 'ativo', account: '' },
+
+    showModal: false,
+    tab: 'info',
+    editing: false,
+    saving: false,
+
+    canaisOpts: ['Google Ads', 'Meta Ads', 'Instagram', 'Facebook', 'LinkedIn', 'TikTok', 'YouTube', 'SEO', 'Email Marketing', 'WhatsApp'],
+    plataformasOpts: ['Google Ads', 'Meta Ads', 'TikTok Ads', 'LinkedIn Ads', 'YouTube Ads', 'Pinterest Ads'],
+
+    form: {},
+    uploadFile: null,
+    arquivos: [],
+
+    get accounts() {
+      const set = new Set();
+      this.clientes.forEach(c => c.account && set.add(c.account));
+      return Array.from(set).sort();
+    },
+
+    get mrrTotal() {
+      return this.clientes.filter(c => c.ativo).reduce((a, c) => a + (c.valor_mensal || 0), 0);
+    },
+
+    async init() { await this.load(); },
+
+    async load() {
+      this.loading = true;
+      const params = new URLSearchParams();
+      if (this.filters.q) params.set('q', this.filters.q);
+      if (this.filters.status) params.set('status', this.filters.status);
+      if (this.filters.account) params.set('account', this.filters.account);
+      try {
+        const r = await fetch(`/api/clientes?${params.toString()}`);
+        if (r.ok) {
+          const d = await r.json();
+          this.clientes = d.clientes || [];
+        }
+      } catch (e) { console.error(e); }
+      this.loading = false;
+    },
+
+    emptyForm() {
+      return {
+        id: null,
+        sigla: '', razao_social: '', nome_fantasia: '', cnpj: '',
+        account: '', plano_pacote: '', nicho: '',
+        status_contrato: '', performance: '', inadimplente: false,
+        canais_ativos: [], observacoes: '',
+        valor_mensal: 0, vencimento_dia: null, verba_midia: 0,
+        forma_pagamento: '', plataformas: [],
+        reuniao_venda_transcricao: '', reuniao_venda_resumo: '',
+        plano_acao: '',
+        saude: null, saude_label: null, em_risco: false, ativo: true,
+      };
+    },
+
+    openCreate() {
+      this.form = this.emptyForm();
+      this.uploadFile = null;
+      this.arquivos = [];
+      this.editing = false;
+      this.tab = 'info';
+      this.showModal = true;
+    },
+
+    async openEdit(c) {
+      this.form = { ...this.emptyForm(), ...c };
+      if (!Array.isArray(this.form.canais_ativos)) this.form.canais_ativos = [];
+      if (!Array.isArray(this.form.plataformas)) this.form.plataformas = [];
+      this.uploadFile = null;
+      this.arquivos = [];
+      this.editing = true;
+      this.tab = 'info';
+      this.showModal = true;
+      // Busca arquivos
+      try {
+        const r = await fetch(`/api/clientes/${c.id}`);
+        if (r.ok) {
+          const d = await r.json();
+          this.arquivos = d.arquivos || [];
+        }
+      } catch (e) { console.error(e); }
+    },
+
+    closeModal() { this.showModal = false; },
+
+    toggleArr(key, val) {
+      const arr = this.form[key] || [];
+      const i = arr.indexOf(val);
+      if (i >= 0) arr.splice(i, 1);
+      else arr.push(val);
+      this.form[key] = [...arr];
+    },
+
+    async save() {
+      this.saving = true;
+      const url = this.editing ? `/api/clientes/${this.form.id}` : '/api/clientes';
+      const method = this.editing ? 'PUT' : 'POST';
+      try {
+        const r = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(this.form),
+        });
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          alert(err.detail || 'Erro ao salvar');
+          this.saving = false;
+          return;
+        }
+        const d = await r.json();
+        const cliente = d.cliente;
+
+        // Upload de arquivo, se houver
+        if (this.uploadFile && cliente?.id) {
+          const fd = new FormData();
+          fd.append('file', this.uploadFile);
+          fd.append('tipo', this._isContrato(this.uploadFile.name) ? 'contrato' : 'documento');
+          fd.append('titulo', this.uploadFile.name);
+          await fetch(`/api/clientes/${cliente.id}/arquivos`, { method: 'POST', body: fd });
+        }
+
+        this.saving = false;
+        this.closeModal();
+        await this.load();
+      } catch (e) {
+        console.error(e);
+        alert('Falha de rede');
+        this.saving = false;
+      }
+    },
+
+    _isContrato(name) { return /contrato/i.test(name || ''); },
+
+    async confirmDelete(c) {
+      if (!confirm(`Inativar "${c.razao_social}"?\nO histórico é mantido — o cliente fica oculto da lista de ativos.`)) return;
+      await fetch(`/api/clientes/${c.id}`, { method: 'DELETE' });
+      await this.load();
+    },
+
+    async delArquivo(arqId) {
+      if (!confirm('Remover este arquivo?')) return;
+      await fetch(`/api/clientes/${this.form.id}/arquivos/${arqId}`, { method: 'DELETE' });
+      this.arquivos = this.arquivos.filter(a => a.id !== arqId);
+    },
+
+    handleDrop(ev) {
+      if (ev.dataTransfer.files.length) this.uploadFile = ev.dataTransfer.files[0];
+    },
+
+    async migrarDoPainel() {
+      if (!confirm('Importar os clientes do Painel de Clientes (ClickUp)?')) return;
+      const r = await fetch('/api/clientes/migrate-from-painel', { method: 'POST' });
+      const d = await r.json();
+      alert(`Migrados: ${d.migrated} · Pulados: ${d.skipped}${d.errors?.length ? '\n\nErros:\n' + d.errors.join('\n') : ''}`);
+      await this.load();
+    },
+
+    formatBRL(v) { return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0); },
+    formatSize(b) {
+      if (!b) return '0 B';
+      const u = ['B', 'KB', 'MB']; let i = 0; let n = b;
+      while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+      return `${n.toFixed(n < 10 && i > 0 ? 1 : 0)} ${u[i]}`;
+    },
+    fmtDate(iso) { if (!iso) return ''; const d = new Date(iso); return d.toLocaleDateString('pt-BR'); },
+
+    iconForType(mt) {
+      if (!mt) return '📎';
+      if (mt.startsWith('image/')) return '🖼️';
+      if (mt.includes('pdf')) return '📕';
+      if (mt.includes('word')) return '📘';
+      return '📄';
+    },
+
+    perfBadge(p) {
+      const v = (p || '').toLowerCase();
+      if (v === 'ótimo' || v === 'otimo') return 'cl-badge-otimo';
+      if (v === 'bom') return 'cl-badge-bom';
+      if (v === 'médio' || v === 'medio') return 'cl-badge-medio';
+      if (v === 'ruim') return 'cl-badge-ruim';
+      return 'cl-badge-neutra';
+    },
+
+    saudeColor(s) {
+      if (s === null || s === undefined) return 'cl-saude-neutra';
+      if (s >= 75) return 'cl-saude-boa';
+      if (s >= 50) return 'cl-saude-media';
+      return 'cl-saude-ruim';
+    },
+  };
+}
+</script>
+{% include "_twemoji.html" %}
+</body>
+</html>

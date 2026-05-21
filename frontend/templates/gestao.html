@@ -1822,6 +1822,12 @@
         <span>Início</span>
       </button>
       <button class="g-nav-link" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit"
+              :class="mainMode==='embed' && iframeUrl==='/clientes' ? 'active' : ''"
+              @click="openEmbed('/clientes')" data-label="Clientes">
+        <span class="g-nav-icon">👥</span>
+        <span>Clientes</span>
+      </button>
+      <button class="g-nav-link" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit"
               :class="mainMode==='embed' && iframeUrl==='/conversar' ? 'active' : ''"
               @click="openEmbed('/conversar')" data-label="Cérebro">
         <span class="g-nav-icon">🧠</span>

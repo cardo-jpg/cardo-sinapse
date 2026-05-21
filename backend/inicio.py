@@ -87,6 +87,86 @@ def _parse_sigla_nome(title: str):
     return "?", (title or "").strip()
 
 
+def _load_from_clientes_nativo() -> list:
+    """Lê clientes ativos da tabela nativa. Retorna lista vazia se tabela vazia."""
+    try:
+        conn = get_conn()
+        cur = dict_cursor(conn)
+        try:
+            cur.execute(
+                """
+                SELECT sigla, razao_social, account, valor_mensal,
+                       saude, saude_label, em_risco
+                  FROM clientes
+                 WHERE ativo = TRUE
+                 ORDER BY razao_social
+                """,
+            )
+            rows = cur.fetchall() or []
+        finally:
+            cur.close()
+            conn.close()
+    except Exception:
+        return []
+
+    out = []
+    for r in rows:
+        out.append({
+            "sigla": r.get("sigla") or "?",
+            "nome": r.get("razao_social") or "",
+            "fee_mensal": float(r.get("valor_mensal") or 0),
+            "saude": r.get("saude"),
+            "saude_label": r.get("saude_label") or "—",
+            "responsavel": r.get("account") or "",
+            "em_risco": bool(r.get("em_risco")),
+        })
+    return out
+
+
+def _load_from_painel() -> list:
+    """Fallback: Painel de Clientes (ClickUp sync). Idêntico ao comportamento anterior."""
+    list_id, cf_by_name = _find_painel()
+    fee_field_id = cf_by_name.get("fee mensal") or cf_by_name.get("fee")
+    if not list_id:
+        return []
+
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute(
+            "SELECT title, status, cf_values FROM tasks WHERE list_id=%s ORDER BY title",
+            (list_id,),
+        )
+        rows = cur.fetchall() or []
+    finally:
+        cur.close()
+        conn.close()
+
+    out = []
+    for r in rows:
+        status = (r.get("status") or "").strip().lower()
+        if status != "ativo":
+            continue
+        sigla, nome = _parse_sigla_nome(r.get("title") or "")
+        fee = 0.0
+        if fee_field_id:
+            try:
+                cfv = json.loads(r.get("cf_values") or "{}")
+            except Exception:
+                cfv = {}
+            fee = _parse_money(cfv.get(fee_field_id))
+        out.append({
+            "sigla": sigla,
+            "nome": nome,
+            "fee_mensal": round(fee, 2),
+            "saude": None,
+            "saude_label": "—",
+            "responsavel": "",
+            "em_risco": False,
+        })
+    return out
+
+
 @router.get("/inicio", response_class=HTMLResponse)
 async def page_inicio(request: Request):
     user = _verify(request)
@@ -105,45 +185,14 @@ async def overview(request: Request):
     if not user:
         raise HTTPException(401)
 
-    list_id, cf_by_name = _find_painel()
-    fee_field_id = cf_by_name.get("fee mensal") or cf_by_name.get("fee")
+    # 1ª tentativa: tabela nativa de clientes
+    clients = _load_from_clientes_nativo()
+    fonte = "nativo"
 
-    clients = []
-    if list_id:
-        conn = get_conn()
-        cur = dict_cursor(conn)
-        try:
-            cur.execute(
-                "SELECT title, status, cf_values FROM tasks WHERE list_id=%s ORDER BY title",
-                (list_id,),
-            )
-            rows = cur.fetchall() or []
-        finally:
-            cur.close()
-            conn.close()
-
-        for r in rows:
-            status = (r.get("status") or "").strip().lower()
-            if status != "ativo":
-                continue
-            sigla, nome = _parse_sigla_nome(r.get("title") or "")
-            fee = 0.0
-            if fee_field_id:
-                try:
-                    cfv = json.loads(r.get("cf_values") or "{}")
-                except Exception:
-                    cfv = {}
-                fee = _parse_money(cfv.get(fee_field_id))
-            clients.append({
-                "sigla": sigla,
-                "nome": nome,
-                "fee_mensal": round(fee, 2),
-                # Placeholders pra versão futura — colocar como flags manuais depois
-                "saude": None,        # 0..100 ou None
-                "saude_label": "—",   # "Boa" | "Média" | "Ruim" | "—"
-                "responsavel": "",
-                "em_risco": False,
-            })
+    # Fallback: Painel de Clientes do ClickUp (legado)
+    if not clients:
+        clients = _load_from_painel()
+        fonte = "painel"
 
     mrr_total = round(sum(c["fee_mensal"] for c in clients), 2)
     mrr_risco = round(sum(c["fee_mensal"] for c in clients if c["em_risco"]), 2)
