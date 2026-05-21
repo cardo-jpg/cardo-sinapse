@@ -234,8 +234,8 @@
               <span x-text="c.saude !== null ? c.saude : c.sigla"></span>
             </div>
             <div class="ini-client-info">
-              <div class="ini-client-name" x-text="c.nome"></div>
-              <div class="ini-client-sub" x-text="c.responsavel || `[${c.sigla}]`"></div>
+              <div class="ini-client-name" x-text="showValues ? c.nome : `[${c.sigla}]`"></div>
+              <div class="ini-client-sub" x-show="showValues" x-text="c.responsavel || `[${c.sigla}]`"></div>
             </div>
             <div class="ini-client-fee" :class="showValues ? '' : 'hidden'" x-text="showValues ? formatBRL(c.fee_mensal) : '••••'"></div>
             <div class="ini-client-badges">
