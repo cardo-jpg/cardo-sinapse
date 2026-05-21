@@ -404,25 +404,24 @@
 
             <!-- ── Tab: Briefing ── -->
             <div x-show="tab === 'briefing'">
-              <!-- Briefing legado (doc da Documentação importado) -->
-              <div class="cd-card" x-show="cliente.briefing_legado">
-                <div class="cd-card-title">📝 Briefing inicial (importado da Documentação)</div>
-                <div class="cd-html cd-prose" x-html="cliente.briefing_legado"></div>
-              </div>
-
               <div class="cd-card">
-                <div class="cd-card-title" x-text="cliente.briefing_legado ? '📋 Briefing via form público' : '📝 Briefing inicial'"></div>
+                <div class="cd-card-title">📝 Briefing inicial</div>
 
-                <template x-if="briefingLoading">
+                <!-- Briefing legado importado da Documentação -->
+                <template x-if="cliente.briefing_legado">
+                  <div class="cd-html cd-prose" x-html="cliente.briefing_legado"></div>
+                </template>
+
+                <!-- Sem legado: lógica do form público -->
+                <template x-if="!cliente.briefing_legado && briefingLoading">
                   <div class="cd-empty">Carregando…</div>
                 </template>
 
-                <template x-if="!briefingLoading && !briefing">
+                <template x-if="!cliente.briefing_legado && !briefingLoading && !briefing">
                   <div>
                     <div class="cd-empty">
-                      <span class="cd-empty-strong" x-text="cliente.briefing_legado ? 'Sem briefing via form' : 'Sem briefing vinculado a este cliente'"></span>
-                      <span x-show="!cliente.briefing_legado">Vincule um briefing já recebido OU envie o link público pro cliente preencher.</span>
-                      <span x-show="cliente.briefing_legado">O briefing acima foi importado da Documentação. Você também pode enviar o form público pra coletar respostas estruturadas.</span>
+                      <span class="cd-empty-strong">Sem briefing vinculado a este cliente</span>
+                      Vincule um briefing já recebido OU envie o link público pro cliente preencher.
                       <div style="margin-top: 14px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
                         <button class="cd-btn" @click="loadBriefingsDisponiveis()" x-show="!showBriefingPicker">🔗 Vincular briefing existente</button>
                         <a class="cd-btn cd-btn-primary" href="/briefing" target="_blank">↗ Abrir form do briefing</a>
@@ -457,7 +456,7 @@
                   </div>
                 </template>
 
-                <template x-if="!briefingLoading && briefing">
+                <template x-if="!cliente.briefing_legado && !briefingLoading && briefing">
                   <div>
                     <div style="font-size: .75rem; color: var(--muted); margin-bottom: 12px;">
                       Respondido por <strong x-text="briefing.client_name || '—'"></strong>
