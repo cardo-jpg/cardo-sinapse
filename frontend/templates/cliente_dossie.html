@@ -348,27 +348,31 @@
               <div class="cd-card">
                 <div class="cd-card-title">
                   📎 Arquivos
-                  <a class="cd-btn cd-btn-primary" :href="`/clientes?edit=${cliente.id}&tab=fin`" style="margin-left: auto; padding: 5px 10px; font-size: .75rem;">+ Upload</a>
+                  <button class="cd-btn cd-btn-primary" @click="$refs.docInput.click()" style="margin-left: auto; padding: 5px 10px; font-size: .75rem;" :disabled="uploadingDoc">
+                    <span x-text="uploadingDoc ? 'Enviando…' : '+ Upload'"></span>
+                  </button>
+                  <input type="file" x-ref="docInput" style="display: none;" @change="uploadArquivo($event, 'documento')">
                 </div>
-                <template x-if="!(cliente.arquivos || []).length">
+                <template x-if="!documentosNaoContrato.length">
                   <div class="cd-empty">
-                    <span class="cd-empty-strong">Nenhum arquivo</span>
-                    Faça upload pela tela de edição (aba Financeiro)
+                    <span class="cd-empty-strong">Nenhum documento</span>
+                    Use o botão "+ Upload" pra adicionar briefings, persona, materiais de apoio…
                   </div>
                 </template>
                 <div class="cd-arq-grid">
-                  <template x-for="a in cliente.arquivos" :key="a.id">
-                    <a class="cd-arq" :href="`/api/clientes/${cliente.id}/arquivos/${a.id}/download`" target="_blank">
-                      <span class="cd-arq-icon" x-text="iconForType(a.mime_type)"></span>
-                      <div class="cd-arq-info">
+                  <template x-for="a in documentosNaoContrato" :key="a.id">
+                    <div class="cd-arq">
+                      <a class="cd-arq-icon" :href="`/api/clientes/${cliente.id}/arquivos/${a.id}/download`" target="_blank" style="text-decoration: none;" x-text="iconForType(a.mime_type)"></a>
+                      <a class="cd-arq-info" :href="`/api/clientes/${cliente.id}/arquivos/${a.id}/download`" target="_blank" style="text-decoration: none; color: inherit;">
                         <div class="cd-arq-name" x-text="a.titulo || a.filename"></div>
                         <div class="cd-arq-meta">
                           <span x-text="formatSize(a.size_bytes)"></span> ·
                           <span x-text="fmtDate(a.uploaded_at)"></span>
                         </div>
-                      </div>
+                      </a>
                       <span class="cd-arq-tipo" x-text="a.tipo"></span>
-                    </a>
+                      <button class="cd-btn cd-btn-sm" style="background: transparent; border-color: transparent; color: var(--muted); padding: 4px 8px;" @click="deletarArquivo(a.id)" title="Excluir">🗑</button>
+                    </div>
                   </template>
                 </div>
               </div>
@@ -377,26 +381,33 @@
             <!-- ── Tab: Contrato ── -->
             <div x-show="tab === 'contrato'">
               <div class="cd-card">
-                <div class="cd-card-title">📜 Contrato</div>
+                <div class="cd-card-title">
+                  📜 Contrato
+                  <button class="cd-btn cd-btn-primary" @click="$refs.contratoInput.click()" style="margin-left: auto; padding: 5px 10px; font-size: .75rem;" :disabled="uploadingContrato">
+                    <span x-text="uploadingContrato ? 'Enviando…' : '+ Upload contrato'"></span>
+                  </button>
+                  <input type="file" x-ref="contratoInput" style="display: none;" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" @change="uploadArquivo($event, 'contrato')">
+                </div>
                 <template x-if="!contratos.length">
                   <div class="cd-empty">
                     <span class="cd-empty-strong">Contrato não anexado</span>
-                    Faça upload do contrato assinado pela tela de edição (aba Financeiro). Arquivos com "contrato" no nome são classificados automaticamente.
+                    Use o botão "+ Upload contrato" pra anexar o contrato assinado (PDF).
                   </div>
                 </template>
                 <div class="cd-arq-grid">
                   <template x-for="a in contratos" :key="a.id">
-                    <a class="cd-arq" :href="`/api/clientes/${cliente.id}/arquivos/${a.id}/download`" target="_blank">
-                      <span class="cd-arq-icon" x-text="iconForType(a.mime_type)"></span>
-                      <div class="cd-arq-info">
+                    <div class="cd-arq">
+                      <a class="cd-arq-icon" :href="`/api/clientes/${cliente.id}/arquivos/${a.id}/download`" target="_blank" style="text-decoration: none;" x-text="iconForType(a.mime_type)"></a>
+                      <a class="cd-arq-info" :href="`/api/clientes/${cliente.id}/arquivos/${a.id}/download`" target="_blank" style="text-decoration: none; color: inherit;">
                         <div class="cd-arq-name" x-text="a.titulo || a.filename"></div>
                         <div class="cd-arq-meta">
                           <span x-text="formatSize(a.size_bytes)"></span> ·
                           <span x-text="fmtDate(a.uploaded_at)"></span>
                         </div>
-                      </div>
+                      </a>
                       <span class="cd-arq-tipo">contrato</span>
-                    </a>
+                      <button class="cd-btn cd-btn-sm" style="background: transparent; border-color: transparent; color: var(--muted); padding: 4px 8px;" @click="deletarArquivo(a.id)" title="Excluir">🗑</button>
+                    </div>
                   </template>
                 </div>
               </div>
@@ -594,7 +605,15 @@
                 </template>
                 <template x-if="editingField === 'forma_pagamento'">
                   <div>
-                    <input type="text" class="cd-edit-input" x-model="editValue" placeholder="Boleto / Cartão / PIX" @keydown.enter="saveEdit()" @keydown.escape="cancelEdit()" x-init="$nextTick(() => $el.focus())">
+                    <select class="cd-edit-input" x-model="editValue" x-init="$nextTick(() => $el.focus())" @keydown.escape="cancelEdit()">
+                      <option value="">—</option>
+                      <option value="Boleto">Boleto</option>
+                      <option value="Cartão">Cartão</option>
+                      <option value="PIX">PIX</option>
+                      <option value="Transferência">Transferência</option>
+                      <option value="Pós-pago">Pós-pago</option>
+                      <option value="Mensalidade automática">Mensalidade automática</option>
+                    </select>
                     <div class="cd-edit-actions">
                       <button class="cd-edit-btn" @click="saveEdit()">Salvar</button>
                       <button class="cd-edit-btn cd-edit-btn-cancel" @click="cancelEdit()">Cancelar</button>
@@ -720,8 +739,56 @@ function dossieApp(clienteId) {
 
     ataPreviews: {},  // doc_id → content HTML
 
+    uploadingContrato: false,
+    uploadingDoc: false,
+
     get contratos() {
       return (this.cliente?.arquivos || []).filter(a => a.tipo === 'contrato');
+    },
+
+    get documentosNaoContrato() {
+      return (this.cliente?.arquivos || []).filter(a => a.tipo !== 'contrato');
+    },
+
+    async uploadArquivo(ev, tipo) {
+      const file = ev.target.files?.[0];
+      if (!file) return;
+      const loadingFlag = tipo === 'contrato' ? 'uploadingContrato' : 'uploadingDoc';
+      this[loadingFlag] = true;
+      try {
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('tipo', tipo);
+        fd.append('titulo', file.name);
+        const r = await fetch(`/api/clientes/${this.clienteId}/arquivos`, { method: 'POST', body: fd });
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          alert(err.detail || 'Erro ao enviar arquivo');
+        } else {
+          const d = await r.json();
+          if (d.arquivo) {
+            if (!this.cliente.arquivos) this.cliente.arquivos = [];
+            this.cliente.arquivos.unshift(d.arquivo);
+          }
+        }
+      } catch (e) {
+        console.error(e);
+        alert('Erro de rede');
+      }
+      ev.target.value = '';  // permite reupload do mesmo arquivo
+      this[loadingFlag] = false;
+    },
+
+    async deletarArquivo(arquivoId) {
+      if (!confirm('Excluir este arquivo?')) return;
+      try {
+        const r = await fetch(`/api/clientes/${this.clienteId}/arquivos/${arquivoId}`, { method: 'DELETE' });
+        if (!r.ok) { alert('Falha ao excluir'); return; }
+        this.cliente.arquivos = (this.cliente.arquivos || []).filter(a => a.id !== arquivoId);
+      } catch (e) {
+        console.error(e);
+        alert('Erro de rede');
+      }
     },
 
     get ultimaReuniao() {

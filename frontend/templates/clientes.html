@@ -327,7 +327,7 @@
 
           <!-- ── Aba Financeiro ── -->
           <div x-show="tab === 'fin'">
-            <div class="cl-form-row" style="grid-template-columns: 1fr 130px 1fr;">
+            <div class="cl-form-row">
               <div class="cl-form-field">
                 <label>Valor mensal (honorários)</label>
                 <input type="number" step="0.01" x-model.number="form.valor_mensal" placeholder="0,00">
@@ -336,65 +336,24 @@
                 <label>Vencimento (dia)</label>
                 <input type="number" min="1" max="31" x-model.number="form.vencimento_dia" placeholder="10">
               </div>
-              <div class="cl-form-field">
-                <label>Verba de mídia (R$)</label>
-                <input type="number" step="0.01" x-model.number="form.verba_midia" placeholder="0,00">
-              </div>
             </div>
             <div class="cl-form-row single">
               <div class="cl-form-field">
                 <label>Forma de pagamento</label>
-                <input type="text" x-model="form.forma_pagamento" placeholder="Boleto / Cartão / PIX / Pós-pago">
+                <select x-model="form.forma_pagamento">
+                  <option value="">—</option>
+                  <option value="Boleto">Boleto</option>
+                  <option value="Cartão">Cartão</option>
+                  <option value="PIX">PIX</option>
+                  <option value="Transferência">Transferência</option>
+                  <option value="Pós-pago">Pós-pago</option>
+                  <option value="Mensalidade automática">Mensalidade automática</option>
+                </select>
               </div>
             </div>
-            <div class="cl-form-field" style="margin-bottom: 12px;">
-              <label>Plataformas de anúncio</label>
-              <div class="cl-chips">
-                <template x-for="p in plataformasOpts" :key="p">
-                  <button class="cl-chip" :class="form.plataformas.includes(p) ? 'active' : ''" @click="toggleArr('plataformas', p)" x-text="p"></button>
-                </template>
-              </div>
+            <div class="cl-hint">
+              📎 Documentos e contrato agora são gerenciados direto pelo dossiê do cliente (abas Documentos e Contrato).
             </div>
-
-            <div class="cl-divider">📎 Contrato e documentos</div>
-
-            <div class="cl-upload-card" :class="uploadFile ? 'has-file' : ''" @click="$refs.fileInput.click()" @dragover.prevent @drop.prevent="handleDrop($event)">
-              <template x-if="!uploadFile">
-                <div>
-                  <div class="cl-upload-info">📄 Clique ou arraste o contrato (PDF até 10MB)</div>
-                  <div class="cl-upload-hint">O arquivo fica salvo no Sinapse e disponível pra você ou o cliente baixar</div>
-                </div>
-              </template>
-              <template x-if="uploadFile">
-                <div>
-                  <div class="cl-upload-info">📄 <span x-text="uploadFile.name"></span></div>
-                  <div class="cl-upload-hint">
-                    <span x-text="formatSize(uploadFile.size)"></span> · pronto pra enviar quando salvar
-                    <button class="cl-btn cl-btn-ghost cl-btn-sm" @click.stop="uploadFile = null">remover</button>
-                  </div>
-                </div>
-              </template>
-              <input type="file" class="cl-upload-input" x-ref="fileInput" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" @change="uploadFile = $event.target.files[0]">
-            </div>
-
-            <template x-if="editing && arquivos.length">
-              <div class="cl-arquivos-list">
-                <template x-for="a in arquivos" :key="a.id">
-                  <div class="cl-arquivo">
-                    <span class="cl-arquivo-icon" x-text="iconForType(a.mime_type)"></span>
-                    <div class="cl-arquivo-info">
-                      <div class="cl-arquivo-name" x-text="a.titulo || a.filename"></div>
-                      <div class="cl-arquivo-meta">
-                        <span x-text="a.tipo"></span> · <span x-text="formatSize(a.size_bytes)"></span>
-                        · <span x-text="fmtDate(a.uploaded_at)"></span>
-                      </div>
-                    </div>
-                    <a :href="`/api/clientes/${form.id}/arquivos/${a.id}/download`" target="_blank" class="cl-btn cl-btn-ghost cl-btn-sm">⬇</a>
-                    <button class="cl-btn cl-btn-ghost cl-btn-sm cl-btn-danger" @click="delArquivo(a.id)">🗑</button>
-                  </div>
-                </template>
-              </div>
-            </template>
           </div>
 
           <!-- ── Aba Reunião de Venda ── -->
