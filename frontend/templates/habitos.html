@@ -78,19 +78,20 @@
 
     /* Year view */
     .hab-hm-year-block { position: relative; }
-    .hab-hm-year-months { position: relative; height: 16px; margin-bottom: 6px; padding-left: 28px; font-size: .68rem; color: var(--muted); }
+    .hab-hm-year-months { position: relative; height: 18px; margin-bottom: 6px; padding-left: 32px; font-size: .72rem; color: var(--muted); }
     .hab-hm-month-label { position: absolute; top: 0; white-space: nowrap; }
-    .hab-hm-year-body { display: grid; grid-template-columns: 24px auto; gap: 4px; }
-    .hab-hm-dow { display: grid; grid-template-rows: repeat(7, 14px); gap: 3px; font-size: .62rem; color: var(--muted); line-height: 14px; }
-    .hab-heatmap { display: grid; grid-template-rows: repeat(7, 14px); grid-auto-flow: column; grid-auto-columns: 14px; gap: 3px; }
-    .hab-hm-cell { width: 14px; height: 14px; border-radius: 3px; background: #1f1f1f; }
+    .hab-hm-year-body { display: grid; grid-template-columns: 28px auto; gap: 4px; }
+    .hab-hm-dow { display: grid; grid-template-rows: repeat(7, 18px); gap: 4px; font-size: .66rem; color: var(--muted); line-height: 18px; }
+    .hab-heatmap { display: grid; grid-template-rows: repeat(7, 18px); grid-auto-flow: column; grid-auto-columns: 18px; gap: 4px; }
+    .hab-hm-cell { width: 18px; height: 18px; border-radius: 4px; background: #1f1f1f; }
     .hab-hm-l1 { background: #14532d; }
     .hab-hm-l2 { background: #166534; }
     .hab-hm-l3 { background: #16a34a; }
     .hab-hm-l4 { background: #22c55e; }
     .hab-hm-future { background: #141414; }
     .hab-hm-pad { background: transparent; }
-    .hab-hm-legend { display: flex; align-items: center; gap: 6px; margin-top: 14px; font-size: .72rem; color: var(--muted); padding-left: 28px; }
+    .hab-hm-legend { display: flex; align-items: center; gap: 6px; margin-top: 14px; font-size: .72rem; color: var(--muted); padding-left: 32px; }
+    .hab-hm-legend .hab-hm-cell { width: 14px; height: 14px; }
 
     /* Custom tooltip */
     .hab-tooltip {
@@ -118,6 +119,10 @@
     .hab-hm-month-dow { font-size: .68rem; color: var(--muted); text-align: center; padding-bottom: 4px; text-transform: uppercase; letter-spacing: .04em; }
     .hab-hm-month-cell { aspect-ratio: 1; border-radius: 6px; background: #1f1f1f; display: flex; align-items: center; justify-content: center; font-size: .72rem; color: var(--muted); position: relative; }
     .hab-hm-month-cell.has-data { color: #fff; font-weight: 600; }
+    .hab-hm-month-cell.hab-hm-l1 { background: #14532d; color: #fff; }
+    .hab-hm-month-cell.hab-hm-l2 { background: #166534; color: #fff; }
+    .hab-hm-month-cell.hab-hm-l3 { background: #16a34a; color: #fff; }
+    .hab-hm-month-cell.hab-hm-l4 { background: #22c55e; color: #fff; }
     .hab-hm-month-cell.is-today { outline: 2px solid var(--accent); outline-offset: -2px; }
     .hab-hm-month-cell.is-future { background: #141414; color: #3f3f3f; }
     .hab-hm-month-cell.is-pad { background: transparent; }
@@ -269,9 +274,9 @@
           <!-- ── Year view ── -->
           <template x-if="hmView === 'year'">
             <div class="hab-hm-year-block">
-              <div class="hab-hm-year-months" :style="`width: ${28 + heatmapData.weeks * 17}px;`">
+              <div class="hab-hm-year-months" :style="`width: ${32 + heatmapData.weeks * 22}px;`">
                 <template x-for="lbl in heatmapData.monthLabels" :key="lbl.col + lbl.name">
-                  <div class="hab-hm-month-label" :style="`left: ${28 + (lbl.col - 1) * 17}px;`" x-text="lbl.name"></div>
+                  <div class="hab-hm-month-label" :style="`left: ${32 + (lbl.col - 1) * 22}px;`" x-text="lbl.name"></div>
                 </template>
               </div>
               <div class="hab-hm-year-body">
