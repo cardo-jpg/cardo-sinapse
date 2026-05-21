@@ -311,7 +311,7 @@
             </div>
 
             <div class="cl-form-field" style="margin-bottom: 12px;">
-              <label>Canais ativos</label>
+              <label>Plataformas ativas</label>
               <div class="cl-chips">
                 <template x-for="ch in canaisOpts" :key="ch">
                   <button class="cl-chip" :class="form.canais_ativos.includes(ch) ? 'active' : ''" @click="toggleArr('canais_ativos', ch)" x-text="ch"></button>

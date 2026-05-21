@@ -622,15 +622,9 @@
                 </template>
               </div>
 
-              <!-- Plataformas (read-only — usa modal completo) -->
-              <div class="cd-side-item" x-show="(cliente.plataformas || []).length">
-                <div class="cd-side-label">Plataformas</div>
-                <div class="cd-side-val" x-text="(cliente.plataformas || []).join(', ')"></div>
-              </div>
-
-              <!-- Canais ativos (read-only) -->
+              <!-- Plataformas ativas (read-only — usa modal completo pra editar) -->
               <div class="cd-side-item" x-show="(cliente.canais_ativos || []).length">
-                <div class="cd-side-label">Canais ativos</div>
+                <div class="cd-side-label">Plataformas ativas</div>
                 <div class="cd-side-val" style="display: flex; flex-wrap: wrap; gap: 4px;">
                   <template x-for="c in cliente.canais_ativos" :key="c">
                     <span class="cd-chip-mini" x-text="c"></span>
