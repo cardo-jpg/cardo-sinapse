@@ -410,13 +410,41 @@
                 </template>
 
                 <template x-if="!briefingLoading && !briefing">
-                  <div class="cd-empty">
-                    <span class="cd-empty-strong">Sem briefing cadastrado</span>
-                    Envie o link público do briefing pro cliente preencher.
-                    <div style="margin-top: 14px; display: flex; gap: 8px; justify-content: center;">
-                      <a class="cd-btn cd-btn-primary" href="/briefing" target="_blank">↗ Abrir form do briefing</a>
-                      <button class="cd-btn" @click="copyBriefingLink()" x-text="briefingCopied ? '✓ Link copiado' : '📋 Copiar link'"></button>
+                  <div>
+                    <div class="cd-empty">
+                      <span class="cd-empty-strong">Sem briefing vinculado a este cliente</span>
+                      Vincule um briefing já recebido OU envie o link público pro cliente preencher.
+                      <div style="margin-top: 14px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+                        <button class="cd-btn" @click="loadBriefingsDisponiveis()" x-show="!showBriefingPicker">🔗 Vincular briefing existente</button>
+                        <a class="cd-btn cd-btn-primary" href="/briefing" target="_blank">↗ Abrir form do briefing</a>
+                        <button class="cd-btn" @click="copyBriefingLink()" x-text="briefingCopied ? '✓ Link copiado' : '📋 Copiar link'"></button>
+                      </div>
                     </div>
+
+                    <template x-if="showBriefingPicker">
+                      <div class="cd-card" style="margin-top: 14px; background: #0f0f0f;">
+                        <div class="cd-card-title">Selecione um briefing</div>
+                        <template x-if="!briefingsDisponiveis.length">
+                          <div class="cd-empty">Nenhum briefing recebido ainda.</div>
+                        </template>
+                        <template x-for="b in briefingsDisponiveis" :key="b.id">
+                          <div class="cd-ata-row" style="cursor: pointer;" @click="linkBriefing(b.id)">
+                            <span class="cd-ata-icon">📝</span>
+                            <div class="cd-ata-info">
+                              <div class="cd-ata-title">
+                                <span x-text="b.empresa_nome || b.client_name || '(sem nome)'"></span>
+                                <span x-show="b.cliente_id && b.cliente_id != cliente.id" style="color: #f87171; font-size: .68rem; margin-left: 6px;">⚠ já vinculado a outro</span>
+                              </div>
+                              <div class="cd-ata-date">
+                                <span x-text="b.client_name"></span> · <span x-text="b.client_email || ''"></span>
+                                · <span x-text="fmtDateTime(b.submitted_at)"></span>
+                              </div>
+                            </div>
+                            <span style="font-size: .72rem; color: var(--accent);">vincular →</span>
+                          </div>
+                        </template>
+                      </div>
+                    </template>
                   </div>
                 </template>
 
@@ -680,6 +708,8 @@ function dossieApp(clienteId) {
     briefingLoading: false,
     briefingLoaded: false,
     briefingCopied: false,
+    showBriefingPicker: false,
+    briefingsDisponiveis: [],
 
     fichaLegacy: { id: null, content: '' },
     fichaLoading: false,
@@ -859,6 +889,31 @@ function dossieApp(clienteId) {
           this.ataPreviews = { ...this.ataPreviews };
         }
       } catch (e) { console.error(e); }
+    },
+
+    async loadBriefingsDisponiveis() {
+      this.showBriefingPicker = true;
+      try {
+        const r = await fetch('/api/briefings/disponiveis');
+        if (r.ok) {
+          const d = await r.json();
+          this.briefingsDisponiveis = d.briefings || [];
+        }
+      } catch (e) { console.error(e); }
+    },
+
+    async linkBriefing(responseId) {
+      try {
+        const r = await fetch(`/api/clientes/${this.clienteId}/briefing/link/${responseId}`, { method: 'POST' });
+        if (!r.ok) { alert('Falha ao vincular'); return; }
+        // Recarrega o briefing
+        this.briefingLoaded = false;
+        this.showBriefingPicker = false;
+        await this.loadBriefing();
+      } catch (e) {
+        console.error(e);
+        alert('Erro de rede');
+      }
     },
 
     async copyBriefingLink() {

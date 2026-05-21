@@ -784,19 +784,28 @@ def _normaliza(s: str) -> str:
     return "".join(c for c in nfkd if not unicodedata.combining(c)).lower().strip()
 
 
+def _tokens(s: str) -> set:
+    """Tokens normalizados >= 3 chars, ignorando stopwords comuns de razão social."""
+    stopwords = {"ltda", "me", "epp", "eireli", "sa", "ltd", "inc", "the", "and",
+                 "academy", "studio", "company", "consultoria", "marketing", "agencia"}
+    norm = _normaliza(s)
+    return {t for t in re.split(r"\W+", norm) if len(t) >= 3 and t not in stopwords}
+
+
 @router.get("/api/clientes/{cliente_id}/briefing")
 async def get_briefing(cliente_id: int, request: Request):
     """
     Retorna o briefing vinculado ao cliente.
     Estratégia:
-      1. Tenta match direto via briefing_responses.cliente_id (vínculo explícito)
-      2. Fallback: fuzzy match por client_name/empresa contendo a razão social ou sigla
+      1. Vínculo explícito via briefing_responses.cliente_id
+      2. Fuzzy match token-based (pelo menos 1 token significativo em comum,
+         ignorando stopwords como 'ltda', 'academy', 'marketing')
     """
     _require(request)
     conn = get_conn()
     cur = dict_cursor(conn)
     try:
-        cur.execute("SELECT razao_social, sigla FROM clientes WHERE id=%s", (cliente_id,))
+        cur.execute("SELECT razao_social, nome_fantasia, sigla FROM clientes WHERE id=%s", (cliente_id,))
         cli = cur.fetchone()
         if not cli:
             raise HTTPException(404, "Cliente não encontrado")
@@ -809,31 +818,49 @@ async def get_briefing(cliente_id: int, request: Request):
         )
         row = cur.fetchone()
 
-        # 2) Fuzzy match
+        # 2) Fuzzy match token-based
+        candidates_evaluated = []
         if not row:
             cur.execute(
                 "SELECT id, client_name, client_email, responses, submitted_at FROM briefing_responses ORDER BY submitted_at DESC"
             )
-            razao_n = _normaliza(cli["razao_social"])
-            sigla_n = _normaliza(cli["sigla"])
+            cliente_tokens = _tokens(cli.get("razao_social") or "") | _tokens(cli.get("nome_fantasia") or "")
+            sigla_n = _normaliza(cli.get("sigla") or "")
+            best = None
+            best_score = 0
             for candidate in cur.fetchall():
                 try:
                     resp = json.loads(candidate.get("responses") or "{}")
                 except Exception:
                     resp = {}
-                empresa = _normaliza(resp.get("empresa_nome") or "")
-                nome = _normaliza(candidate.get("client_name") or "")
-                if not razao_n:
-                    continue
-                if razao_n in empresa or empresa in razao_n or razao_n in nome or nome in razao_n:
-                    row = candidate
-                    break
-                if sigla_n and len(sigla_n) >= 2 and (sigla_n in empresa or sigla_n in nome):
-                    row = candidate
-                    break
+                empresa = resp.get("empresa_nome") or ""
+                nome = candidate.get("client_name") or ""
+                cand_tokens = _tokens(empresa) | _tokens(nome)
+                common = cliente_tokens & cand_tokens
+                score = len(common)
+                # Bônus se sigla aparece como token isolado em empresa/nome
+                if sigla_n and len(sigla_n) >= 2 and sigla_n in (_tokens(empresa) | _tokens(nome)):
+                    score += 2
+                candidates_evaluated.append({
+                    "id": candidate["id"],
+                    "name": nome, "empresa": empresa,
+                    "score": score, "common_tokens": list(common),
+                })
+                if score > best_score:
+                    best_score = score
+                    best = candidate
+            if best and best_score >= 1:
+                row = best
 
         if not row:
-            return {"briefing": None, "definition": _briefing_definition()}
+            return {
+                "briefing": None,
+                "definition": _briefing_definition(),
+                "debug": {
+                    "cliente_tokens": list(_tokens(cli.get("razao_social") or "") | _tokens(cli.get("nome_fantasia") or "")),
+                    "candidates": candidates_evaluated,
+                },
+            }
 
         try:
             responses = json.loads(row.get("responses") or "{}")
@@ -856,6 +883,43 @@ async def get_briefing(cliente_id: int, request: Request):
     finally:
         cur.close()
         conn.close()
+
+
+@router.get("/api/briefings/disponiveis")
+async def listar_briefings(request: Request):
+    """Lista briefings recebidos pra permitir vinculação manual no dossiê."""
+    _require(request)
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute(
+            """
+            SELECT id, client_name, client_email, responses, submitted_at, cliente_id
+              FROM briefing_responses
+             ORDER BY submitted_at DESC
+            """
+        )
+        items = []
+        for r in cur.fetchall():
+            try:
+                resp = json.loads(r.get("responses") or "{}")
+            except Exception:
+                resp = {}
+            sub = r.get("submitted_at")
+            if isinstance(sub, datetime):
+                sub = sub.isoformat()
+            items.append({
+                "id": r["id"],
+                "client_name": r.get("client_name") or "",
+                "client_email": r.get("client_email") or "",
+                "empresa_nome": resp.get("empresa_nome") or "",
+                "submitted_at": sub,
+                "cliente_id": r.get("cliente_id"),
+            })
+    finally:
+        cur.close()
+        conn.close()
+    return {"briefings": items}
 
 
 @router.post("/api/clientes/{cliente_id}/briefing/link/{response_id}")
