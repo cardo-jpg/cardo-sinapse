@@ -76,6 +76,9 @@ def init_db():
                 saude_label         TEXT,
                 em_risco            BOOLEAN DEFAULT FALSE,
 
+                -- Ficha (legado importado da Documentação)
+                ficha               TEXT,
+
                 -- Status
                 ativo               BOOLEAN DEFAULT TRUE,
                 entrada_em          DATE,
@@ -97,6 +100,12 @@ def init_db():
                      WHERE table_name='clientes' AND column_name='data_final_contrato'
                 ) THEN
                     ALTER TABLE clientes ADD COLUMN data_final_contrato DATE;
+                END IF;
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                     WHERE table_name='clientes' AND column_name='ficha'
+                ) THEN
+                    ALTER TABLE clientes ADD COLUMN ficha TEXT;
                 END IF;
             END $$;
         """)
@@ -399,19 +408,41 @@ async def cliente_dossie(cliente_id: int, request: Request):
         # com data DD/MM/AAAA), é uma ata; senão, é documento auxiliar.
         atas = []
         outros = []
+        ficha_legacy_id = None
         for d in documentos:
             path_lower = (d.get("path") or "").lower()
             title = d.get("title") or ""
-            is_container = title.strip().lower() in (
-                "ficha do cliente", "arquivos", "atas de reunião", "atas de reuniao",
+            title_lc = title.strip().lower()
+            is_container = title_lc in (
+                "arquivos", "atas de reunião", "atas de reuniao",
                 "onboarding", "contrato", "documentos",
             )
             if is_container:
-                continue  # nós de organização, não conteúdo
+                continue
+            if title_lc == "ficha do cliente":
+                # Marca pra possível auto-importação
+                ficha_legacy_id = d.get("id")
+                continue
             if "ata" in path_lower or re.match(r"^\d{1,2}/\d{1,2}/\d{2,4}", title):
                 atas.append(d)
             else:
                 outros.append(d)
+
+        # Auto-importação idempotente da ficha legada para o campo cliente.ficha
+        # (só executa se cliente.ficha está vazio e existe doc "Ficha do Cliente")
+        if ficha_legacy_id and not (cliente.get("ficha") or "").strip():
+            try:
+                cur.execute("SELECT content FROM documents WHERE id=%s", (ficha_legacy_id,))
+                f = cur.fetchone()
+                if f and (f.get("content") or "").strip():
+                    cur.execute(
+                        "UPDATE clientes SET ficha=%s, updated_at=CURRENT_TIMESTAMP WHERE id=%s",
+                        (f["content"], cliente_id),
+                    )
+                    conn.commit()
+                    cliente["ficha"] = f["content"]
+            except Exception:
+                conn.rollback()
     finally:
         cur.close()
         conn.close()
@@ -615,6 +646,7 @@ async def update_cliente(cliente_id: int, request: Request):
         "ativo": ("ativo", "bool"),
         "entrada_em": ("entrada_em", "date"),
         "data_final_contrato": ("data_final_contrato", "date"),
+        "ficha": ("ficha", str),
         "sigla": ("sigla", str),
     }
 

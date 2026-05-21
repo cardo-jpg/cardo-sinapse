@@ -12,9 +12,16 @@
     .cd-shell { display: flex; height: 100vh; overflow: hidden; }
     .cd-main { flex: 1; overflow: auto; padding: 22px 26px 64px; background: var(--bg); }
 
-    .cd-breadcrumb { font-size: .8rem; color: var(--muted); margin-bottom: 12px; }
+    .cd-breadcrumb { font-size: .82rem; color: var(--muted); margin-bottom: 14px; }
     .cd-breadcrumb a { color: var(--muted); text-decoration: none; }
     .cd-breadcrumb a:hover { color: var(--accent); }
+    .cd-back-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 7px; background: var(--surface);
+      border: 1px solid var(--border); font-weight: 500;
+      transition: border-color .15s, color .15s;
+    }
+    .cd-back-link:hover { border-color: var(--accent); }
 
     /* ── Header card ── */
     .cd-header {
@@ -198,7 +205,7 @@
 
   <main class="cd-main">
     <div class="cd-breadcrumb">
-      <a href="/clientes">Clientes</a> / Dossiê do cliente
+      <a href="/clientes" class="cd-back-link">← Voltar para Clientes</a>
     </div>
 
     <template x-if="cliente">
@@ -267,7 +274,6 @@
           </button>
           <button class="cd-tab" :class="tab === 'contrato' ? 'active' : ''" @click="tab = 'contrato'">Contrato</button>
           <button class="cd-tab" :class="tab === 'briefing' ? 'active' : ''" @click="tab = 'briefing'; loadBriefing()">Briefing</button>
-          <button class="cd-tab" :class="tab === 'ficha' ? 'active' : ''" @click="tab = 'ficha'; loadFicha()" x-show="fichaLegacy.id">Ficha (legado)</button>
           <button class="cd-tab" :class="tab === 'venda' ? 'active' : ''" @click="tab = 'venda'">Reunião de Venda</button>
           <button class="cd-tab" :class="tab === 'plano' ? 'active' : ''" @click="tab = 'plano'">Plano de Ação</button>
         </div>
@@ -303,15 +309,11 @@
               </div>
 
               <div class="cd-card">
-                <div class="cd-card-title">📋 Observações</div>
-                <div class="cd-prose" x-text="cliente.observacoes || ''"></div>
-              </div>
-              <div class="cd-card" x-show="(cliente.canais_ativos || []).length">
-                <div class="cd-card-title">📡 Canais ativos</div>
-                <div class="cd-h-chips">
-                  <template x-for="c in cliente.canais_ativos" :key="c">
-                    <span class="cd-chip-mini" x-text="c"></span>
-                  </template>
+                <div class="cd-card-title">📄 Sobre o cliente</div>
+                <div class="cd-html cd-prose" x-html="cliente.ficha" x-show="cliente.ficha"></div>
+                <div class="cd-prose" x-show="!cliente.ficha && cliente.observacoes" x-text="cliente.observacoes || ''"></div>
+                <div class="cd-empty" x-show="!cliente.ficha && !cliente.observacoes">
+                  Nenhuma informação cadastrada ainda. Edite o cliente pra adicionar observações ou conteúdo livre.
                 </div>
               </div>
             </div>
@@ -468,17 +470,6 @@
               </div>
             </div>
 
-            <!-- ── Tab: Ficha (legado) ── -->
-            <div x-show="tab === 'ficha'">
-              <div class="cd-card">
-                <div class="cd-card-title">📄 Ficha do cliente (legado)</div>
-                <div class="cd-empty" x-show="fichaLoading">Carregando…</div>
-                <div class="cd-prose cd-html" x-html="fichaLegacy.content" x-show="!fichaLoading && fichaLegacy.content"></div>
-                <div class="cd-empty" x-show="!fichaLoading && !fichaLegacy.content">
-                  Ficha legada existe mas está vazia.
-                </div>
-              </div>
-            </div>
 
             <!-- ── Tab: Reunião de Venda ── -->
             <div x-show="tab === 'venda'">
@@ -612,6 +603,16 @@
                 <div class="cd-side-val" x-text="(cliente.plataformas || []).join(', ')"></div>
               </div>
 
+              <!-- Canais ativos (read-only) -->
+              <div class="cd-side-item" x-show="(cliente.canais_ativos || []).length">
+                <div class="cd-side-label">Canais ativos</div>
+                <div class="cd-side-val" style="display: flex; flex-wrap: wrap; gap: 4px;">
+                  <template x-for="c in cliente.canais_ativos" :key="c">
+                    <span class="cd-chip-mini" x-text="c"></span>
+                  </template>
+                </div>
+              </div>
+
               <!-- Status do contrato -->
               <div class="cd-side-item">
                 <div class="cd-side-label">Status do contrato</div>
@@ -711,10 +712,6 @@ function dossieApp(clienteId) {
     showBriefingPicker: false,
     briefingsDisponiveis: [],
 
-    fichaLegacy: { id: null, content: '' },
-    fichaLoading: false,
-    fichaLoaded: false,
-
     ataPreviews: {},  // doc_id → content HTML
 
     get contratos() {
@@ -803,19 +800,13 @@ function dossieApp(clienteId) {
         const r = await fetch(`/api/clientes/${this.clienteId}/dossie`);
         if (r.ok) this.cliente = await r.json();
       } catch (e) { console.error(e); }
-      // Detecta se há uma "Ficha do Cliente" legada na árvore
-      const docs = [...(this.cliente?.atas || []), ...(this.cliente?.documentos_vinculados || [])];
-      const ficha = docs.find(d => /ficha\s*do\s*cliente/i.test(d.title || ''));
-      if (ficha) this.fichaLegacy = { id: ficha.id, content: '' };
-
       // ?tab=… deep-link (vindo do gerador de atas, por exemplo)
       const params = new URLSearchParams(window.location.search);
       const initialTab = params.get('tab');
-      const validTabs = ['overview', 'reunioes', 'documentos', 'contrato', 'briefing', 'ficha', 'venda', 'plano'];
+      const validTabs = ['overview', 'reunioes', 'documentos', 'contrato', 'briefing', 'venda', 'plano'];
       if (initialTab && validTabs.includes(initialTab)) {
         this.tab = initialTab;
         if (initialTab === 'briefing') this.loadBriefing();
-        if (initialTab === 'ficha') this.loadFicha();
       }
       this.loading = false;
     },
@@ -859,20 +850,6 @@ function dossieApp(clienteId) {
       } catch (e) { console.error(e); }
       this.briefingLoaded = true;
       this.briefingLoading = false;
-    },
-
-    async loadFicha() {
-      if (this.fichaLoaded || !this.fichaLegacy.id) return;
-      this.fichaLoading = true;
-      try {
-        const r = await fetch(`/api/clientes/${this.clienteId}/documents/${this.fichaLegacy.id}`);
-        if (r.ok) {
-          const d = await r.json();
-          this.fichaLegacy.content = d.content || '';
-        }
-      } catch (e) { console.error(e); }
-      this.fichaLoaded = true;
-      this.fichaLoading = false;
     },
 
     async toggleAtaPreview(docId) {
