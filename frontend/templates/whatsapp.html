@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatsApp — Sinapse</title>
+  <link rel="stylesheet" href="/static/style.css?v=2">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    body { overflow: hidden; }
+    .wa-shell { display: flex; height: 100vh; overflow: hidden; }
+    .wa-main { flex: 1; overflow: auto; padding: 22px 26px 64px; background: var(--bg); }
+
+    .wa-header { margin-bottom: 18px; }
+    .wa-title { font-size: 1.4rem; font-weight: 700; }
+    .wa-sub { font-size: .82rem; color: var(--muted); margin-top: 4px; }
+
+    .wa-section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; margin-bottom: 16px; }
+    .wa-section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .wa-section-title { font-size: .92rem; font-weight: 700; }
+    .wa-section-count { font-size: .72rem; color: var(--muted); background: #0f0f0f; padding: 2px 8px; border-radius: 999px; }
+
+    .wa-grupo {
+      display: grid; grid-template-columns: 1fr 220px 90px 90px; gap: 12px; align-items: center;
+      padding: 12px 0; border-top: 1px solid var(--border); font-size: .85rem;
+    }
+    .wa-grupo:first-child { border-top: none; }
+    .wa-grupo-name { font-weight: 600; }
+    .wa-grupo-name.muted { color: var(--muted); font-style: italic; }
+    .wa-grupo-meta { font-size: .7rem; color: var(--muted); margin-top: 2px; }
+    .wa-select, .wa-input {
+      background: #0f0f0f; border: 1px solid var(--border); color: var(--text);
+      padding: 7px 10px; border-radius: 7px; font-size: .82rem; width: 100%;
+    }
+    .wa-select:focus, .wa-input:focus { outline: none; border-color: var(--accent); }
+    .wa-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: .8rem; }
+    .wa-btn-sm { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 5px 10px; border-radius: 6px; font-size: .75rem; cursor: pointer; }
+    .wa-btn-sm:hover { border-color: var(--accent); }
+
+    .wa-empty { padding: 36px 16px; text-align: center; color: var(--muted); font-size: .9rem; }
+    .wa-empty-strong { color: var(--text); font-weight: 600; display: block; margin-bottom: 6px; font-size: 1rem; }
+
+    .wa-setup-card {
+      background: linear-gradient(135deg, #2b0d04 0%, #4a1606 100%);
+      border: 1px solid rgba(255, 77, 0, .25);
+      border-radius: 14px; padding: 20px 24px; margin-bottom: 18px;
+    }
+    .wa-setup-card.success { background: linear-gradient(135deg, #052e16 0%, #14532d 100%); border-color: rgba(74, 222, 128, .3); }
+    .wa-setup-title { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
+    .wa-setup-sub { font-size: .85rem; color: rgba(255,255,255,.75); }
+    .wa-setup-url { background: rgba(0,0,0,.4); padding: 8px 12px; border-radius: 7px; font-family: ui-monospace, monospace; font-size: .78rem; margin-top: 10px; word-break: break-all; cursor: pointer; }
+    .wa-setup-url:hover { background: rgba(0,0,0,.6); }
+  </style>
+</head>
+<body>
+<div class="wa-shell" x-data="waApp()" x-init="init()" x-cloak>
+  {% include "_sidebar.html" %}
+
+  <main class="wa-main">
+    <div class="wa-header">
+      <div class="wa-title">📱 WhatsApp</div>
+      <div class="wa-sub">Grupos vinculados a clientes — todas as mensagens dos grupos ativos viram parte da inteligência do dossiê.</div>
+    </div>
+
+    <!-- Setup card — só aparece se nenhum grupo recebeu mensagem ainda -->
+    <template x-if="!loading && !grupos.length">
+      <div class="wa-setup-card">
+        <div class="wa-setup-title">⚙️ Webhook ainda não recebeu nenhuma mensagem</div>
+        <div class="wa-setup-sub">
+          Termine de subir a Evolution API no Railway e aponte o webhook pra esta URL:
+        </div>
+        <div class="wa-setup-url" @click="copyUrl()" x-text="webhookUrl + (copied ? '  ✓ copiado' : '')"></div>
+        <div class="wa-setup-sub" style="margin-top: 12px; font-size: .78rem;">
+          Depois entre num grupo de cliente e mande qualquer mensagem — ele aparece aqui automaticamente pra você vincular.
+        </div>
+      </div>
+    </template>
+
+    <template x-if="grupos.length">
+      <div>
+        <!-- Sem cliente -->
+        <div class="wa-section" x-show="semCliente.length">
+          <div class="wa-section-head">
+            <div class="wa-section-title">🔗 Aguardando vínculo</div>
+            <div class="wa-section-count" x-text="semCliente.length + ' grupo(s)'"></div>
+          </div>
+          <template x-for="g in semCliente" :key="g.id">
+            <div class="wa-grupo">
+              <div>
+                <div class="wa-grupo-name" :class="!g.nome ? 'muted' : ''" x-text="g.nome || g.jid"></div>
+                <div class="wa-grupo-meta">
+                  <span x-text="g.total_mensagens + ' msgs'"></span>
+                  <span x-show="g.last_message_at"> · última </span>
+                  <span x-show="g.last_message_at" x-text="fmtRel(g.last_message_at)"></span>
+                </div>
+              </div>
+              <select class="wa-select" x-model="g.cliente_id" @change="vincular(g)">
+                <option :value="null">— Vincular a cliente —</option>
+                <template x-for="c in clientes" :key="c.id">
+                  <option :value="c.id" x-text="`[${c.sigla}] ${c.razao_social}`"></option>
+                </template>
+              </select>
+              <label class="wa-toggle">
+                <input type="checkbox" :checked="g.ativo" @change="toggleAtivo(g)">
+                <span x-text="g.ativo ? 'Ativo' : 'Inativo'"></span>
+              </label>
+              <span></span>
+            </div>
+          </template>
+        </div>
+
+        <!-- Com cliente -->
+        <div class="wa-section" x-show="comCliente.length">
+          <div class="wa-section-head">
+            <div class="wa-section-title">✅ Vinculados</div>
+            <div class="wa-section-count" x-text="comCliente.length + ' grupo(s)'"></div>
+          </div>
+          <template x-for="g in comCliente" :key="g.id">
+            <div class="wa-grupo">
+              <div>
+                <div class="wa-grupo-name" x-text="g.nome || g.jid"></div>
+                <div class="wa-grupo-meta">
+                  <span x-text="g.total_mensagens + ' msgs'"></span>
+                  <span x-show="g.last_message_at"> · última </span>
+                  <span x-show="g.last_message_at" x-text="fmtRel(g.last_message_at)"></span>
+                </div>
+              </div>
+              <select class="wa-select" x-model="g.cliente_id" @change="vincular(g)">
+                <option :value="null">— Desvincular —</option>
+                <template x-for="c in clientes" :key="c.id">
+                  <option :value="c.id" x-text="`[${c.sigla}] ${c.razao_social}`"></option>
+                </template>
+              </select>
+              <label class="wa-toggle">
+                <input type="checkbox" :checked="g.ativo" @change="toggleAtivo(g)">
+                <span x-text="g.ativo ? 'Ativo' : 'Inativo'"></span>
+              </label>
+              <a class="wa-btn-sm" :href="`/clientes/${g.cliente_id}?tab=whatsapp`" target="_blank">abrir dossiê ↗</a>
+            </div>
+          </template>
+        </div>
+      </div>
+    </template>
+  </main>
+</div>
+
+<script>
+function waApp() {
+  return {
+    loading: true,
+    grupos: [],
+    clientes: [],
+    copied: false,
+
+    get webhookUrl() {
+      return window.location.origin + '/api/whatsapp/webhook';
+    },
+    get semCliente() { return this.grupos.filter(g => !g.cliente_id); },
+    get comCliente() { return this.grupos.filter(g => g.cliente_id); },
+
+    async init() { await this.load(); },
+
+    async load() {
+      this.loading = true;
+      try {
+        const r = await fetch('/api/whatsapp/grupos');
+        if (r.ok) {
+          const d = await r.json();
+          this.grupos = d.grupos || [];
+          this.clientes = d.clientes || [];
+        }
+      } catch (e) { console.error(e); }
+      this.loading = false;
+    },
+
+    async vincular(g) {
+      try {
+        await fetch(`/api/whatsapp/grupos/${g.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cliente_id: g.cliente_id || null }),
+        });
+        await this.load();
+      } catch (e) { console.error(e); }
+    },
+
+    async toggleAtivo(g) {
+      try {
+        await fetch(`/api/whatsapp/grupos/${g.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ativo: !g.ativo }),
+        });
+        await this.load();
+      } catch (e) { console.error(e); }
+    },
+
+    async copyUrl() {
+      try {
+        await navigator.clipboard.writeText(this.webhookUrl);
+        this.copied = true;
+        setTimeout(() => { this.copied = false; }, 2000);
+      } catch (e) { alert('Falha ao copiar'); }
+    },
+
+    fmtRel(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      const diffSec = (Date.now() - d.getTime()) / 1000;
+      if (diffSec < 60) return 'agora';
+      if (diffSec < 3600) return `${Math.floor(diffSec/60)} min atrás`;
+      if (diffSec < 86400) return `${Math.floor(diffSec/3600)} h atrás`;
+      return `${Math.floor(diffSec/86400)} dias atrás`;
+    },
+  };
+}
+</script>
+{% include "_twemoji.html" %}
+</body>
+</html>

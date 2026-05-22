@@ -97,6 +97,19 @@
     .cd-html blockquote { border-left: 3px solid var(--accent); padding: 4px 12px; color: var(--muted); margin: 8px 0; }
     .cd-html code { background: #0a0a0a; padding: 1px 5px; border-radius: 3px; font-size: .85em; }
 
+    /* WhatsApp timeline */
+    .wa-timeline { display: flex; flex-direction: column; gap: 10px; }
+    .wa-msg {
+      background: #0f0f0f; border: 1px solid var(--border); border-radius: 10px;
+      padding: 10px 14px; max-width: 88%; align-self: flex-start;
+    }
+    .wa-msg.wa-msg-me { align-self: flex-end; background: #1a1208; border-color: rgba(255,77,0,.2); }
+    .wa-msg-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 4px; }
+    .wa-msg-head strong { font-size: .78rem; color: var(--accent); }
+    .wa-msg.wa-msg-me .wa-msg-head strong { color: #fb923c; }
+    .wa-msg-ts { font-size: .68rem; color: var(--muted); }
+    .wa-msg-body { font-size: .88rem; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+
     /* Ata preview expansível */
     .cd-ata-preview { padding: 14px 18px; background: #0a0a0a; border: 1px solid var(--border); border-radius: 8px; margin: 8px 12px 14px; }
     .cd-ata-toggle { background: none; border: none; color: var(--muted); cursor: pointer; font-size: .72rem; padding: 4px 8px; border-radius: 6px; }
@@ -274,6 +287,9 @@
           </button>
           <button class="cd-tab" :class="tab === 'contrato' ? 'active' : ''" @click="tab = 'contrato'">Contrato</button>
           <button class="cd-tab" :class="tab === 'briefing' ? 'active' : ''" @click="tab = 'briefing'; loadBriefing()">Briefing</button>
+          <button class="cd-tab" :class="tab === 'whatsapp' ? 'active' : ''" @click="tab = 'whatsapp'; loadWhatsapp()">
+            📱 WhatsApp <span class="cd-tab-count" x-show="whatsappSaude.mensagens_30d" x-text="whatsappSaude.mensagens_30d"></span>
+          </button>
           <button class="cd-tab" :class="tab === 'venda' ? 'active' : ''" @click="tab = 'venda'">Reunião de Venda</button>
           <button class="cd-tab" :class="tab === 'plano' ? 'active' : ''" @click="tab = 'plano'">Plano de Ação</button>
         </div>
@@ -507,6 +523,101 @@
                 <div class="cd-prose" x-text="cliente.plano_acao || ''"></div>
               </div>
             </div>
+
+            <!-- ── Tab: WhatsApp ── -->
+            <div x-show="tab === 'whatsapp'">
+              <template x-if="whatsappLoading">
+                <div class="cd-empty">Carregando…</div>
+              </template>
+
+              <template x-if="!whatsappLoading && !whatsappGrupos.length">
+                <div class="cd-card">
+                  <div class="cd-empty">
+                    <span class="cd-empty-strong">Nenhum grupo de WhatsApp vinculado</span>
+                    Cadastre um grupo na tela <a href="/whatsapp" style="color: var(--accent);" target="_blank">/whatsapp</a> e vincule a este cliente.
+                  </div>
+                </div>
+              </template>
+
+              <template x-if="!whatsappLoading && whatsappGrupos.length">
+                <div>
+                  <!-- Métricas de saúde -->
+                  <div class="cd-card">
+                    <div class="cd-card-title">💬 Saúde da conversa</div>
+                    <div class="cd-stats">
+                      <div class="cd-stat" :class="ultimoContatoColor">
+                        <div class="cd-stat-label">Último contato</div>
+                        <div class="cd-stat-val" x-text="ultimoContatoText"></div>
+                        <div class="cd-stat-sub" x-text="whatsappSaude.ultimo_contato ? fmtDateTime(whatsappSaude.ultimo_contato) : ''"></div>
+                      </div>
+                      <div class="cd-stat">
+                        <div class="cd-stat-label">Mensagens 7d</div>
+                        <div class="cd-stat-val" x-text="whatsappSaude.mensagens_7d"></div>
+                      </div>
+                      <div class="cd-stat">
+                        <div class="cd-stat-label">Mensagens 30d</div>
+                        <div class="cd-stat-val" x-text="whatsappSaude.mensagens_30d"></div>
+                        <div class="cd-stat-sub" x-text="`média ${whatsappSaude.media_diaria_30d}/dia`"></div>
+                      </div>
+                      <div class="cd-stat">
+                        <div class="cd-stat-label">Grupos ativos</div>
+                        <div class="cd-stat-val" x-text="whatsappGrupos.length"></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Resumo via Claude -->
+                  <div class="cd-card">
+                    <div class="cd-card-title">
+                      🤖 Resumo da conversa
+                      <div style="margin-left: auto; display: flex; gap: 6px; align-items: center;">
+                        <select class="cd-edit-input" style="padding: 4px 8px; font-size: .78rem; width: auto;" x-model="resumoHoras">
+                          <option value="24">últimas 24h</option>
+                          <option value="72">últimos 3 dias</option>
+                          <option value="168">últimos 7 dias</option>
+                        </select>
+                        <button class="cd-btn" style="padding: 5px 10px; font-size: .78rem;" @click="gerarResumo()" :disabled="resumindo">
+                          <span x-text="resumindo ? 'Gerando…' : '✨ Gerar resumo'"></span>
+                        </button>
+                      </div>
+                    </div>
+                    <template x-if="!resumoTexto && !resumindo">
+                      <div class="cd-empty">Clique em "Gerar resumo" pra ver o que está acontecendo.</div>
+                    </template>
+                    <div class="cd-prose cd-html" x-html="resumoHtml" x-show="resumoTexto"></div>
+                  </div>
+
+                  <!-- Timeline -->
+                  <div class="cd-card">
+                    <div class="cd-card-title">📋 Últimas mensagens</div>
+                    <div class="wa-timeline">
+                      <template x-for="m in whatsappMensagens" :key="m.id">
+                        <div class="wa-msg" :class="m.from_me ? 'wa-msg-me' : ''">
+                          <div class="wa-msg-head">
+                            <strong x-text="m.from_me ? 'Agência' : (m.sender_name || 'Cliente')"></strong>
+                            <span class="wa-msg-ts" x-text="fmtDateTime(m.message_timestamp)"></span>
+                          </div>
+                          <div class="wa-msg-body">
+                            <template x-if="m.tipo === 'text'"><span x-text="m.body"></span></template>
+                            <template x-if="m.tipo === 'audio'">
+                              <div>
+                                <span style="color: var(--muted); font-size: .78rem;">🎤 áudio</span>
+                                <div x-show="m.transcricao" x-text="m.transcricao" style="margin-top: 4px;"></div>
+                                <div x-show="!m.transcricao" style="color: var(--muted); font-style: italic; font-size: .78rem;">(transcrição pendente)</div>
+                              </div>
+                            </template>
+                            <template x-if="m.tipo === 'image'"><span style="color: var(--muted);">🖼️ <span x-text="m.body || 'imagem'"></span></span></template>
+                            <template x-if="m.tipo === 'video'"><span style="color: var(--muted);">🎬 <span x-text="m.body || 'vídeo'"></span></span></template>
+                            <template x-if="m.tipo === 'document'"><span style="color: var(--muted);">📎 <span x-text="m.body || 'documento'"></span></span></template>
+                            <template x-if="!['text','audio','image','video','document'].includes(m.tipo)"><span style="color: var(--muted);" x-text="`[${m.tipo}]`"></span></template>
+                          </div>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </div>
           </div>
 
           <!-- ── Side info ── -->
@@ -736,6 +847,15 @@ function dossieApp(clienteId) {
     uploadingContrato: false,
     uploadingDoc: false,
 
+    whatsappLoading: false,
+    whatsappLoaded: false,
+    whatsappGrupos: [],
+    whatsappMensagens: [],
+    whatsappSaude: { ultimo_contato: null, dias_sem_contato: null, mensagens_7d: 0, mensagens_30d: 0, media_diaria_30d: 0 },
+    resumoHoras: 24,
+    resumoTexto: '',
+    resumindo: false,
+
     get contratos() {
       return (this.cliente?.arquivos || []).filter(a => a.tipo === 'contrato');
     },
@@ -870,11 +990,14 @@ function dossieApp(clienteId) {
       // ?tab=… deep-link (vindo do gerador de atas, por exemplo)
       const params = new URLSearchParams(window.location.search);
       const initialTab = params.get('tab');
-      const validTabs = ['overview', 'reunioes', 'documentos', 'contrato', 'briefing', 'venda', 'plano'];
+      const validTabs = ['overview', 'reunioes', 'documentos', 'contrato', 'briefing', 'venda', 'plano', 'whatsapp'];
       if (initialTab && validTabs.includes(initialTab)) {
         this.tab = initialTab;
         if (initialTab === 'briefing') this.loadBriefing();
+        if (initialTab === 'whatsapp') this.loadWhatsapp();
       }
+      // Carrega indicador de mensagens 30d pra mostrar no contador da aba
+      this.loadWhatsappSaude();
       this.loading = false;
     },
 
@@ -958,6 +1081,85 @@ function dossieApp(clienteId) {
         console.error(e);
         alert('Erro de rede');
       }
+    },
+
+    get ultimoContatoText() {
+      const d = this.whatsappSaude?.dias_sem_contato;
+      if (d === null || d === undefined) return '—';
+      if (d === 0) return 'Hoje';
+      if (d === 1) return 'Ontem';
+      return `${d} dias atrás`;
+    },
+    get ultimoContatoColor() {
+      const d = this.whatsappSaude?.dias_sem_contato;
+      if (d === null || d === undefined) return '';
+      if (d <= 1) return 'accent-good';
+      if (d <= 7) return '';
+      if (d <= 14) return 'accent-warn';
+      return 'accent-bad';
+    },
+    get resumoHtml() {
+      if (!this.resumoTexto) return '';
+      // Markdown simples → HTML (h2, h3, bullets, **bold**)
+      return this.resumoTexto
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/^- (.+)$/gm, '<li>$1</li>')
+        .replace(/(<li>.*?<\/li>\n?)+/g, m => '<ul>' + m + '</ul>')
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/^(?!<[hu]|<li|<p)(.+)$/gm, '<p>$1</p>')
+        .replace(/<p><\/p>/g, '');
+    },
+
+    async loadWhatsappSaude() {
+      try {
+        const r = await fetch(`/api/clientes/${this.clienteId}/whatsapp`);
+        if (r.ok) {
+          const d = await r.json();
+          this.whatsappSaude = d.saude || this.whatsappSaude;
+        }
+      } catch (e) { /* silencioso */ }
+    },
+
+    async loadWhatsapp() {
+      if (this.whatsappLoaded) return;
+      this.whatsappLoading = true;
+      try {
+        const r = await fetch(`/api/clientes/${this.clienteId}/whatsapp`);
+        if (r.ok) {
+          const d = await r.json();
+          this.whatsappGrupos = d.grupos || [];
+          this.whatsappMensagens = d.mensagens || [];
+          this.whatsappSaude = d.saude || this.whatsappSaude;
+        }
+      } catch (e) { console.error(e); }
+      this.whatsappLoaded = true;
+      this.whatsappLoading = false;
+    },
+
+    async gerarResumo() {
+      this.resumindo = true;
+      this.resumoTexto = '';
+      try {
+        const r = await fetch(`/api/clientes/${this.clienteId}/whatsapp/resumo`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ horas: Number(this.resumoHoras) }),
+        });
+        if (r.ok) {
+          const d = await r.json();
+          this.resumoTexto = d.resumo || '';
+        } else {
+          alert('Falha ao gerar resumo');
+        }
+      } catch (e) {
+        console.error(e);
+        alert('Erro de rede');
+      }
+      this.resumindo = false;
     },
 
     async copyBriefingLink() {

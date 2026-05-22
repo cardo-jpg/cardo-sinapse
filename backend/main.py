@@ -32,6 +32,7 @@ from backend.atas_sinapse import router as atas_sinapse_router
 from backend.habitos import router as habitos_router, init_db as habitos_init_db
 from backend.inicio import router as inicio_router
 from backend.clientes import router as clientes_router, init_db as clientes_init_db
+from backend.whatsapp import router as whatsapp_router, init_db as whatsapp_init_db
 
 load_dotenv()
 
@@ -641,6 +642,7 @@ async def lifespan(app: FastAPI):
     init_briefings_db()
     habitos_init_db()
     clientes_init_db()
+    whatsapp_init_db()
     start_sync_scheduler()
     _schedule_cpa_monitor()
     await migrar_siga_startup()
@@ -662,6 +664,7 @@ app.include_router(atas_sinapse_router)
 app.include_router(habitos_router)
 app.include_router(inicio_router)
 app.include_router(clientes_router)
+app.include_router(whatsapp_router)
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
