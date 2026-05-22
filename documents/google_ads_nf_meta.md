@@ -1,5 +1,5 @@
 # Google Ads — Gráfica NF — Meta Ads (Público) [NF_META]
-**Atualizado em:** 25/04/2026 23:43
+**Atualizado em:** 26/04/2026 09:41
 
 | Data | Campanha | Público | Investimento | Impressões | Cliques | Leads |
 |---|---|---|---|---|---|---|

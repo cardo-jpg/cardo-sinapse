@@ -1,5 +1,5 @@
 # Google Ads — Hire Brazil — Funil Ebook 7 Erros [HIRE_EBOOK7]
-**Atualizado em:** 25/04/2026 23:43
+**Atualizado em:** 26/04/2026 09:41
 
 | Date | Campanha | Investido | Leads | Vendas | Faturamento |
 |---|---|---|---|---|---|
@@ -268,3 +268,4 @@
 | 22/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 64,61 | 31 |  |  |
 | 23/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 62,37 | 29 |  |  |
 | 24/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 66,40 | 36 |  |  |
+| 25/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_7_Erros | R$ 67,41 | 23 |  |  |

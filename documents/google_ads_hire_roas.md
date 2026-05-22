@@ -1,5 +1,5 @@
 # Google Ads — Hire Brazil — ROAS por Funil (Somatório) [HIRE_ROAS]
-**Atualizado em:** 25/04/2026 23:43
+**Atualizado em:** 26/04/2026 09:41
 
 | Date | Investido | Leads | Vendas | Faturamento | Roas |
 |---|---|---|---|---|---|

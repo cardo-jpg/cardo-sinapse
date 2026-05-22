@@ -1,5 +1,5 @@
 # Google Ads — Patrícia Voggt — SRI Campanhas FB Ads [PV_SRI_ADS]
-**Atualizado em:** 25/04/2026 23:43
+**Atualizado em:** 26/04/2026 09:41
 
 | Data | Campanha | Investimento | Impressoes | Cliques | Leads | Pageview | Anuncio |
 |---|---|---|---|---|---|---|---|

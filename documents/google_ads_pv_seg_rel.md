@@ -1,9 +1,9 @@
 # Google Ads — Patrícia Voggt — Relatório Semanal Seguidores [PV_SEG_REL]
-**Atualizado em:** 25/04/2026 23:43
+**Atualizado em:** 26/04/2026 09:41
 
 | *RELATÓRIO SEMANAL MALU* - |  |  |  | SEGUIDORES: | VALOR INVESTIDO: | CUSTO POR SEGUIDOR: | CLIQUES: | CUSTO POR CLIQUE (CPC): |
 |---|---|---|---|---|---|---|---|---|
-| Período de | 16/04/2026 | até | 23/04/2026 | 0 | R$ 0,00 | #DIV/0! | 0 | #DIV/0! |
+| Período de | 17/04/2026 | até | 24/04/2026 | 0 | R$ 0,00 | #DIV/0! | 0 | #DIV/0! |
 |  |  |  |  |  |  |  |  |  |
 |  |  |  |  |  |  |  |  |  |
 | SEGUIDORES: | 0 |  |  |  |  |  |  |  |

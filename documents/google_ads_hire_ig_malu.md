@@ -1,5 +1,5 @@
 # Google Ads — Hire Brazil — Funil IG Malu [HIRE_IG_MALU]
-**Atualizado em:** 25/04/2026 23:43
+**Atualizado em:** 26/04/2026 09:41
 
 | Date | Investido | Seguidores | Vendas | Faturamento |
 |---|---|---|---|---|
@@ -270,3 +270,4 @@
 | 22/04/2026 | R$ 104,41 |  |  |  |
 | 23/04/2026 | R$ 99,34 |  |  |  |
 | 24/04/2026 | R$ 94,17 |  |  |  |
+| 25/04/2026 | R$ 96,58 |  |  |  |

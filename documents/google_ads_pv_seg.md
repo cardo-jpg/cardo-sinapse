@@ -1,5 +1,5 @@
 # Google Ads — Patrícia Voggt — Seguidores Instagram [PV_SEG]
-**Atualizado em:** 25/04/2026 23:43
+**Atualizado em:** 26/04/2026 09:41
 
 | DATA | Novos Seguidores | Deixaram de Seguir | Geral | Seguidores Acumulados | Crescimento | Investimento diário | Custo por novos seguidores | Cliques | CPC | Impressões | CPM |
 |---|---|---|---|---|---|---|---|---|---|---|---|

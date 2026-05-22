@@ -1,5 +1,5 @@
 # Google Ads — Hire Brazil — Funil Ebook 5 Oportunidades [HIRE_EBOOK5]
-**Atualizado em:** 25/04/2026 23:43
+**Atualizado em:** 26/04/2026 09:41
 
 | Date | Campanha | Investido | Leads | Vendas | Faturamento |
 |---|---|---|---|---|---|
@@ -270,3 +270,4 @@
 | 22/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 27,17 | 23 |  |  |
 | 23/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 27,77 | 33 |  |  |
 | 24/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 29,63 | 23 |  |  |
+| 25/04/2026 | MO_Cadastro_Site_Distribuicao_Ebook_Linkedin_5_Formas | R$ 30,21 | 25 |  |  |
