@@ -154,6 +154,41 @@
           </template>
         </div>
 
+        <!-- Remetentes (descobrir quem é quem) -->
+        <div class="wa-section" x-show="senders.length">
+          <div class="wa-section-head">
+            <div>
+              <div class="wa-section-title">👥 Remetentes detectados</div>
+              <div style="font-size: .72rem; color: var(--muted); margin-top: 2px;">
+                Marca quem é do <strong style="color: #4ade80;">time</strong> (Victor, José, etc) pelas amostras de mensagem
+              </div>
+            </div>
+            <button class="wa-btn-sm" @click="loadSenders()">↻ Atualizar</button>
+          </div>
+          <template x-for="s in senders" :key="s.sender_jid">
+            <div style="display: grid; grid-template-columns: 1fr 110px; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border);">
+              <div>
+                <div style="font-family: monospace; font-size: .72rem; color: var(--muted);" x-text="s.sender_jid"></div>
+                <div style="font-size: .82rem; margin-top: 4px;">
+                  <span x-show="s.recent_bodies.length === 0" style="color: var(--muted); font-style: italic;">(só áudio/mídia)</span>
+                  <template x-for="b in s.recent_bodies" :key="b">
+                    <div style="margin: 2px 0; color: #e5e7eb;">"<span x-text="b.length > 110 ? b.slice(0, 110) + '…' : b"></span>"</div>
+                  </template>
+                </div>
+                <div style="font-size: .68rem; color: var(--muted); margin-top: 4px;" x-text="`${s.msgs} mensagens · última ${fmtRel(s.last_seen)}`"></div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center;">
+                <template x-if="!s.is_own">
+                  <button class="wa-btn-primary" style="padding: 5px 10px; font-size: .76rem;" @click="marcarComoTime(s)">✓ É do time</button>
+                </template>
+                <template x-if="s.is_own">
+                  <button class="wa-btn-sm" style="background: #052e16; border-color: #4ade80; color: #4ade80;" @click="desmarcarTime(s)">✓ Time (clique pra remover)</button>
+                </template>
+              </div>
+            </div>
+          </template>
+        </div>
+
         <!-- Com cliente -->
         <div class="wa-section" x-show="comCliente.length">
           <div class="wa-section-head">
@@ -205,6 +240,7 @@ function waApp() {
     pairingCode: '',
     qrBase64: '',
     refreshingNomes: false,
+    senders: [],
 
     get webhookUrl() {
       return window.location.origin + '/api/whatsapp/webhook';
@@ -213,9 +249,40 @@ function waApp() {
     get comCliente() { return this.grupos.filter(g => g.cliente_id); },
 
     async init() {
-      await Promise.all([this.load(), this.checkState()]);
+      await Promise.all([this.load(), this.checkState(), this.loadSenders()]);
       // Poll status quando há pareamento em andamento
       setInterval(() => { if (this.pairingCode || this.qrBase64) this.checkState(); }, 5000);
+    },
+
+    async loadSenders() {
+      try {
+        const r = await fetch('/api/whatsapp/debug/senders');
+        if (r.ok) {
+          const d = await r.json();
+          this.senders = d.senders || [];
+        }
+      } catch (e) { console.error(e); }
+    },
+
+    async marcarComoTime(s) {
+      const apelido = prompt(`Quem é "${s.sender_jid}"? (Ex: Victor, José)\n\nÚltima mensagem: ${(s.recent_bodies[0] || '(só áudio)').slice(0, 80)}`, '');
+      if (apelido === null) return;
+      try {
+        await fetch('/api/whatsapp/debug/team-lid', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jid: s.sender_jid, apelido: apelido.trim() || null }),
+        });
+        await this.loadSenders();
+      } catch (e) { console.error(e); alert('Erro'); }
+    },
+
+    async desmarcarTime(s) {
+      if (!confirm(`Desmarcar "${s.sender_jid}" como time?`)) return;
+      try {
+        await fetch(`/api/whatsapp/debug/team-lid/${encodeURIComponent(s.sender_jid)}`, { method: 'DELETE' });
+        await this.loadSenders();
+      } catch (e) { console.error(e); alert('Erro'); }
     },
 
     async checkState() {

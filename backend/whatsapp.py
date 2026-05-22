@@ -63,13 +63,34 @@ for _item in _raw.split(","):
 
 
 def _is_own_sender(sender_jid: str) -> bool:
-    """True se sender_jid representa um número/identidade do time."""
-    if not sender_jid or not WHATSAPP_OWN_IDS:
+    """
+    True se sender_jid representa um número/identidade do time.
+    Checa em 2 lugares:
+      1. WHATSAPP_OWN_IDS (env var) — números limpos ou JIDs
+      2. tabela wa_team_lids (cadastrável via UI sem rebuild)
+    """
+    if not sender_jid:
         return False
-    if sender_jid.lower() in WHATSAPP_OWN_IDS:
+    jid_lower = sender_jid.lower()
+    if jid_lower in WHATSAPP_OWN_IDS:
         return True
     sender_num = re.sub(r"\D", "", sender_jid.split("@")[0])
-    return bool(sender_num and sender_num in WHATSAPP_OWN_IDS)
+    if sender_num and sender_num in WHATSAPP_OWN_IDS:
+        return True
+    # 2. Banco
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        try:
+            cur.execute("SELECT 1 FROM wa_team_lids WHERE jid=%s LIMIT 1", (jid_lower,))
+            if cur.fetchone():
+                return True
+        finally:
+            cur.close()
+            conn.close()
+    except Exception:
+        pass
+    return False
 
 
 def _waha_call(method: str, path: str, json_body: Optional[dict] = None) -> dict:
@@ -100,6 +121,13 @@ def init_db():
     conn = get_conn()
     cur = conn.cursor()
     try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS wa_team_lids (
+                jid          TEXT PRIMARY KEY,
+                apelido      TEXT,
+                created_at   TIMESTAMPTZ DEFAULT NOW()
+            )
+        """)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS wa_grupos (
                 id              SERIAL PRIMARY KEY,
@@ -822,22 +850,24 @@ async def update_grupo(grupo_id: int, request: Request):
 @router.get("/api/whatsapp/debug/senders")
 async def debug_senders(request: Request):
     """
-    Lista todos os sender_jids únicos encontrados nas mensagens, com
-    contagem e push_name mais comum. Útil pra descobrir lids do time.
+    Lista sender_jids únicos com contagem + amostra das últimas
+    3 mensagens (texto) pra ajudar a identificar quem é quem.
     """
     _require(request)
     conn = get_conn()
     cur = dict_cursor(conn)
     try:
         cur.execute("""
-            SELECT sender_jid,
-                   COUNT(*) AS msgs,
-                   from_me,
-                   MAX(sender_name) AS sample_name,
-                   MAX(message_timestamp) AS last_seen
+            SELECT
+                sender_jid,
+                COUNT(*) AS msgs,
+                MAX(message_timestamp) AS last_seen,
+                MAX(sender_name) AS sample_name,
+                (array_agg(body ORDER BY message_timestamp DESC)
+                  FILTER (WHERE body IS NOT NULL AND body != ''))[1:3] AS recent_bodies
               FROM wa_mensagens
              WHERE sender_jid IS NOT NULL
-             GROUP BY sender_jid, from_me
+             GROUP BY sender_jid
              ORDER BY msgs DESC
         """)
         rows = []
@@ -845,11 +875,64 @@ async def debug_senders(request: Request):
             d = dict(r)
             if isinstance(d.get("last_seen"), datetime):
                 d["last_seen"] = d["last_seen"].isoformat()
-            d["is_own_atual"] = _is_own_sender(d["sender_jid"])
+            d["is_own"] = _is_own_sender(d["sender_jid"])
+            d["recent_bodies"] = list(d.get("recent_bodies") or [])
             rows.append(d)
+        # Lista team_lids cadastrados via UI
+        cur.execute("SELECT jid, apelido FROM wa_team_lids ORDER BY apelido")
+        team = [dict(r) for r in cur.fetchall()]
     finally:
         cur.close(); conn.close()
-    return {"senders": rows, "own_ids_configurados": sorted(WHATSAPP_OWN_IDS)}
+    return {
+        "senders": rows,
+        "team_lids": team,
+        "env_own_ids": sorted(WHATSAPP_OWN_IDS),
+    }
+
+
+@router.post("/api/whatsapp/debug/team-lid")
+async def add_team_lid(request: Request):
+    """Marca um JID como sendo do time. body: { jid, apelido? }"""
+    _require(request)
+    body = await request.json()
+    jid = (body.get("jid") or "").strip().lower()
+    apelido = (body.get("apelido") or "").strip() or None
+    if not jid:
+        raise HTTPException(400, "jid obrigatório")
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            INSERT INTO wa_team_lids (jid, apelido) VALUES (%s, %s)
+            ON CONFLICT (jid) DO UPDATE SET apelido = EXCLUDED.apelido
+        """, (jid, apelido))
+        # Reclassifica mensagens deste sender
+        cur.execute("UPDATE wa_mensagens SET from_me=TRUE WHERE sender_jid=%s", (jid,))
+        updated = cur.rowcount
+        if apelido:
+            cur.execute("UPDATE wa_mensagens SET sender_name=%s WHERE sender_jid=%s AND (sender_name IS NULL OR sender_name='')",
+                        (apelido, jid))
+        conn.commit()
+    finally:
+        cur.close(); conn.close()
+    return {"ok": True, "mensagens_reclassificadas": updated}
+
+
+@router.delete("/api/whatsapp/debug/team-lid/{jid_path:path}")
+async def remove_team_lid(jid_path: str, request: Request):
+    """Remove um JID da lista do time."""
+    _require(request)
+    jid = jid_path.strip().lower()
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM wa_team_lids WHERE jid=%s", (jid,))
+        cur.execute("UPDATE wa_mensagens SET from_me=FALSE WHERE sender_jid=%s", (jid,))
+        updated = cur.rowcount
+        conn.commit()
+    finally:
+        cur.close(); conn.close()
+    return {"ok": True, "mensagens_reclassificadas": updated}
 
 
 # ── Reclassificar from_me das mensagens antigas ──────────────────────────────
