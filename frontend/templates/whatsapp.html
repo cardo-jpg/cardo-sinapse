@@ -37,6 +37,9 @@
     .wa-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: .8rem; }
     .wa-btn-sm { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 5px 10px; border-radius: 6px; font-size: .75rem; cursor: pointer; }
     .wa-btn-sm:hover { border-color: var(--accent); }
+    .wa-btn-primary { background: var(--accent); border: 1px solid var(--accent); color: #fff; padding: 8px 14px; border-radius: 7px; font-size: .82rem; font-weight: 500; cursor: pointer; }
+    .wa-btn-primary:hover { background: var(--accent-hover); }
+    .wa-btn-primary:disabled { opacity: .5; cursor: not-allowed; }
 
     .wa-empty { padding: 36px 16px; text-align: center; color: var(--muted); font-size: .9rem; }
     .wa-empty-strong { color: var(--text); font-weight: 600; display: block; margin-bottom: 6px; font-size: 1rem; }
@@ -63,19 +66,55 @@
       <div class="wa-sub">Grupos vinculados a clientes — todas as mensagens dos grupos ativos viram parte da inteligência do dossiê.</div>
     </div>
 
-    <!-- Setup card — só aparece se nenhum grupo recebeu mensagem ainda -->
-    <template x-if="!loading && !grupos.length">
-      <div class="wa-setup-card">
-        <div class="wa-setup-title">⚙️ Webhook ainda não recebeu nenhuma mensagem</div>
-        <div class="wa-setup-sub">
-          Termine de subir a Evolution API no Railway e aponte o webhook pra esta URL:
-        </div>
-        <div class="wa-setup-url" @click="copyUrl()" x-text="webhookUrl + (copied ? '  ✓ copiado' : '')"></div>
-        <div class="wa-setup-sub" style="margin-top: 12px; font-size: .78rem;">
-          Depois entre num grupo de cliente e mande qualquer mensagem — ele aparece aqui automaticamente pra você vincular.
-        </div>
+    <!-- Connect card (Evolution API) -->
+    <div class="wa-setup-card" :class="state.instance?.state === 'open' ? 'success' : ''">
+      <div class="wa-setup-title">
+        <span x-show="state.instance?.state === 'open'">✅ WhatsApp conectado</span>
+        <span x-show="state.instance?.state === 'connecting'">⏳ Aguardando conexão</span>
+        <span x-show="!state.instance || state.instance?.state === 'close' || !state.instance?.state">📱 Conectar WhatsApp</span>
       </div>
-    </template>
+      <div class="wa-setup-sub">
+        <span x-show="state.instance?.state === 'open'">Tudo certo — mensagens dos grupos vinculados já estão sendo capturadas.</span>
+        <span x-show="state.instance?.state !== 'open'">Use seu número de WhatsApp para parear via código (sem QR). É mais confiável que escanear QR.</span>
+      </div>
+
+      <template x-if="state.instance?.state !== 'open'">
+        <div style="margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+          <input type="tel" class="wa-input" style="max-width: 280px;" x-model="connectNumber"
+                 placeholder="Ex: 5547999999999 (sem + nem espaços)">
+          <button class="wa-btn-primary" @click="conectarPairing()" :disabled="connecting || !connectNumber">
+            <span x-text="connecting ? 'Conectando…' : '🔑 Gerar código de pareamento'"></span>
+          </button>
+          <button class="wa-btn-sm" @click="conectarQR()" :disabled="connecting">QR code</button>
+        </div>
+      </template>
+
+      <template x-if="pairingCode">
+        <div style="margin-top: 18px; padding: 14px; background: rgba(0,0,0,.35); border-radius: 10px;">
+          <div style="font-size: .82rem; color: rgba(255,255,255,.7); margin-bottom: 8px;">
+            ✨ Código de pareamento:
+          </div>
+          <div style="font-family: ui-monospace, monospace; font-size: 1.8rem; font-weight: 700; letter-spacing: .12em; color: #fff;" x-text="pairingCode"></div>
+          <div style="font-size: .78rem; color: rgba(255,255,255,.65); margin-top: 10px; line-height: 1.55;">
+            1. WhatsApp do celular → <strong>⋮</strong> → <strong>Aparelhos conectados</strong><br>
+            2. Toque em <strong>Conectar um aparelho</strong><br>
+            3. No rodapé: <strong>Conectar com número de telefone</strong><br>
+            4. Digita o código (sem hífen). Status muda pra "Connected" em ~5s.
+          </div>
+          <button class="wa-btn-sm" style="margin-top: 10px;" @click="checkState()">↻ Verificar conexão</button>
+        </div>
+      </template>
+
+      <template x-if="qrBase64">
+        <div style="margin-top: 18px; padding: 14px; background: #fff; border-radius: 10px; display: inline-block;">
+          <img :src="qrBase64" style="display: block; width: 280px; height: 280px;">
+        </div>
+      </template>
+
+      <template x-if="connectError">
+        <div style="margin-top: 12px; color: #fca5a5; font-size: .82rem;" x-text="connectError"></div>
+      </template>
+    </div>
 
     <template x-if="grupos.length">
       <div>
@@ -153,13 +192,94 @@ function waApp() {
     clientes: [],
     copied: false,
 
+    state: { instance: { state: null } },
+    connectNumber: '',
+    connecting: false,
+    connectError: '',
+    pairingCode: '',
+    qrBase64: '',
+
     get webhookUrl() {
       return window.location.origin + '/api/whatsapp/webhook';
     },
     get semCliente() { return this.grupos.filter(g => !g.cliente_id); },
     get comCliente() { return this.grupos.filter(g => g.cliente_id); },
 
-    async init() { await this.load(); },
+    async init() {
+      await Promise.all([this.load(), this.checkState()]);
+      // Poll status quando há pareamento em andamento
+      setInterval(() => { if (this.pairingCode || this.qrBase64) this.checkState(); }, 5000);
+    },
+
+    async checkState() {
+      try {
+        const r = await fetch('/api/whatsapp/instance/state');
+        if (r.ok) {
+          const d = await r.json();
+          this.state = d.data || { instance: { state: null } };
+          // Se conectou, limpa o código/QR
+          if (this.state.instance?.state === 'open') {
+            this.pairingCode = '';
+            this.qrBase64 = '';
+            await this.load();
+          }
+        }
+      } catch (e) { console.error(e); }
+    },
+
+    async conectarPairing() {
+      if (!this.connectNumber.trim()) return;
+      this.connecting = true;
+      this.connectError = '';
+      this.pairingCode = '';
+      this.qrBase64 = '';
+      try {
+        const r = await fetch('/api/whatsapp/instance/connect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ number: this.connectNumber.replace(/\D/g, '') }),
+        });
+        const d = await r.json();
+        if (!r.ok) {
+          this.connectError = d.detail || 'Falha ao conectar';
+        } else if (d.pairing_code) {
+          this.pairingCode = d.pairing_code;
+        } else if (d.qr_base64) {
+          this.qrBase64 = d.qr_base64;
+        } else {
+          this.connectError = 'Resposta inesperada da Evolution. Tenta de novo em 10s.';
+          console.warn('Evolution response:', d);
+        }
+      } catch (e) {
+        this.connectError = 'Erro de rede';
+      }
+      this.connecting = false;
+    },
+
+    async conectarQR() {
+      this.connecting = true;
+      this.connectError = '';
+      this.pairingCode = '';
+      this.qrBase64 = '';
+      try {
+        const r = await fetch('/api/whatsapp/instance/connect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        });
+        const d = await r.json();
+        if (!r.ok) {
+          this.connectError = d.detail || 'Falha';
+        } else if (d.qr_base64) {
+          this.qrBase64 = d.qr_base64;
+        } else {
+          this.connectError = 'QR não retornado. Tenta pareamento por número.';
+        }
+      } catch (e) {
+        this.connectError = 'Erro de rede';
+      }
+      this.connecting = false;
+    },
 
     async load() {
       this.loading = true;

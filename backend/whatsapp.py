@@ -21,6 +21,7 @@ from datetime import datetime, date, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
+import httpx
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -35,6 +36,29 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "frontend" / "templates"))
 # Token opcional pra autenticar webhook (Evolution envia no header
 # `apikey` se vc setar AUTHENTICATION_API_KEY).
 WEBHOOK_TOKEN = os.getenv("WHATSAPP_WEBHOOK_TOKEN", "")
+
+# Evolution API — pra controle administrativo (criar instância, gerar QR/pairing)
+EVOLUTION_API_URL = (os.getenv("EVOLUTION_API_URL") or "").rstrip("/")
+EVOLUTION_API_KEY = os.getenv("EVOLUTION_API_KEY", "")
+EVOLUTION_INSTANCE = os.getenv("EVOLUTION_INSTANCE", "sinapse")
+
+
+def _evolution_call(method: str, path: str, json_body: Optional[dict] = None) -> dict:
+    if not EVOLUTION_API_URL or not EVOLUTION_API_KEY:
+        raise HTTPException(503, "Evolution API não configurada (EVOLUTION_API_URL/EVOLUTION_API_KEY)")
+    url = f"{EVOLUTION_API_URL}{path}"
+    headers = {"apikey": EVOLUTION_API_KEY}
+    if json_body is not None:
+        headers["Content-Type"] = "application/json"
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            r = client.request(method, url, headers=headers, json=json_body)
+            try:
+                return {"status": r.status_code, "data": r.json()}
+            except Exception:
+                return {"status": r.status_code, "data": {"raw": r.text}}
+    except httpx.HTTPError as e:
+        raise HTTPException(502, f"Falha ao chamar Evolution: {e}")
 
 
 # ── DB ────────────────────────────────────────────────────────────────────────
@@ -288,6 +312,94 @@ def _handle_message_upsert(data, full_payload) -> dict:
         conn.close()
 
     return {"ok": True, "inserted": inserted, "skipped": skipped}
+
+
+# ── Connect/QR/Pairing (proxy pra Evolution API) ─────────────────────────────
+
+@router.get("/api/whatsapp/instance/state")
+async def instance_state(request: Request):
+    _require(request)
+    r = _evolution_call("GET", f"/instance/connectionState/{EVOLUTION_INSTANCE}")
+    return {"http_status": r["status"], "data": r["data"]}
+
+
+@router.post("/api/whatsapp/instance/connect")
+async def instance_connect(request: Request):
+    """
+    Cria/recria a instância e retorna pairing code ou QR.
+    Body opcional: { "number": "5547999999999" } pra pairing code via número.
+                   Sem number, gera QR code.
+    """
+    _require(request)
+    body = {}
+    try:
+        body = await request.json()
+    except Exception:
+        pass
+    number = (body.get("number") or "").strip()
+
+    # 1) Deleta instância existente (idempotente — ignora 404)
+    _evolution_call("DELETE", f"/instance/delete/{EVOLUTION_INSTANCE}")
+
+    # 2) Cria de novo
+    payload = {
+        "instanceName": EVOLUTION_INSTANCE,
+        "integration": "WHATSAPP-BAILEYS",
+    }
+    if number:
+        payload["number"] = number
+    else:
+        payload["qrcode"] = True
+
+    r = _evolution_call("POST", "/instance/create", payload)
+    data = r.get("data") or {}
+
+    # Normaliza retorno pro frontend
+    qr_base64 = None
+    qr_code = None
+    pairing_code = None
+
+    qrcode_obj = data.get("qrcode") or {}
+    if isinstance(qrcode_obj, dict):
+        qr_base64 = qrcode_obj.get("base64")
+        qr_code = qrcode_obj.get("code")
+        pairing_code = qrcode_obj.get("pairingCode")
+
+    # Algumas versões da Evolution colocam pairingCode no nível raiz
+    if not pairing_code:
+        pairing_code = data.get("pairingCode") or data.get("code")
+
+    return {
+        "ok": True,
+        "instance": data.get("instance") or {},
+        "qr_base64": qr_base64,
+        "qr_code": qr_code,
+        "pairing_code": pairing_code,
+        "raw": data,
+    }
+
+
+@router.post("/api/whatsapp/instance/refresh-qr")
+async def instance_refresh_qr(request: Request):
+    """Tenta pegar um novo QR sem recriar a instância (caso QR tenha expirado)."""
+    _require(request)
+    r = _evolution_call("GET", f"/instance/connect/{EVOLUTION_INSTANCE}")
+    data = r.get("data") or {}
+    qr = data.get("qrcode") or {}
+    return {
+        "ok": True,
+        "qr_base64": qr.get("base64") if isinstance(qr, dict) else None,
+        "qr_code": qr.get("code") if isinstance(qr, dict) else None,
+        "pairing_code": data.get("pairingCode") or data.get("code"),
+        "raw": data,
+    }
+
+
+@router.post("/api/whatsapp/instance/disconnect")
+async def instance_disconnect(request: Request):
+    _require(request)
+    r = _evolution_call("DELETE", f"/instance/logout/{EVOLUTION_INSTANCE}")
+    return {"ok": True, "data": r["data"]}
 
 
 # ── Grupos: CRUD pra vincular a clientes ──────────────────────────────────────
