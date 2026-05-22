@@ -247,8 +247,8 @@ function waApp() {
         } else if (d.qr_base64) {
           this.qrBase64 = d.qr_base64;
         } else {
-          this.connectError = 'Resposta inesperada da Evolution. Tenta de novo em 10s.';
-          console.warn('Evolution response:', d);
+          this.connectError = `Resposta inesperada do WAHA. Status sessão: ${d.session_status || '?'}. Veja Console (F12) + logs Sinapse.`;
+          console.warn('WAHA response:', d);
         }
       } catch (e) {
         this.connectError = 'Erro de rede';

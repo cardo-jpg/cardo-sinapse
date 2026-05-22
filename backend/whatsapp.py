@@ -54,11 +54,13 @@ def _waha_call(method: str, path: str, json_body: Optional[dict] = None) -> dict
     try:
         with httpx.Client(timeout=30.0) as client:
             r = client.request(method, url, headers=headers, json=json_body)
+            print(f"[WAHA] {method} {path} → {r.status_code}: {r.text[:500]}", flush=True)
             try:
                 return {"status": r.status_code, "data": r.json()}
             except Exception:
                 return {"status": r.status_code, "data": {"raw": r.text}}
     except httpx.HTTPError as e:
+        print(f"[WAHA ERROR] {method} {path}: {e}", flush=True)
         raise HTTPException(502, f"Falha ao chamar WAHA: {e}")
 
 
