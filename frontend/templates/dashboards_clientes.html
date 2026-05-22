@@ -3,26 +3,23 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Dashboard — Sinapse</title>
+<title>Dashboards — Sinapse</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:wght@500;700&display=swap" rel="stylesheet"/>
 <style>
   :root {
     --bg: #0a0a14;
-    --panel: rgba(20,20,30,0.72);
     --border: #2a2a2a;
     --text: #eee;
-    --muted: #888;
+    --muted: #666;
     --orange: #E97919;
     --orange-soft: #f59854;
-    --navy: #19196C;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; }
+  html, body { height: 100%; overflow: hidden; }
   body {
     font-family: 'Inter', system-ui, sans-serif;
     background: var(--bg);
     color: var(--text);
-    overflow: hidden;
     display: flex;
     flex-direction: column;
     background:
@@ -30,95 +27,94 @@
       radial-gradient(900px 600px at 110% 110%, rgba(233,121,25,.16) 0%, transparent 60%),
       var(--bg);
   }
+
+  /* topbar — clientes */
   .topbar {
     flex-shrink: 0;
-    display: flex; align-items: center; gap: 18px;
-    padding: 14px 24px;
-    background: rgba(14,14,26,0.72);
-    backdrop-filter: blur(14px) saturate(140%);
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 20px;
+    background: rgba(14,14,26,0.85);
+    backdrop-filter: blur(14px);
     border-bottom: 1px solid var(--border);
   }
   .title {
     font-family: 'Fraunces', serif;
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: #fff;
-    letter-spacing: -.01em;
+    font-size: .95rem; font-weight: 700; color: #fff;
+    white-space: nowrap;
   }
-  .title em {
-    font-style: italic;
-    color: var(--orange-soft);
-    font-weight: 500;
-  }
-  .selector {
-    display: flex; gap: 6px;
-    margin-left: auto;
-  }
-  .client-btn {
+  .title em { font-style: italic; color: var(--orange-soft); font-weight: 500; }
+
+  .client-row { display: flex; gap: 5px; margin-left: auto; flex-wrap: wrap; }
+
+  .cbtn {
     background: rgba(255,255,255,0.04);
     border: 1px solid var(--border);
     color: var(--muted);
-    padding: 7px 14px;
-    font-size: .82rem;
-    font-weight: 500;
-    border-radius: 8px;
-    cursor: pointer;
-    font-family: inherit;
-    transition: all .15s;
-    display: inline-flex; align-items: center; gap: 8px;
+    padding: 5px 12px;
+    font-size: .78rem; font-weight: 600;
+    border-radius: 7px; cursor: pointer;
+    font-family: inherit; transition: all .15s;
+    display: inline-flex; align-items: center; gap: 7px;
   }
-  .client-btn:hover {
-    background: rgba(233,121,25,0.08);
-    color: var(--text);
-    border-color: rgba(233,121,25,0.3);
+  .cbtn:hover { background: rgba(233,121,25,0.08); color: var(--text); border-color: rgba(233,121,25,0.3); }
+  .cbtn.active { background: rgba(233,121,25,0.16); color: var(--orange-soft); border-color: rgba(233,121,25,0.55); }
+  .cbtn .sig {
+    font-size: .62rem; font-weight: 700;
+    background: rgba(255,255,255,0.07);
+    padding: 2px 6px; border-radius: 4px; letter-spacing: .05em;
   }
-  .client-btn.active {
-    background: rgba(233,121,25,0.14);
-    color: var(--orange-soft);
-    border-color: rgba(233,121,25,0.5);
+  .cbtn.active .sig { background: rgba(233,121,25,0.2); }
+
+  /* subbar — documentos do cliente */
+  .subbar {
+    flex-shrink: 0;
+    display: flex; align-items: center; gap: 4px;
+    padding: 6px 20px;
+    background: rgba(10,10,20,0.6);
+    border-bottom: 1px solid rgba(255,255,255,.04);
+    min-height: 36px;
   }
-  .client-btn .sigla {
-    font-size: .68rem;
-    font-weight: 700;
-    background: rgba(255,255,255,0.08);
-    padding: 2px 7px;
-    border-radius: 4px;
-    letter-spacing: .04em;
-  }
-  .client-btn.active .sigla {
-    background: rgba(233,121,25,0.2);
-  }
-  .frame-wrap {
-    flex: 1;
-    position: relative;
-    overflow: hidden;
-  }
-  .frame-wrap iframe {
-    width: 100%; height: 100%;
+  .dbtn {
+    background: transparent;
     border: none;
-    display: block;
+    color: var(--muted);
+    padding: 4px 12px;
+    font-size: .75rem; font-weight: 500;
+    border-radius: 6px; cursor: pointer;
+    font-family: inherit; transition: all .15s;
+    display: inline-flex; align-items: center; gap: 5px;
   }
+  .dbtn:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+  .dbtn.active { background: rgba(255,255,255,0.09); color: #fff; font-weight: 600; }
+  .dbtn .tag {
+    font-size: .58rem; font-weight: 700; letter-spacing: .04em;
+    background: rgba(255,255,255,0.08);
+    padding: 1px 5px; border-radius: 3px;
+    text-transform: uppercase;
+  }
+  .dbtn.active .tag { background: rgba(233,121,25,0.2); color: var(--orange-soft); }
+
+  /* frame */
+  .frame-wrap { flex: 1; position: relative; overflow: hidden; }
+  .frame-wrap iframe { width: 100%; height: 100%; border: none; display: block; }
   .empty {
     position: absolute; inset: 0;
     display: flex; align-items: center; justify-content: center;
-    flex-direction: column;
-    color: var(--muted);
-    font-size: .9rem;
-    gap: 10px;
+    flex-direction: column; color: var(--muted); gap: 10px;
+    font-size: .88rem;
   }
-  .empty-icon { font-size: 2.2rem; opacity: .4; }
+  .empty-icon { font-size: 2rem; opacity: .35; }
 </style>
 </head>
 <body>
   <div class="topbar">
-    <div class="title">Dashboard <em>de clientes</em></div>
-    <div class="selector" id="selector">
-      <!-- buttons rendered by JS -->
-    </div>
+    <div class="title">Dashboards <em>de clientes</em></div>
+    <div class="client-row" id="clientRow"></div>
   </div>
+  <div class="subbar" id="subbar"></div>
   <div class="frame-wrap">
     <iframe id="frame" src=""></iframe>
-    <div class="empty" id="empty" style="display:none">
+    <div class="empty" id="empty">
       <div class="empty-icon">📊</div>
       <div>Selecione um cliente acima</div>
     </div>
@@ -126,40 +122,90 @@
 
 <script>
 const CLIENTS = [
-  { sigla: 'DFT',      nome: 'DFT Logística',  url: '/dashboard/dft'      },
-  { sigla: 'NF',       nome: 'Grupo NF',        url: '/dashboard/nf'       },
-  { sigla: 'SRI',      nome: 'SRI',             url: '/dashboard/sri'      },
-  { sigla: 'PATRICIA', nome: 'Patrícia',        url: '/dashboard/patricia' },
-  { sigla: 'MAVIE',    nome: 'Mavie',           url: '/dashboard/mavie'    },
+  {
+    sigla: 'DFT', nome: 'DFT Logística',
+    docs: [
+      { label: 'Dashboard', tag: 'dash',      url: 'https://cardo-jpg.github.io/dft-dash-dft/' },
+      { label: 'Relatório', tag: 'rel',       url: 'https://cardo-jpg.github.io/dft-dash-dft/relatorio.html' },
+      { label: 'Pauta',     tag: 'pauta',     url: 'https://cardo-jpg.github.io/dft-dash-dft/pauta.html' },
+    ]
+  },
+  {
+    sigla: 'NF', nome: 'Grupo NF',
+    docs: [
+      { label: 'Dashboard',      tag: 'dash',  url: 'https://cardo-jpg.github.io/gnf-dash-gnf/' },
+      { label: 'Apresentação',   tag: 'apres', url: 'https://cardo-jpg.github.io/gnf-dash-gnf/apresentacao-maio26.html' },
+      { label: 'Reel Insights',  tag: 'reel',  url: 'https://cardo-jpg.github.io/gnf-dash-gnf/reel-insights.html' },
+      { label: 'Reels Comp.',    tag: 'comp',  url: 'https://cardo-jpg.github.io/gnf-dash-gnf/reels-comparativo.html' },
+    ]
+  },
+  {
+    sigla: 'SRI', nome: 'SRI',
+    docs: [
+      { label: 'Dashboard', tag: 'dash', url: 'https://cardo-jpg.github.io/sri-dashboard-maio/' },
+    ]
+  },
+  {
+    sigla: 'PATRICIA', nome: 'Patrícia',
+    docs: [
+      { label: 'Dashboard', tag: 'dash', url: 'https://cardo-jpg.github.io/patricia-dashboard/' },
+    ]
+  },
+  {
+    sigla: 'MAVIE', nome: 'Mavie',
+    docs: [
+      { label: 'Dashboard', tag: 'dash', url: 'https://cardo-jpg.github.io/mavie-dash/' },
+    ]
+  },
 ];
 
 const params = new URLSearchParams(location.search);
-let current = params.get('c') || localStorage.getItem('cardo_dash_client') || CLIENTS[0].sigla;
+let curClient = params.get('c') || localStorage.getItem('sin_dash_client') || CLIENTS[0].sigla;
+let curDoc    = 0;
 
-function render() {
-  const sel = document.getElementById('selector');
-  sel.innerHTML = '';
-  for (const c of CLIENTS) {
-    const btn = document.createElement('button');
-    btn.className = 'client-btn' + (c.sigla === current ? ' active' : '');
-    btn.innerHTML = `<span class="sigla">${c.sigla}</span><span>${c.nome}</span>`;
-    btn.onclick = () => { current = c.sigla; localStorage.setItem('cardo_dash_client', c.sigla); render(); load(); };
-    sel.appendChild(btn);
-  }
+function getClient() { return CLIENTS.find(x => x.sigla === curClient); }
+
+function renderClients() {
+  const row = document.getElementById('clientRow');
+  row.innerHTML = '';
+  CLIENTS.forEach(c => {
+    const b = document.createElement('button');
+    b.className = 'cbtn' + (c.sigla === curClient ? ' active' : '');
+    b.innerHTML = `<span class="sig">${c.sigla}</span><span>${c.nome}</span>`;
+    b.onclick = () => { curClient = c.sigla; curDoc = 0; localStorage.setItem('sin_dash_client', c.sigla); renderClients(); renderDocs(); loadFrame(); };
+    row.appendChild(b);
+  });
 }
-function load() {
-  const c = CLIENTS.find(x => x.sigla === current);
+
+function renderDocs() {
+  const sub = document.getElementById('subbar');
+  const c = getClient();
+  if (!c) { sub.innerHTML = ''; return; }
+  sub.innerHTML = '';
+  c.docs.forEach((d, i) => {
+    const b = document.createElement('button');
+    b.className = 'dbtn' + (i === curDoc ? ' active' : '');
+    b.innerHTML = `<span class="tag">${d.tag}</span>${d.label}`;
+    b.onclick = () => { curDoc = i; renderDocs(); loadFrame(); };
+    sub.appendChild(b);
+  });
+}
+
+function loadFrame() {
+  const c = getClient();
   const frame = document.getElementById('frame');
   const empty = document.getElementById('empty');
-  if (!c) { frame.src = ''; empty.style.display = 'flex'; return; }
-  frame.src = c.url;
+  if (!c || !c.docs[curDoc]) { frame.src = ''; empty.style.display = 'flex'; return; }
+  frame.src = c.docs[curDoc].url;
   empty.style.display = 'none';
-  const url = new URL(location.href);
-  url.searchParams.set('c', c.sigla);
-  history.replaceState(null, '', url);
+  const u = new URL(location.href);
+  u.searchParams.set('c', curClient);
+  history.replaceState(null, '', u);
 }
-render();
-load();
+
+renderClients();
+renderDocs();
+loadFrame();
 </script>
 {% include "_twemoji.html" %}
 </body>
