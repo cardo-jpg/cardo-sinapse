@@ -848,26 +848,32 @@ async def update_grupo(grupo_id: int, request: Request):
 # ── Debug: descobrir JIDs dos remetentes ─────────────────────────────────────
 
 @router.get("/api/whatsapp/debug/senders")
-async def debug_senders(request: Request):
+async def debug_senders(request: Request, all: bool = False):
     """
-    Lista sender_jids únicos com contagem + amostra das últimas
-    3 mensagens (texto) pra ajudar a identificar quem é quem.
+    Lista sender_jids únicos COM mensagens em grupos vinculados a clientes.
+    `?all=true` mostra também grupos sem cliente vinculado.
     """
     _require(request)
     conn = get_conn()
     cur = dict_cursor(conn)
     try:
-        cur.execute("""
+        filter_grupo = "g.cliente_id IS NOT NULL"
+        if all:
+            filter_grupo = "TRUE"
+        cur.execute(f"""
             SELECT
-                sender_jid,
+                m.sender_jid,
                 COUNT(*) AS msgs,
-                MAX(message_timestamp) AS last_seen,
-                MAX(sender_name) AS sample_name,
-                (array_agg(body ORDER BY message_timestamp DESC)
-                  FILTER (WHERE body IS NOT NULL AND body != ''))[1:3] AS recent_bodies
-              FROM wa_mensagens
-             WHERE sender_jid IS NOT NULL
-             GROUP BY sender_jid
+                MAX(m.message_timestamp) AS last_seen,
+                MAX(m.sender_name) AS sample_name,
+                (array_agg(m.body ORDER BY m.message_timestamp DESC)
+                  FILTER (WHERE m.body IS NOT NULL AND m.body != ''))[1:3] AS recent_bodies,
+                string_agg(DISTINCT g.nome, ', ') AS grupos
+              FROM wa_mensagens m
+              JOIN wa_grupos g ON g.id = m.grupo_id
+             WHERE m.sender_jid IS NOT NULL
+               AND ({filter_grupo})
+             GROUP BY m.sender_jid
              ORDER BY msgs DESC
         """)
         rows = []
