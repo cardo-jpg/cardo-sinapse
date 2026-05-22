@@ -581,6 +581,37 @@ async def list_grupos(request: Request):
     return {"grupos": rows, "clientes": clientes}
 
 
+@router.post("/api/whatsapp/grupos/refresh-nomes")
+async def refresh_nomes(request: Request):
+    """Para cada grupo sem nome, busca o subject via WAHA."""
+    _require(request)
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT id, jid FROM wa_grupos WHERE COALESCE(nome,'') = ''")
+        sem_nome = cur.fetchall()
+        updated = 0
+        for row in sem_nome:
+            jid = row["jid"]
+            try:
+                r = _waha_call("GET", f"/api/{WAHA_SESSION}/groups/{jid}")
+                if r["status"] == 200:
+                    d = r["data"] or {}
+                    subject = (d.get("subject")
+                               or (d.get("groupMetadata") or {}).get("subject")
+                               or "")
+                    if subject:
+                        cur.execute("UPDATE wa_grupos SET nome=%s WHERE id=%s", (subject, row["id"]))
+                        updated += 1
+            except Exception as e:
+                print(f"[WAHA] falhou pra {jid}: {e}", flush=True)
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
+    return {"ok": True, "updated": updated, "total_sem_nome": len(sem_nome)}
+
+
 @router.put("/api/whatsapp/grupos/{grupo_id}")
 async def update_grupo(grupo_id: int, request: Request):
     _require(request)

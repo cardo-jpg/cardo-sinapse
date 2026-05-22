@@ -122,7 +122,12 @@
         <div class="wa-section" x-show="semCliente.length">
           <div class="wa-section-head">
             <div class="wa-section-title">🔗 Aguardando vínculo</div>
-            <div class="wa-section-count" x-text="semCliente.length + ' grupo(s)'"></div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <button class="wa-btn-sm" @click="refreshNomes()" :disabled="refreshingNomes">
+                <span x-text="refreshingNomes ? 'Buscando…' : '↻ Buscar nomes'"></span>
+              </button>
+              <div class="wa-section-count" x-text="semCliente.length + ' grupo(s)'"></div>
+            </div>
           </div>
           <template x-for="g in semCliente" :key="g.id">
             <div class="wa-grupo">
@@ -198,6 +203,7 @@ function waApp() {
     connectError: '',
     pairingCode: '',
     qrBase64: '',
+    refreshingNomes: false,
 
     get webhookUrl() {
       return window.location.origin + '/api/whatsapp/webhook';
@@ -292,6 +298,19 @@ function waApp() {
         }
       } catch (e) { console.error(e); }
       this.loading = false;
+    },
+
+    async refreshNomes() {
+      this.refreshingNomes = true;
+      try {
+        const r = await fetch('/api/whatsapp/grupos/refresh-nomes', { method: 'POST' });
+        if (r.ok) {
+          const d = await r.json();
+          console.log('Nomes atualizados:', d);
+          await this.load();
+        }
+      } catch (e) { console.error(e); }
+      this.refreshingNomes = false;
     },
 
     async vincular(g) {
