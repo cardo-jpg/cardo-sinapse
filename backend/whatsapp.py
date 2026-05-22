@@ -39,7 +39,7 @@ WEBHOOK_TOKEN = os.getenv("WHATSAPP_WEBHOOK_TOKEN", "")
 # WAHA — controle administrativo (criar sessão, gerar QR/pairing)
 WAHA_API_URL = (os.getenv("WAHA_API_URL") or "").rstrip("/")
 WAHA_API_KEY = os.getenv("WAHA_API_KEY", "")
-WAHA_SESSION = os.getenv("WAHA_SESSION", "sinapse")
+WAHA_SESSION = os.getenv("WAHA_SESSION", "default")  # WAHA Core só aceita 'default'
 
 
 def _waha_call(method: str, path: str, json_body: Optional[dict] = None) -> dict:
