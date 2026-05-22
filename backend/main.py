@@ -1337,6 +1337,14 @@ def _sinapse_client_context(client_id: str) -> list[str]:
     except Exception as e:
         # Best-effort — se Sinapse não estiver disponível, segue só com arquivos
         out.append(f"=== [aviso] não conseguiu ler Sinapse: {e} ===")
+
+    # 3. WhatsApp — últimas mensagens dos grupos vinculados ao cliente
+    try:
+        from backend.whatsapp import whatsapp_context_para_sigla
+        out.extend(whatsapp_context_para_sigla(sigla, limite=80))
+    except Exception as e:
+        out.append(f"=== [aviso] WhatsApp context: {e} ===")
+
     return out
 
 

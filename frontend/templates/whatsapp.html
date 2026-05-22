@@ -118,6 +118,31 @@
 
     <template x-if="grupos.length">
       <div>
+        <!-- Importar histórico (.txt do WhatsApp) -->
+        <div class="wa-section">
+          <div class="wa-section-head">
+            <div>
+              <div class="wa-section-title">📜 Importar histórico de conversas</div>
+              <div style="font-size: .72rem; color: var(--muted); margin-top: 2px;">
+                Sobe um <code>.txt</code> exportado do WhatsApp e vincula ao cliente. Mensagens entram no banco com data/hora reais.
+              </div>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 240px 130px; gap: 10px; align-items: center; padding: 8px 0;">
+            <input type="file" accept=".txt" multiple x-ref="histFile" @change="histFiles = Array.from($event.target.files)" class="wa-input">
+            <select class="wa-select" x-model="histClienteId">
+              <option value="">— escolher cliente —</option>
+              <template x-for="c in clientes" :key="c.id">
+                <option :value="c.id" x-text="`[${c.sigla}] ${c.razao_social}`"></option>
+              </template>
+            </select>
+            <button class="wa-btn-primary" :disabled="!histFiles.length || !histClienteId || histImporting" @click="importarHistorico()">
+              <span x-text="histImporting ? 'Importando…' : `↑ Importar (${histFiles.length})`"></span>
+            </button>
+          </div>
+          <div x-show="histResultado" class="wa-msg-pending" style="margin-top: 8px; font-size: .8rem;" x-text="histResultado"></div>
+        </div>
+
         <!-- Sem cliente -->
         <div class="wa-section" x-show="semCliente.length">
           <div class="wa-section-head">
@@ -258,6 +283,11 @@ function waApp() {
     senders: [],
     showAllSenders: false,
 
+    histFiles: [],
+    histClienteId: '',
+    histImporting: false,
+    histResultado: '',
+
     get webhookUrl() {
       return window.location.origin + '/api/whatsapp/webhook';
     },
@@ -268,6 +298,34 @@ function waApp() {
       await Promise.all([this.load(), this.checkState(), this.loadSenders()]);
       // Poll status quando há pareamento em andamento
       setInterval(() => { if (this.pairingCode || this.qrBase64) this.checkState(); }, 5000);
+    },
+
+    async importarHistorico() {
+      if (!this.histFiles.length || !this.histClienteId) return;
+      this.histImporting = true;
+      this.histResultado = '';
+      const resumo = [];
+      for (const f of this.histFiles) {
+        const fd = new FormData();
+        fd.append('file', f);
+        fd.append('cliente_id', this.histClienteId);
+        try {
+          const r = await fetch('/api/whatsapp/import-historico', { method: 'POST', body: fd });
+          const d = await r.json().catch(() => ({}));
+          if (r.ok) {
+            resumo.push(`✓ ${f.name}: ${d.inserted} novas, ${d.skipped_duplicate} duplicadas, ${d.skipped_system} sistema`);
+          } else {
+            resumo.push(`✗ ${f.name}: ${d.detail || r.status}`);
+          }
+        } catch (e) {
+          resumo.push(`✗ ${f.name}: erro de rede`);
+        }
+      }
+      this.histResultado = resumo.join(' · ');
+      this.histImporting = false;
+      this.histFiles = [];
+      this.$refs.histFile.value = '';
+      await this.load();
     },
 
     async loadSenders() {

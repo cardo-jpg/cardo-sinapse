@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Optional
 
 import httpx
-from fastapi import APIRouter, Request, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Request, HTTPException, BackgroundTasks, UploadFile, File, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
@@ -271,6 +271,57 @@ async def webhook(request: Request, background_tasks: BackgroundTasks):
         return _handle_group_upsert(payload.get("data") or {})
 
     return {"ok": True, "ignored": event}
+
+
+def whatsapp_context_para_sigla(sigla: str, limite: int = 80) -> list[str]:
+    """
+    Retorna trechos de WhatsApp formatados pra contexto do Cérebro.
+    Pega últimas N mensagens dos grupos vinculados ao cliente de sigla X.
+    """
+    if not sigla:
+        return []
+    sigla = sigla.upper()
+    try:
+        conn = get_conn()
+        cur = dict_cursor(conn)
+        try:
+            cur.execute("""
+                SELECT m.from_me, m.sender_name, m.tipo, m.body, m.transcricao, m.message_timestamp
+                  FROM wa_mensagens m
+                  JOIN wa_grupos g ON g.id = m.grupo_id
+                  JOIN clientes c ON c.id = g.cliente_id
+                 WHERE c.sigla = %s AND g.ativo = TRUE
+                 ORDER BY m.message_timestamp DESC NULLS LAST
+                 LIMIT %s
+            """, (sigla, limite))
+            rows = cur.fetchall() or []
+        finally:
+            cur.close()
+            conn.close()
+    except Exception:
+        return []
+
+    if not rows:
+        return []
+
+    # Ordem cronológica (mais antiga primeiro pra leitura natural)
+    rows = list(reversed(rows))
+
+    linhas = [f"=== WhatsApp · [{sigla}] · últimas {len(rows)} mensagens ==="]
+    for r in rows:
+        ts = r.get("message_timestamp")
+        ts_str = ts.strftime("%d/%m %H:%M") if isinstance(ts, datetime) else "?"
+        autor = "Agência" if r["from_me"] else (r.get("sender_name") or "Cliente")
+        tipo = r.get("tipo") or "text"
+        if tipo == "audio":
+            tx = r.get("transcricao") or "(áudio sem transcrição)"
+            corpo = f"[áudio] {tx}"
+        elif tipo == "text":
+            corpo = r.get("body") or ""
+        else:
+            corpo = f"[{tipo}] {r.get('body') or ''}"
+        linhas.append(f"[{ts_str}] {autor}: {corpo}")
+    return ["\n".join(linhas)]
 
 
 def _baixar_arquivo_waha(media_url: str) -> tuple[bytes, str]:
@@ -843,6 +894,181 @@ async def update_grupo(grupo_id: int, request: Request):
         cur.close()
         conn.close()
     return {"ok": True, "rowcount": rowcount}
+
+
+# ── Import de histórico (WhatsApp export .txt) ───────────────────────────────
+
+# Nomes do time no formato do export do WhatsApp (sem distinção maiúscula/acento)
+# Adicione apelidos/variações conforme aparecem no .txt
+_TIME_NOMES_RAW = (os.getenv("WHATSAPP_IMPORT_TEAM_NAMES") or
+                   "Jadna Cardo Mkt,Jadna Cardô,Jadna,José Gestor de Tráfego,Jose Gestor de Tráfego,"
+                   "José Gestor,José,Jose,Victor Cardô,Victor,Cardô").split(",")
+_TIME_NOMES = {n.strip().lower() for n in _TIME_NOMES_RAW if n.strip()}
+
+
+def _norm_nome(s: str) -> str:
+    import unicodedata
+    nfkd = unicodedata.normalize("NFKD", s or "")
+    return "".join(c for c in nfkd if not unicodedata.combining(c)).lower().strip()
+
+
+def _eh_time(nome: str) -> bool:
+    nome_n = _norm_nome(nome)
+    if not nome_n:
+        return False
+    for t in _TIME_NOMES:
+        t_n = _norm_nome(t)
+        if t_n and t_n in nome_n:
+            return True
+    return False
+
+
+_MSG_LINE_RE = re.compile(
+    r"^‎?\[(\d{1,2})/(\d{1,2})/(\d{2,4}),?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\]\s+([^:]+?):\s?(.*)$"
+)
+
+
+def parse_whatsapp_export(text: str) -> list[dict]:
+    """
+    Parseia o .txt exportado do WhatsApp.
+    Retorna lista de dicts com {ts, sender, body, is_audio, is_system}.
+    Mensagens de sistema (criou grupo, etc) são marcadas is_system=True.
+    Linhas seguintes (continuação) são concatenadas à mensagem anterior.
+    """
+    SYSTEM_HINTS = [
+        "criou o grupo", "adicionou você", "mudou a imagem", "mudou o nome",
+        "removeu", "saiu", "criptografia de ponta a ponta",
+        "tornou-se admin", "removed", "left", "image hidden",
+    ]
+    out = []
+    current: Optional[dict] = None
+
+    for raw_line in text.splitlines():
+        line = raw_line.replace(" ", " ").replace("\xa0", " ")
+        m = _MSG_LINE_RE.match(line)
+        if not m:
+            # Linha de continuação — concatena ao current
+            if current is not None and raw_line.strip():
+                current["body"] += "\n" + raw_line.rstrip()
+            continue
+
+        # Salva o current antes de começar o próximo
+        if current is not None:
+            out.append(current)
+
+        dd, mm, yyyy, hh, mi, ss, sender, body = m.groups()
+        yyyy = int(yyyy)
+        if yyyy < 100:
+            yyyy += 2000
+        try:
+            ts = datetime(yyyy, int(mm), int(dd), int(hh), int(mi), int(ss or 0), tzinfo=timezone.utc)
+        except Exception:
+            current = None
+            continue
+
+        body = (body or "").strip()
+        body = body.lstrip("‎").strip()
+        sender = sender.strip().lstrip("~").strip()
+
+        is_system = any(h in body.lower() for h in SYSTEM_HINTS) or any(h in sender.lower() for h in SYSTEM_HINTS)
+        is_audio = "áudio ocultado" in body.lower() or "audio omitted" in body.lower() or "audio hidden" in body.lower()
+
+        current = {
+            "ts": ts,
+            "sender": sender,
+            "body": body,
+            "is_audio": is_audio,
+            "is_system": is_system,
+        }
+
+    if current is not None:
+        out.append(current)
+
+    return out
+
+
+@router.post("/api/whatsapp/import-historico")
+async def import_historico(
+    request: Request,
+    file: UploadFile = File(...),
+    cliente_id: int = Form(...),
+):
+    """
+    Importa histórico de um arquivo .txt exportado do WhatsApp.
+    Vincula as mensagens a um grupo sintético associado ao cliente.
+    Deduplicate via message_id sintético ts+sender+body[:50].
+    """
+    _require(request)
+    raw = (await file.read()).decode("utf-8", errors="replace")
+    parsed = parse_whatsapp_export(raw)
+    if not parsed:
+        raise HTTPException(400, "Não consegui parsear o arquivo. Verifique se é um export do WhatsApp.")
+
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    inserted = 0
+    skipped_system = 0
+    skipped_dup = 0
+    try:
+        # Cria/acha grupo sintético (1 por arquivo importado)
+        synth_jid = f"imported:{cliente_id}:{file.filename}"
+        cur.execute("SELECT id FROM wa_grupos WHERE jid=%s", (synth_jid,))
+        row = cur.fetchone()
+        if row:
+            grupo_id = row["id"]
+        else:
+            cur.execute(
+                "INSERT INTO wa_grupos (jid, nome, cliente_id, ativo) VALUES (%s,%s,%s,TRUE) RETURNING id",
+                (synth_jid, file.filename.replace(".txt", ""), cliente_id),
+            )
+            grupo_id = cur.fetchone()["id"]
+
+        for msg in parsed:
+            if msg["is_system"]:
+                skipped_system += 1
+                continue
+            # message_id sintético determinístico (evita dup em re-import)
+            digest_src = f"{msg['ts'].isoformat()}|{msg['sender']}|{msg['body'][:60]}"
+            import hashlib as _h
+            synth_id = "imp:" + _h.md5(digest_src.encode()).hexdigest()[:24]
+
+            cur.execute("SELECT 1 FROM wa_mensagens WHERE message_id=%s", (synth_id,))
+            if cur.fetchone():
+                skipped_dup += 1
+                continue
+
+            from_me = _eh_time(msg["sender"])
+            tipo = "audio" if msg["is_audio"] else "text"
+            body = msg["body"] if not msg["is_audio"] else ""
+
+            cur.execute("""
+                INSERT INTO wa_mensagens
+                    (message_id, grupo_id, from_me, sender_jid, sender_name,
+                     tipo, body, message_timestamp, raw)
+                VALUES (%s,%s,%s,%s,%s, %s,%s,%s, %s::jsonb)
+            """, (
+                synth_id, grupo_id, from_me, None, msg["sender"],
+                tipo, body, msg["ts"], json.dumps({"imported": True, "source_file": file.filename}),
+            ))
+            inserted += 1
+
+        # Atualiza last_message_at
+        cur.execute(
+            "UPDATE wa_grupos SET last_message_at = (SELECT MAX(message_timestamp) FROM wa_mensagens WHERE grupo_id=%s) WHERE id=%s",
+            (grupo_id, grupo_id),
+        )
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
+
+    return {
+        "ok": True,
+        "inserted": inserted,
+        "skipped_system": skipped_system,
+        "skipped_duplicate": skipped_dup,
+        "grupo_id": grupo_id,
+    }
 
 
 # ── Debug: descobrir JIDs dos remetentes ─────────────────────────────────────
