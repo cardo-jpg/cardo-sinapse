@@ -270,7 +270,7 @@ def transcrever_mensagem_audio(msg_id: int) -> Optional[str]:
     cur = dict_cursor(conn)
     try:
         cur.execute(
-            "SELECT id, tipo, media_url, transcricao FROM wa_mensagens WHERE id=%s",
+            "SELECT id, tipo, media_url, message_id, raw, transcricao FROM wa_mensagens WHERE id=%s",
             (msg_id,),
         )
         msg = cur.fetchone()
@@ -278,13 +278,38 @@ def transcrever_mensagem_audio(msg_id: int) -> Optional[str]:
             return None
         if (msg.get("transcricao") or "").strip():
             return msg["transcricao"]
+
+        # Tenta múltiplas formas de baixar
+        content = None
+        mime = "audio/ogg"
+        attempts = []
+
+        # 1) media_url direto
         media_url = msg.get("media_url")
-        if not media_url:
-            print(f"[transcrever] msg_id={msg_id} sem media_url", flush=True)
+        if media_url:
+            attempts.append(("direct", media_url))
+
+        # 2) Endpoint específico do WAHA pra baixar mídia da mensagem
+        # POST /api/{session}/{chatId}/messages/{messageId}/download
+        wa_message_id = msg.get("message_id")
+        if wa_message_id and WAHA_API_URL:
+            attempts.append(("waha_download", f"{WAHA_API_URL}/api/{WAHA_SESSION}/messages/{wa_message_id}/download"))
+
+        for label, url in attempts:
+            try:
+                print(f"[transcrever] msg_id={msg_id} tentando {label}: {url[:100]}", flush=True)
+                content, mime = _baixar_arquivo_waha(url)
+                if content:
+                    print(f"[transcrever] {label} OK: {len(content)} bytes mime={mime}", flush=True)
+                    break
+            except Exception as e:
+                print(f"[transcrever] {label} falhou: {e}", flush=True)
+                content = None
+
+        if not content:
+            print(f"[transcrever] msg_id={msg_id} nenhuma forma de download funcionou. raw keys: {list((msg.get('raw') or {}).keys()) if isinstance(msg.get('raw'), dict) else 'no-raw'}", flush=True)
             return None
-        print(f"[transcrever] baixando {media_url[:80]}…", flush=True)
-        content, mime = _baixar_arquivo_waha(media_url)
-        print(f"[transcrever] msg_id={msg_id} {len(content)} bytes mime={mime}", flush=True)
+
         text = _whisper_transcrever(content, mime)
         if text:
             cur.execute("UPDATE wa_mensagens SET transcricao=%s WHERE id=%s", (text, msg_id))
@@ -773,6 +798,45 @@ async def update_grupo(grupo_id: int, request: Request):
         cur.close()
         conn.close()
     return {"ok": True, "rowcount": rowcount}
+
+
+# ── Reclassificar from_me das mensagens antigas ──────────────────────────────
+
+@router.post("/api/whatsapp/mensagens/reclassificar")
+async def reclassificar_remetentes(request: Request):
+    """
+    Reprocessa from_me em todas as mensagens com base no WHATSAPP_OWN_NUMBERS atual.
+    Útil quando se cadastra novos números do time depois que as mensagens já entraram.
+    """
+    _require(request)
+    if not WHATSAPP_OWN_NUMBERS:
+        return {"ok": False, "error": "WHATSAPP_OWN_NUMBERS não configurada", "updated": 0}
+
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    updated = 0
+    try:
+        cur.execute("SELECT id, sender_jid, from_me FROM wa_mensagens WHERE sender_jid IS NOT NULL")
+        rows = cur.fetchall()
+        ids_to_true = []
+        ids_to_false = []
+        for r in rows:
+            sender_num = re.sub(r"\D", "", (r["sender_jid"] or "").split("@")[0])
+            should_be_me = sender_num in WHATSAPP_OWN_NUMBERS
+            if should_be_me and not r["from_me"]:
+                ids_to_true.append(r["id"])
+            elif not should_be_me and r["from_me"]:
+                ids_to_false.append(r["id"])
+        if ids_to_true:
+            cur.execute("UPDATE wa_mensagens SET from_me=TRUE WHERE id = ANY(%s)", (ids_to_true,))
+            updated += cur.rowcount
+        if ids_to_false:
+            cur.execute("UPDATE wa_mensagens SET from_me=FALSE WHERE id = ANY(%s)", (ids_to_false,))
+            updated += cur.rowcount
+        conn.commit()
+    finally:
+        cur.close(); conn.close()
+    return {"ok": True, "updated": updated}
 
 
 # ── Transcrição manual (retry) ───────────────────────────────────────────────

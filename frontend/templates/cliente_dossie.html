@@ -103,12 +103,13 @@
       border: 1px solid var(--border);
       border-radius: 10px;
       padding: 14px;
-      max-height: 600px;
+      max-height: 650px;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 6px;
     }
+    .wa-item { display: contents; }
     .wa-date-sep {
       align-self: center;
       background: #1a1a1a; border: 1px solid var(--border);
@@ -116,17 +117,16 @@
       font-size: .68rem; color: var(--muted);
       margin: 10px 0 6px;
       text-transform: capitalize;
+      width: fit-content;
     }
     .wa-msg {
-      max-width: 78%;
-      padding: 6px 10px 5px;
+      max-width: 75%;
+      padding: 7px 11px 5px;
       border-radius: 8px;
       font-size: .88rem;
       line-height: 1.4;
       word-break: break-word;
-      position: relative;
-      display: inline-flex;
-      flex-direction: column;
+      width: fit-content;
     }
     .wa-msg-them {
       align-self: flex-start;
@@ -141,18 +141,18 @@
       border-bottom-right-radius: 2px;
     }
     .wa-msg-sender {
-      font-size: .68rem; font-weight: 600;
+      font-size: .7rem; font-weight: 600;
       color: #93c5fd;
       margin-bottom: 2px;
     }
-    .wa-msg-me .wa-msg-sender { color: #fb923c; display: none; }
+    .wa-msg-me .wa-msg-sender { display: none; }
     .wa-msg-body { white-space: pre-wrap; word-break: break-word; }
     .wa-msg-foot {
-      font-size: .62rem; color: rgba(255,255,255,.5);
-      align-self: flex-end; margin-top: 1px; line-height: 1;
+      font-size: .62rem; color: rgba(255,255,255,.55);
+      text-align: right; margin-top: 2px; line-height: 1;
     }
-    .wa-msg-tag { font-size: .68rem; opacity: .7; font-style: italic; }
-    .wa-load-more { align-self: center; margin-top: 12px; }
+    .wa-msg-tag { font-size: .82rem; opacity: .85; }
+    .wa-msg-pending { font-style: italic; color: rgba(255,255,255,.5); font-size: .76rem; }
 
     /* Ata preview expansível */
     .cd-ata-preview { padding: 14px 18px; background: #0a0a0a; border: 1px solid var(--border); border-radius: 8px; margin: 8px 12px 14px; }
@@ -633,36 +633,35 @@
 
                   <!-- Timeline estilo WhatsApp -->
                   <div class="cd-card">
-                    <div class="cd-card-title">💬 Conversa</div>
-                    <div class="wa-chat" x-ref="chatBox">
+                    <div class="cd-card-title">
+                      💬 Conversa
+                      <button class="cd-btn cd-btn-sm" style="margin-left: auto; padding: 4px 10px; font-size: .72rem;" @click="reclassificarRemetentes()" title="Reprocessa mensagens antigas com o WHATSAPP_OWN_NUMBERS atual">↻ reclassificar</button>
+                    </div>
+                    <div class="wa-chat">
                       <template x-for="(item, idx) in conversaAgrupada" :key="idx">
-                        <div :class="item.tipo === 'date' ? 'wa-date-sep' : (item.from_me ? 'wa-msg wa-msg-me' : 'wa-msg wa-msg-them')">
-                          <template x-if="item.tipo === 'date'">
-                            <span x-text="item.label"></span>
-                          </template>
-                          <template x-if="item.tipo === 'msg'">
-                            <div style="display: flex; flex-direction: column;">
-                              <div class="wa-msg-sender" x-show="!item.from_me" x-text="item.sender_name || 'Cliente'"></div>
-                              <div class="wa-msg-body">
-                                <template x-if="item.message_tipo === 'text'"><span x-text="item.body"></span></template>
-                                <template x-if="item.message_tipo === 'audio'">
-                                  <div>
-                                    <span class="wa-msg-tag">🎤 áudio</span>
-                                    <div x-show="item.transcricao" x-text="item.transcricao" style="margin-top: 4px;"></div>
-                                    <div x-show="!item.transcricao" style="margin-top: 4px;">
-                                      <span class="wa-msg-tag" x-text="item._transcrevendo ? 'transcrevendo…' : '(transcrição pendente)'"></span>
-                                      <a href="#" @click.prevent="transcrever(item)" x-show="!item._transcrevendo" style="margin-left: 8px; color: #93c5fd; font-size: .7rem;">↻ transcrever</a>
-                                    </div>
+                        <div class="wa-item">
+                          <div class="wa-date-sep" x-show="item.tipo === 'date'" x-text="item.label"></div>
+                          <div class="wa-msg" :class="item.from_me ? 'wa-msg-me' : 'wa-msg-them'" x-show="item.tipo === 'msg'">
+                            <div class="wa-msg-sender" x-show="!item.from_me" x-text="item.sender_name || 'Cliente'"></div>
+                            <div class="wa-msg-body">
+                              <template x-if="item.message_tipo === 'text'"><span x-text="item.body"></span></template>
+                              <template x-if="item.message_tipo === 'audio'">
+                                <div>
+                                  <div><span class="wa-msg-tag">🎤 Áudio</span></div>
+                                  <div x-show="item.transcricao" x-text="item.transcricao" style="margin-top: 4px;"></div>
+                                  <div x-show="!item.transcricao" style="margin-top: 4px;">
+                                    <span class="wa-msg-pending" x-text="item._transcrevendo ? 'transcrevendo…' : '(transcrição pendente)'"></span>
+                                    <a href="#" @click.prevent="transcrever(item)" x-show="!item._transcrevendo" style="margin-left: 8px; color: #93c5fd; font-size: .72rem;">transcrever</a>
                                   </div>
-                                </template>
-                                <template x-if="item.message_tipo === 'image'"><span class="wa-msg-tag">🖼️ <span x-text="item.body || 'imagem'"></span></span></template>
-                                <template x-if="item.message_tipo === 'video'"><span class="wa-msg-tag">🎬 <span x-text="item.body || 'vídeo'"></span></span></template>
-                                <template x-if="item.message_tipo === 'document'"><span class="wa-msg-tag">📎 <span x-text="item.body || 'documento'"></span></span></template>
-                                <template x-if="!['text','audio','image','video','document'].includes(item.message_tipo)"><span class="wa-msg-tag" x-text="`[${item.message_tipo}]`"></span></template>
-                              </div>
-                              <div class="wa-msg-foot" x-text="fmtTime(item.message_timestamp)"></div>
+                                </div>
+                              </template>
+                              <template x-if="item.message_tipo === 'image'"><span><span class="wa-msg-tag">🖼️</span> <span x-text="item.body || 'imagem'"></span></span></template>
+                              <template x-if="item.message_tipo === 'video'"><span><span class="wa-msg-tag">🎬</span> <span x-text="item.body || 'vídeo'"></span></span></template>
+                              <template x-if="item.message_tipo === 'document'"><span><span class="wa-msg-tag">📎</span> <span x-text="item.body || 'documento'"></span></span></template>
+                              <template x-if="!['text','audio','image','video','document'].includes(item.message_tipo)"><span class="wa-msg-pending" x-text="`[${item.message_tipo}]`"></span></template>
                             </div>
-                          </template>
+                            <div class="wa-msg-foot" x-text="fmtTime(item.message_timestamp)"></div>
+                          </div>
                         </div>
                       </template>
                     </div>
@@ -1223,6 +1222,18 @@ function dossieApp(clienteId) {
       if (!iso) return '';
       const d = new Date(iso);
       return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    },
+
+    async reclassificarRemetentes() {
+      if (!confirm('Reprocessar from_me de todas as mensagens com base no WHATSAPP_OWN_NUMBERS atual?')) return;
+      try {
+        const r = await fetch('/api/whatsapp/mensagens/reclassificar', { method: 'POST' });
+        const d = await r.json().catch(() => ({}));
+        alert(`Atualizadas: ${d.updated || 0} mensagens`);
+        // Recarrega
+        this.whatsappLoaded = false;
+        await this.loadWhatsapp();
+      } catch (e) { console.error(e); alert('Erro de rede'); }
     },
 
     async transcrever(item) {
