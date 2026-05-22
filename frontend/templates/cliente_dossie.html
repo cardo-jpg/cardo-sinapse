@@ -97,7 +97,7 @@
     .cd-html blockquote { border-left: 3px solid var(--accent); padding: 4px 12px; color: var(--muted); margin: 8px 0; }
     .cd-html code { background: #0a0a0a; padding: 1px 5px; border-radius: 3px; font-size: .85em; }
 
-    /* WhatsApp timeline — estilo chat */
+    /* WhatsApp timeline — estilo chat (text-align approach, sem flex stretch) */
     .wa-chat {
       background: #0a0a0a;
       border: 1px solid var(--border);
@@ -106,28 +106,29 @@
       max-height: 650px;
       overflow-y: auto;
     }
-    .wa-row {
-      display: flex;
-      margin-bottom: 4px;
-    }
-    .wa-row-them { justify-content: flex-start; }
-    .wa-row-me { justify-content: flex-end; }
-    .wa-row-date { justify-content: center; margin: 12px 0 8px; }
+    .wa-row { margin-bottom: 3px; line-height: 0; }  /* line-height 0 evita whitespace gap entre inline-blocks */
+    .wa-row-them { text-align: left; }
+    .wa-row-me { text-align: right; }
+    .wa-row-date { text-align: center; margin: 12px 0 8px; }
 
     .wa-date-sep {
+      display: inline-block;
       background: #1a1a1a; border: 1px solid var(--border);
       padding: 3px 12px; border-radius: 999px;
       font-size: .68rem; color: var(--muted);
       text-transform: capitalize;
+      line-height: 1;
     }
     .wa-msg {
+      display: inline-block;
       max-width: 75%;
-      padding: 6px 10px 4px;
+      padding: 5px 10px 4px;
       border-radius: 8px;
       font-size: .88rem;
       line-height: 1.4;
+      text-align: left;
+      vertical-align: top;
       word-break: break-word;
-      display: inline-block;
     }
     .wa-msg-them {
       background: #1f2937;
@@ -140,15 +141,16 @@
       border-bottom-right-radius: 2px;
     }
     .wa-msg-sender {
-      font-size: .7rem; font-weight: 600;
+      font-size: .68rem; font-weight: 600;
       color: #93c5fd;
-      margin-bottom: 2px;
+      margin-bottom: 1px;
+      line-height: 1.2;
     }
-    .wa-msg-me .wa-msg-sender { display: none; }
-    .wa-msg-body { white-space: pre-wrap; word-break: break-word; }
+    .wa-msg-me .wa-msg-sender { color: #fb923c; }
+    .wa-msg-body { white-space: pre-wrap; word-break: break-word; line-height: 1.35; }
     .wa-msg-foot {
-      font-size: .62rem; color: rgba(255,255,255,.55);
-      text-align: right; margin-top: 2px; line-height: 1;
+      font-size: .6rem; color: rgba(255,255,255,.5);
+      text-align: right; margin-top: 1px; line-height: 1;
     }
     .wa-msg-tag { font-size: .82rem; opacity: .85; }
     .wa-msg-pending { font-style: italic; color: rgba(255,255,255,.5); font-size: .76rem; }
@@ -644,7 +646,8 @@
                           </template>
                           <template x-if="item.tipo === 'msg'">
                             <div class="wa-msg" :class="item.from_me ? 'wa-msg-me' : 'wa-msg-them'">
-                              <div class="wa-msg-sender" x-show="!item.from_me" x-text="item.sender_name || 'Cliente'"></div>
+                              <div class="wa-msg-sender" x-show="item.sender_name" x-text="item.sender_name"></div>
+                              <div class="wa-msg-sender" x-show="!item.sender_name && !item.from_me">Cliente</div>
                               <div class="wa-msg-body">
                                 <span x-show="item.message_tipo === 'text'" x-text="item.body"></span>
                                 <span x-show="item.message_tipo === 'image'"><span class="wa-msg-tag">🖼️</span> <span x-text="item.body || 'imagem'"></span></span>
