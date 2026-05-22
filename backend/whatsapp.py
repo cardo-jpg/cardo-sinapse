@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Optional
 
 import httpx
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, BackgroundTasks
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
@@ -40,6 +40,9 @@ WEBHOOK_TOKEN = os.getenv("WHATSAPP_WEBHOOK_TOKEN", "")
 WAHA_API_URL = (os.getenv("WAHA_API_URL") or "").rstrip("/")
 WAHA_API_KEY = os.getenv("WAHA_API_KEY", "")
 WAHA_SESSION = os.getenv("WAHA_SESSION", "default")  # WAHA Core só aceita 'default'
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+WHISPER_URL = "https://api.openai.com/v1/audio/transcriptions"
 
 
 def _waha_call(method: str, path: str, json_body: Optional[dict] = None) -> dict:
@@ -181,7 +184,7 @@ def _extract_text_and_type(message: dict) -> tuple[str, str, Optional[str]]:
 # ── Webhook ───────────────────────────────────────────────────────────────────
 
 @router.post("/api/whatsapp/webhook")
-async def webhook(request: Request):
+async def webhook(request: Request, background_tasks: BackgroundTasks):
     """
     Endpoint público que recebe eventos do WAHA.
     Se WHATSAPP_WEBHOOK_TOKEN está setado, valida o header X-Api-Key.
@@ -200,7 +203,11 @@ async def webhook(request: Request):
 
     # WAHA: event="message" → mensagem nova
     if event in ("message", "message.any"):
-        return _handle_waha_message(payload)
+        result = _handle_waha_message(payload)
+        # Auto-transcrição de áudio em background (não bloqueia o webhook)
+        if result.get("tipo") == "audio" and result.get("msg_id") and result.get("media_url"):
+            background_tasks.add_task(transcrever_mensagem_audio, result["msg_id"])
+        return result
 
     # Evolution legacy (caso ainda usem antigos webhooks)
     if event in ("messages.upsert", "messages_upsert"):
@@ -209,6 +216,77 @@ async def webhook(request: Request):
         return _handle_group_upsert(payload.get("data") or {})
 
     return {"ok": True, "ignored": event}
+
+
+def _baixar_arquivo_waha(media_url: str) -> tuple[bytes, str]:
+    """Baixa arquivo de mídia do WAHA. Retorna (bytes, mime)."""
+    if not media_url:
+        raise ValueError("media_url vazio")
+    headers = {}
+    if WAHA_API_KEY:
+        headers["X-Api-Key"] = WAHA_API_KEY
+    with httpx.Client(timeout=60.0) as client:
+        r = client.get(media_url, headers=headers, follow_redirects=True)
+        if r.status_code != 200:
+            raise RuntimeError(f"Falha download {r.status_code}: {r.text[:200]}")
+        return r.content, r.headers.get("content-type", "audio/ogg")
+
+
+def _whisper_transcrever(content: bytes, mime: str = "audio/ogg") -> str:
+    """Manda áudio pro Whisper. Retorna texto."""
+    if not OPENAI_API_KEY:
+        raise RuntimeError("OPENAI_API_KEY não configurada")
+    ext = "ogg"
+    if "mp3" in mime: ext = "mp3"
+    elif "wav" in mime: ext = "wav"
+    elif "m4a" in mime or "mp4" in mime: ext = "m4a"
+    elif "webm" in mime: ext = "webm"
+    filename = f"audio.{ext}"
+    with httpx.Client(timeout=120.0) as client:
+        r = client.post(
+            WHISPER_URL,
+            headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
+            files={"file": (filename, content, mime)},
+            data={"model": "whisper-1", "language": "pt", "response_format": "json"},
+        )
+    if r.status_code != 200:
+        raise RuntimeError(f"Whisper {r.status_code}: {r.text[:300]}")
+    return r.json().get("text", "").strip()
+
+
+def transcrever_mensagem_audio(msg_id: int) -> Optional[str]:
+    """Baixa áudio + Whisper + salva. Idempotente. Best-effort: erros viram log."""
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute(
+            "SELECT id, tipo, media_url, transcricao FROM wa_mensagens WHERE id=%s",
+            (msg_id,),
+        )
+        msg = cur.fetchone()
+        if not msg or msg["tipo"] != "audio":
+            return None
+        if (msg.get("transcricao") or "").strip():
+            return msg["transcricao"]
+        media_url = msg.get("media_url")
+        if not media_url:
+            print(f"[transcrever] msg_id={msg_id} sem media_url", flush=True)
+            return None
+        print(f"[transcrever] baixando {media_url[:80]}…", flush=True)
+        content, mime = _baixar_arquivo_waha(media_url)
+        print(f"[transcrever] msg_id={msg_id} {len(content)} bytes mime={mime}", flush=True)
+        text = _whisper_transcrever(content, mime)
+        if text:
+            cur.execute("UPDATE wa_mensagens SET transcricao=%s WHERE id=%s", (text, msg_id))
+            conn.commit()
+            print(f"[transcrever] msg_id={msg_id} OK: {text[:80]}", flush=True)
+        return text
+    except Exception as e:
+        print(f"[transcrever] msg_id={msg_id} ERRO: {e}", flush=True)
+        return None
+    finally:
+        cur.close()
+        conn.close()
 
 
 def _try_enrich_group_name(cur, grupo_id: int, jid: str) -> None:
@@ -310,10 +388,12 @@ def _handle_waha_message(payload: dict) -> dict:
                 (message_id, grupo_id, from_me, sender_jid, sender_name,
                  tipo, body, media_url, message_timestamp, raw)
             VALUES (%s,%s,%s,%s,%s, %s,%s,%s,%s, %s::jsonb)
+            RETURNING id
         """, (
             message_id or None, grupo_id, from_me, sender_jid, push_name,
             tipo, body, media_url, ts, json.dumps(p, ensure_ascii=False, default=str),
         ))
+        new_msg_id = cur.fetchone()["id"]
         cur.execute(
             "UPDATE wa_grupos SET last_message_at=GREATEST(COALESCE(last_message_at, %s), %s) WHERE id=%s",
             (ts, ts, grupo_id),
@@ -323,7 +403,7 @@ def _handle_waha_message(payload: dict) -> dict:
         cur.close()
         conn.close()
 
-    return {"ok": True, "inserted": 1}
+    return {"ok": True, "inserted": 1, "msg_id": new_msg_id, "tipo": tipo, "media_url": media_url}
 
 
 def _handle_group_upsert(data) -> dict:
@@ -677,6 +757,15 @@ async def update_grupo(grupo_id: int, request: Request):
         cur.close()
         conn.close()
     return {"ok": True, "rowcount": rowcount}
+
+
+# ── Transcrição manual (retry) ───────────────────────────────────────────────
+
+@router.post("/api/whatsapp/mensagens/{msg_id}/transcrever")
+async def transcrever_msg(msg_id: int, request: Request):
+    _require(request)
+    text = transcrever_mensagem_audio(msg_id)
+    return {"ok": True, "transcricao": text}
 
 
 # ── Cliente: histórico, saúde e resumo ────────────────────────────────────────

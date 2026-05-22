@@ -603,7 +603,10 @@
                               <div>
                                 <span style="color: var(--muted); font-size: .78rem;">🎤 áudio</span>
                                 <div x-show="m.transcricao" x-text="m.transcricao" style="margin-top: 4px;"></div>
-                                <div x-show="!m.transcricao" style="color: var(--muted); font-style: italic; font-size: .78rem;">(transcrição pendente)</div>
+                                <div x-show="!m.transcricao" style="margin-top: 4px; display: flex; gap: 8px; align-items: center;">
+                                  <span style="color: var(--muted); font-style: italic; font-size: .78rem;" x-text="m._transcrevendo ? 'Transcrevendo…' : '(transcrição pendente)'"></span>
+                                  <button class="cd-ata-toggle" @click="transcrever(m)" :disabled="m._transcrevendo" x-show="!m._transcrevendo">↻ transcrever</button>
+                                </div>
                               </div>
                             </template>
                             <template x-if="m.tipo === 'image'"><span style="color: var(--muted);">🖼️ <span x-text="m.body || 'imagem'"></span></span></template>
@@ -1122,6 +1125,22 @@ function dossieApp(clienteId) {
           this.whatsappSaude = d.saude || this.whatsappSaude;
         }
       } catch (e) { /* silencioso */ }
+    },
+
+    async transcrever(m) {
+      m._transcrevendo = true;
+      try {
+        const r = await fetch(`/api/whatsapp/mensagens/${m.id}/transcrever`, { method: 'POST' });
+        if (r.ok) {
+          const d = await r.json();
+          if (d.transcricao) {
+            m.transcricao = d.transcricao;
+          } else {
+            alert('Não foi possível transcrever — veja os logs do Sinapse.');
+          }
+        }
+      } catch (e) { console.error(e); alert('Erro de rede'); }
+      m._transcrevendo = false;
     },
 
     async loadWhatsapp() {
