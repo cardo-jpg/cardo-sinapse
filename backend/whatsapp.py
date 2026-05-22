@@ -211,6 +211,24 @@ async def webhook(request: Request):
     return {"ok": True, "ignored": event}
 
 
+def _try_enrich_group_name(cur, grupo_id: int, jid: str) -> None:
+    """Best-effort: busca nome do grupo via WAHA e atualiza no banco. Silencioso em erros."""
+    if not WAHA_API_URL:
+        return
+    try:
+        r = _waha_call("GET", f"/api/{WAHA_SESSION}/groups/{jid}")
+        if r["status"] != 200:
+            return
+        d = r["data"] or {}
+        subject = (d.get("subject")
+                   or (d.get("groupMetadata") or {}).get("subject")
+                   or "")
+        if subject:
+            cur.execute("UPDATE wa_grupos SET nome=%s WHERE id=%s", (subject, grupo_id))
+    except Exception as e:
+        print(f"[WAHA] enrich falhou {jid}: {e}", flush=True)
+
+
 def _handle_waha_message(payload: dict) -> dict:
     """
     Processa mensagem do WAHA. Formato:
@@ -267,16 +285,20 @@ def _handle_waha_message(payload: dict) -> dict:
     conn = get_conn()
     cur = dict_cursor(conn)
     try:
-        cur.execute("SELECT id FROM wa_grupos WHERE jid=%s", (from_jid,))
+        cur.execute("SELECT id, nome FROM wa_grupos WHERE jid=%s", (from_jid,))
         row = cur.fetchone()
         if row:
             grupo_id = row["id"]
+            # Se ainda não tem nome, tenta buscar (best-effort, falha silenciosa)
+            if not (row.get("nome") or "").strip():
+                _try_enrich_group_name(cur, grupo_id, from_jid)
         else:
             cur.execute(
                 "INSERT INTO wa_grupos (jid, nome) VALUES (%s, %s) RETURNING id",
                 (from_jid, ""),
             )
             grupo_id = cur.fetchone()["id"]
+            _try_enrich_group_name(cur, grupo_id, from_jid)
 
         if message_id:
             cur.execute("SELECT 1 FROM wa_mensagens WHERE message_id=%s", (message_id,))
