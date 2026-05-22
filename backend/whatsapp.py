@@ -229,9 +229,17 @@ async def webhook(request: Request, background_tasks: BackgroundTasks):
 
 
 def _baixar_arquivo_waha(media_url: str) -> tuple[bytes, str]:
-    """Baixa arquivo de mídia do WAHA. Retorna (bytes, mime)."""
+    """Baixa arquivo de mídia do WAHA. Retorna (bytes, mime).
+    Se a URL aponta pra localhost (WAHA retorna URL interna do container),
+    substitui pelo host público (WAHA_API_URL).
+    """
     if not media_url:
         raise ValueError("media_url vazio")
+    # WAHA NOWEB retorna media URL como http://localhost:3000/... — troca pelo host público
+    if "localhost" in media_url or "127.0.0.1" in media_url:
+        if WAHA_API_URL:
+            import re as _re
+            media_url = _re.sub(r"^https?://[^/]+", WAHA_API_URL, media_url)
     headers = {}
     if WAHA_API_KEY:
         headers["X-Api-Key"] = WAHA_API_KEY
@@ -284,16 +292,10 @@ def transcrever_mensagem_audio(msg_id: int) -> Optional[str]:
         mime = "audio/ogg"
         attempts = []
 
-        # 1) media_url direto
+        # 1) media_url (com fix automático de localhost→público em _baixar_arquivo_waha)
         media_url = msg.get("media_url")
         if media_url:
-            attempts.append(("direct", media_url))
-
-        # 2) Endpoint específico do WAHA pra baixar mídia da mensagem
-        # POST /api/{session}/{chatId}/messages/{messageId}/download
-        wa_message_id = msg.get("message_id")
-        if wa_message_id and WAHA_API_URL:
-            attempts.append(("waha_download", f"{WAHA_API_URL}/api/{WAHA_SESSION}/messages/{wa_message_id}/download"))
+            attempts.append(("media_url", media_url))
 
         for label, url in attempts:
             try:
