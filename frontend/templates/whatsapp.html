@@ -139,8 +139,8 @@
                   <span x-show="g.last_message_at" x-text="fmtRel(g.last_message_at)"></span>
                 </div>
               </div>
-              <select class="wa-select" x-model="g.cliente_id" @change="vincular(g)">
-                <option :value="null">— Vincular a cliente —</option>
+              <select class="wa-select" :value="g.cliente_id || ''" @change="vincularSelect(g, $event.target.value)">
+                <option value="">— Vincular a cliente —</option>
                 <template x-for="c in clientes" :key="c.id">
                   <option :value="c.id" x-text="`[${c.sigla}] ${c.razao_social}`"></option>
                 </template>
@@ -171,8 +171,8 @@
                   <span x-show="g.last_message_at" x-text="fmtRel(g.last_message_at)"></span>
                 </div>
               </div>
-              <select class="wa-select" x-model="g.cliente_id" @change="vincular(g)">
-                <option :value="null">— Desvincular —</option>
+              <select class="wa-select" :value="g.cliente_id || ''" @change="vincularSelect(g, $event.target.value)">
+                <option value="">— Desvincular —</option>
                 <template x-for="c in clientes" :key="c.id">
                   <option :value="c.id" x-text="`[${c.sigla}] ${c.razao_social}`"></option>
                 </template>
@@ -314,14 +314,14 @@ function waApp() {
       this.refreshingNomes = false;
     },
 
-    async vincular(g) {
-      // Garante que cliente_id é número (ou null) — o <select> retorna string
-      const raw = g.cliente_id;
+    async vincularSelect(g, rawValue) {
+      // rawValue vem direto do event.target.value (string)
       let cid = null;
-      if (raw !== null && raw !== undefined && raw !== '' && raw !== 'null') {
-        const n = Number(raw);
+      if (rawValue && rawValue !== '' && rawValue !== 'null') {
+        const n = Number(rawValue);
         cid = Number.isFinite(n) ? n : null;
       }
+      console.log('[vincularSelect] disparou', { grupo_id: g.id, rawValue, cid });
       try {
         const r = await fetch(`/api/whatsapp/grupos/${g.id}`, {
           method: 'PUT',
@@ -329,7 +329,7 @@ function waApp() {
           body: JSON.stringify({ cliente_id: cid }),
         });
         const d = await r.json().catch(() => ({}));
-        console.log('[vincular]', { grupo: g.id, cliente_id: cid, response: d });
+        console.log('[vincularSelect] response', { status: r.status, body: d });
         if (!r.ok || !d.rowcount) {
           alert(`Falha ao vincular. Status ${r.status}. rowcount=${d.rowcount}`);
         }
