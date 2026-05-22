@@ -97,18 +97,62 @@
     .cd-html blockquote { border-left: 3px solid var(--accent); padding: 4px 12px; color: var(--muted); margin: 8px 0; }
     .cd-html code { background: #0a0a0a; padding: 1px 5px; border-radius: 3px; font-size: .85em; }
 
-    /* WhatsApp timeline */
-    .wa-timeline { display: flex; flex-direction: column; gap: 10px; }
-    .wa-msg {
-      background: #0f0f0f; border: 1px solid var(--border); border-radius: 10px;
-      padding: 10px 14px; max-width: 88%; align-self: flex-start;
+    /* WhatsApp timeline — estilo chat */
+    .wa-chat {
+      background: #0a0a0a;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      max-height: 600px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
-    .wa-msg.wa-msg-me { align-self: flex-end; background: #1a1208; border-color: rgba(255,77,0,.2); }
-    .wa-msg-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 4px; }
-    .wa-msg-head strong { font-size: .78rem; color: var(--accent); }
-    .wa-msg.wa-msg-me .wa-msg-head strong { color: #fb923c; }
-    .wa-msg-ts { font-size: .68rem; color: var(--muted); }
-    .wa-msg-body { font-size: .88rem; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+    .wa-date-sep {
+      align-self: center;
+      background: #1a1a1a; border: 1px solid var(--border);
+      padding: 3px 12px; border-radius: 999px;
+      font-size: .68rem; color: var(--muted);
+      margin: 10px 0 6px;
+      text-transform: capitalize;
+    }
+    .wa-msg {
+      max-width: 78%;
+      padding: 6px 10px 5px;
+      border-radius: 8px;
+      font-size: .88rem;
+      line-height: 1.4;
+      word-break: break-word;
+      position: relative;
+      display: inline-flex;
+      flex-direction: column;
+    }
+    .wa-msg-them {
+      align-self: flex-start;
+      background: #1f2937;
+      color: #e5e7eb;
+      border-bottom-left-radius: 2px;
+    }
+    .wa-msg-me {
+      align-self: flex-end;
+      background: #14532d;
+      color: #f0fdf4;
+      border-bottom-right-radius: 2px;
+    }
+    .wa-msg-sender {
+      font-size: .68rem; font-weight: 600;
+      color: #93c5fd;
+      margin-bottom: 2px;
+    }
+    .wa-msg-me .wa-msg-sender { color: #fb923c; display: none; }
+    .wa-msg-body { white-space: pre-wrap; word-break: break-word; }
+    .wa-msg-foot {
+      font-size: .62rem; color: rgba(255,255,255,.5);
+      align-self: flex-end; margin-top: 1px; line-height: 1;
+    }
+    .wa-msg-tag { font-size: .68rem; opacity: .7; font-style: italic; }
+    .wa-load-more { align-self: center; margin-top: 12px; }
 
     /* Ata preview expansível */
     .cd-ata-preview { padding: 14px 18px; background: #0a0a0a; border: 1px solid var(--border); border-radius: 8px; margin: 8px 12px 14px; }
@@ -587,33 +631,38 @@
                     <div class="cd-prose cd-html" x-html="resumoHtml" x-show="resumoTexto"></div>
                   </div>
 
-                  <!-- Timeline -->
+                  <!-- Timeline estilo WhatsApp -->
                   <div class="cd-card">
-                    <div class="cd-card-title">📋 Últimas mensagens</div>
-                    <div class="wa-timeline">
-                      <template x-for="m in whatsappMensagens" :key="m.id">
-                        <div class="wa-msg" :class="m.from_me ? 'wa-msg-me' : ''">
-                          <div class="wa-msg-head">
-                            <strong x-text="m.from_me ? 'Agência' : (m.sender_name || 'Cliente')"></strong>
-                            <span class="wa-msg-ts" x-text="fmtDateTime(m.message_timestamp)"></span>
-                          </div>
-                          <div class="wa-msg-body">
-                            <template x-if="m.tipo === 'text'"><span x-text="m.body"></span></template>
-                            <template x-if="m.tipo === 'audio'">
-                              <div>
-                                <span style="color: var(--muted); font-size: .78rem;">🎤 áudio</span>
-                                <div x-show="m.transcricao" x-text="m.transcricao" style="margin-top: 4px;"></div>
-                                <div x-show="!m.transcricao" style="margin-top: 4px; display: flex; gap: 8px; align-items: center;">
-                                  <span style="color: var(--muted); font-style: italic; font-size: .78rem;" x-text="m._transcrevendo ? 'Transcrevendo…' : '(transcrição pendente)'"></span>
-                                  <button class="cd-ata-toggle" @click="transcrever(m)" :disabled="m._transcrevendo" x-show="!m._transcrevendo">↻ transcrever</button>
-                                </div>
+                    <div class="cd-card-title">💬 Conversa</div>
+                    <div class="wa-chat" x-ref="chatBox">
+                      <template x-for="(item, idx) in conversaAgrupada" :key="idx">
+                        <div :class="item.tipo === 'date' ? 'wa-date-sep' : (item.from_me ? 'wa-msg wa-msg-me' : 'wa-msg wa-msg-them')">
+                          <template x-if="item.tipo === 'date'">
+                            <span x-text="item.label"></span>
+                          </template>
+                          <template x-if="item.tipo === 'msg'">
+                            <div style="display: flex; flex-direction: column;">
+                              <div class="wa-msg-sender" x-show="!item.from_me" x-text="item.sender_name || 'Cliente'"></div>
+                              <div class="wa-msg-body">
+                                <template x-if="item.message_tipo === 'text'"><span x-text="item.body"></span></template>
+                                <template x-if="item.message_tipo === 'audio'">
+                                  <div>
+                                    <span class="wa-msg-tag">🎤 áudio</span>
+                                    <div x-show="item.transcricao" x-text="item.transcricao" style="margin-top: 4px;"></div>
+                                    <div x-show="!item.transcricao" style="margin-top: 4px;">
+                                      <span class="wa-msg-tag" x-text="item._transcrevendo ? 'transcrevendo…' : '(transcrição pendente)'"></span>
+                                      <a href="#" @click.prevent="transcrever(item)" x-show="!item._transcrevendo" style="margin-left: 8px; color: #93c5fd; font-size: .7rem;">↻ transcrever</a>
+                                    </div>
+                                  </div>
+                                </template>
+                                <template x-if="item.message_tipo === 'image'"><span class="wa-msg-tag">🖼️ <span x-text="item.body || 'imagem'"></span></span></template>
+                                <template x-if="item.message_tipo === 'video'"><span class="wa-msg-tag">🎬 <span x-text="item.body || 'vídeo'"></span></span></template>
+                                <template x-if="item.message_tipo === 'document'"><span class="wa-msg-tag">📎 <span x-text="item.body || 'documento'"></span></span></template>
+                                <template x-if="!['text','audio','image','video','document'].includes(item.message_tipo)"><span class="wa-msg-tag" x-text="`[${item.message_tipo}]`"></span></template>
                               </div>
-                            </template>
-                            <template x-if="m.tipo === 'image'"><span style="color: var(--muted);">🖼️ <span x-text="m.body || 'imagem'"></span></span></template>
-                            <template x-if="m.tipo === 'video'"><span style="color: var(--muted);">🎬 <span x-text="m.body || 'vídeo'"></span></span></template>
-                            <template x-if="m.tipo === 'document'"><span style="color: var(--muted);">📎 <span x-text="m.body || 'documento'"></span></span></template>
-                            <template x-if="!['text','audio','image','video','document'].includes(m.tipo)"><span style="color: var(--muted);" x-text="`[${m.tipo}]`"></span></template>
-                          </div>
+                              <div class="wa-msg-foot" x-text="fmtTime(item.message_timestamp)"></div>
+                            </div>
+                          </template>
                         </div>
                       </template>
                     </div>
@@ -1127,20 +1176,70 @@ function dossieApp(clienteId) {
       } catch (e) { /* silencioso */ }
     },
 
-    async transcrever(m) {
-      m._transcrevendo = true;
+    get conversaAgrupada() {
+      // Mensagens vêm DESC do backend (mais recentes primeiro) — inverte pra ASC
+      const msgs = [...(this.whatsappMensagens || [])].reverse();
+      if (!msgs.length) return [];
+      const out = [];
+      let lastDate = '';
+      for (const m of msgs) {
+        const d = m.message_timestamp ? new Date(m.message_timestamp) : null;
+        const dateKey = d ? d.toISOString().slice(0, 10) : 'sem-data';
+        if (dateKey !== lastDate) {
+          out.push({ tipo: 'date', label: this._dateLabel(d) });
+          lastDate = dateKey;
+        }
+        out.push({
+          tipo: 'msg',
+          id: m.id,
+          from_me: m.from_me,
+          sender_name: m.sender_name,
+          message_tipo: m.tipo,
+          body: m.body,
+          transcricao: m.transcricao,
+          message_timestamp: m.message_timestamp,
+          _transcrevendo: m._transcrevendo,
+        });
+      }
+      return out;
+    },
+
+    _dateLabel(d) {
+      if (!d) return '—';
+      const hoje = new Date();
+      const ontem = new Date(); ontem.setDate(hoje.getDate() - 1);
+      const isSameDay = (a, b) => a.toDateString() === b.toDateString();
+      if (isSameDay(d, hoje)) return 'Hoje';
+      if (isSameDay(d, ontem)) return 'Ontem';
+      const dias = ['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'];
+      const meses = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+      // Se for da mesma semana, mostra "Segunda-feira"
+      const diffDays = Math.floor((hoje - d) / (1000*60*60*24));
+      if (diffDays < 7) return dias[d.getDay()];
+      return `${d.getDate()} de ${meses[d.getMonth()]} de ${d.getFullYear()}`;
+    },
+
+    fmtTime(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    },
+
+    async transcrever(item) {
+      const orig = (this.whatsappMensagens || []).find(x => x.id === item.id);
+      if (!orig) return;
+      orig._transcrevendo = true;
       try {
-        const r = await fetch(`/api/whatsapp/mensagens/${m.id}/transcrever`, { method: 'POST' });
-        if (r.ok) {
-          const d = await r.json();
-          if (d.transcricao) {
-            m.transcricao = d.transcricao;
-          } else {
-            alert('Não foi possível transcrever — veja os logs do Sinapse.');
-          }
+        const r = await fetch(`/api/whatsapp/mensagens/${item.id}/transcrever`, { method: 'POST' });
+        const d = await r.json().catch(() => ({}));
+        console.log('[transcrever]', d);
+        if (d.transcricao) {
+          orig.transcricao = d.transcricao;
+        } else {
+          alert(`Não transcreveu. Debug: ${JSON.stringify(d.debug || {})}`);
         }
       } catch (e) { console.error(e); alert('Erro de rede'); }
-      m._transcrevendo = false;
+      orig._transcrevendo = false;
     },
 
     async loadWhatsapp() {

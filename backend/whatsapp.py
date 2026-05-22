@@ -44,6 +44,11 @@ WAHA_SESSION = os.getenv("WAHA_SESSION", "default")  # WAHA Core só aceita 'def
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 WHISPER_URL = "https://api.openai.com/v1/audio/transcriptions"
 
+# Número conectado no WhatsApp (formato sem +, sem espaços). Usado pra
+# detectar from_me quando o engine NOWEB do WAHA marca tudo como fromMe=false.
+# Ex: "554792222955"
+WHATSAPP_OWN_NUMBER = os.getenv("WHATSAPP_OWN_NUMBER", "").strip()
+
 
 def _waha_call(method: str, path: str, json_body: Optional[dict] = None) -> dict:
     if not WAHA_API_URL:
@@ -339,6 +344,13 @@ def _handle_waha_message(payload: dict) -> dict:
     from_me = bool(p.get("fromMe"))
     sender_jid = p.get("participant") or p.get("author") or from_jid
     push_name = (p.get("_data") or {}).get("notifyName") or p.get("notifyName") or ""
+    # Fallback: NOWEB do WAHA às vezes marca fromMe errado. Confere pelo número.
+    if not from_me and WHATSAPP_OWN_NUMBER and sender_jid:
+        sender_num = re.sub(r"\D", "", sender_jid.split("@")[0])
+        own_num = re.sub(r"\D", "", WHATSAPP_OWN_NUMBER)
+        if sender_num == own_num:
+            from_me = True
+    print(f"[wa msg] tipo={'?' if not p.get('hasMedia') else 'media'} from_me={from_me} sender={sender_jid} push={push_name!r}", flush=True)
 
     body = p.get("body") or ""
     has_media = bool(p.get("hasMedia"))
@@ -764,14 +776,34 @@ async def update_grupo(grupo_id: int, request: Request):
 @router.post("/api/whatsapp/mensagens/{msg_id}/transcrever")
 async def transcrever_msg(msg_id: int, request: Request):
     _require(request)
+    # Coleta info do que vai tentar transcrever
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT id, tipo, media_url, raw FROM wa_mensagens WHERE id=%s", (msg_id,))
+        msg = cur.fetchone()
+    finally:
+        cur.close(); conn.close()
+    if not msg:
+        raise HTTPException(404, "Mensagem não encontrada")
+    print(f"[transcrever_msg endpoint] msg_id={msg_id} tipo={msg['tipo']} media_url={msg.get('media_url')}", flush=True)
     text = transcrever_mensagem_audio(msg_id)
-    return {"ok": True, "transcricao": text}
+    return {
+        "ok": True,
+        "transcricao": text,
+        "debug": {
+            "tipo": msg["tipo"],
+            "tem_media_url": bool(msg.get("media_url")),
+            "openai_key_set": bool(OPENAI_API_KEY),
+            "waha_url_set": bool(WAHA_API_URL),
+        },
+    }
 
 
 # ── Cliente: histórico, saúde e resumo ────────────────────────────────────────
 
 @router.get("/api/clientes/{cliente_id}/whatsapp")
-async def cliente_whatsapp(cliente_id: int, request: Request, limit: int = 50):
+async def cliente_whatsapp(cliente_id: int, request: Request, limit: int = 500):
     _require(request)
     conn = get_conn()
     cur = dict_cursor(conn)

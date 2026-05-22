@@ -319,7 +319,7 @@ async def page_cliente_dossie(cliente_id: int, request: Request):
         conn.close()
     if not row:
         return RedirectResponse("/clientes")
-    return templates.TemplateResponse(
+    resp = templates.TemplateResponse(
         "cliente_dossie.html",
         {
             "request": request,
@@ -329,6 +329,8 @@ async def page_cliente_dossie(cliente_id: int, request: Request):
             **_nav_base(request, "clientes"),
         },
     )
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return resp
 
 
 @router.get("/api/clientes/{cliente_id}/dossie")
