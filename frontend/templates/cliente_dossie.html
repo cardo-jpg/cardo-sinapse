@@ -147,7 +147,8 @@
       line-height: 1.2;
     }
     .wa-msg-me .wa-msg-sender { color: #fb923c; }
-    .wa-msg-body { white-space: pre-wrap; word-break: break-word; line-height: 1.35; }
+    .wa-msg-body { line-height: 1.35; word-break: break-word; }
+    .wa-msg-text { white-space: pre-wrap; }
     .wa-msg-foot {
       font-size: .6rem; color: rgba(255,255,255,.5);
       text-align: right; margin-top: 1px; line-height: 1;
@@ -648,18 +649,7 @@
                             <div class="wa-msg" :class="item.from_me ? 'wa-msg-me' : 'wa-msg-them'">
                               <div class="wa-msg-sender" x-show="item.sender_name" x-text="item.sender_name"></div>
                               <div class="wa-msg-sender" x-show="!item.sender_name && !item.from_me">Cliente</div>
-                              <div class="wa-msg-body">
-                                <span x-show="item.message_tipo === 'text'" x-text="item.body"></span>
-                                <span x-show="item.message_tipo === 'image'"><span class="wa-msg-tag">🖼️</span> <span x-text="item.body || 'imagem'"></span></span>
-                                <span x-show="item.message_tipo === 'video'"><span class="wa-msg-tag">🎬</span> <span x-text="item.body || 'vídeo'"></span></span>
-                                <span x-show="item.message_tipo === 'document'"><span class="wa-msg-tag">📎</span> <span x-text="item.body || 'documento'"></span></span>
-                                <div x-show="item.message_tipo === 'audio'">
-                                  <span class="wa-msg-tag">🎤 Áudio</span>
-                                  <div x-show="item.transcricao" x-text="item.transcricao" style="margin-top: 4px;"></div>
-                                  <span x-show="!item.transcricao" class="wa-msg-pending" x-text="item._transcrevendo ? ' transcrevendo…' : ' (pendente)'"></span>
-                                  <a href="#" @click.prevent="transcrever(item)" x-show="item.message_tipo === 'audio' && !item.transcricao && !item._transcrevendo" style="margin-left: 4px; color: #93c5fd; font-size: .72rem;">transcrever</a>
-                                </div>
-                              </div>
+                              <div class="wa-msg-body"><span x-show="item.message_tipo === 'text'" class="wa-msg-text" x-text="item.body"></span><span x-show="item.message_tipo === 'image'"><span class="wa-msg-tag">🖼️</span> <span x-text="item.body || 'imagem'"></span></span><span x-show="item.message_tipo === 'video'"><span class="wa-msg-tag">🎬</span> <span x-text="item.body || 'vídeo'"></span></span><span x-show="item.message_tipo === 'document'"><span class="wa-msg-tag">📎</span> <span x-text="item.body || 'documento'"></span></span><span x-show="item.message_tipo === 'audio'"><span class="wa-msg-tag">🎤 Áudio</span><span x-show="item.transcricao" x-text="' — ' + (item.transcricao || '')" class="wa-msg-text"></span><span x-show="!item.transcricao" class="wa-msg-pending" x-text="item._transcrevendo ? ' transcrevendo…' : ' (pendente) '"></span><a href="#" @click.prevent="transcrever(item)" x-show="item.message_tipo === 'audio' && !item.transcricao && !item._transcrevendo" style="color: #93c5fd; font-size: .72rem;">transcrever</a></span></div>
                               <div class="wa-msg-foot" x-text="fmtTime(item.message_timestamp)"></div>
                             </div>
                           </template>
