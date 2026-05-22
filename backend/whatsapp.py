@@ -33,21 +33,22 @@ router = APIRouter()
 BASE_DIR = Path(__file__).parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "frontend" / "templates"))
 
-# Token opcional pra autenticar webhook (Evolution envia no header
-# `apikey` se vc setar AUTHENTICATION_API_KEY).
+# Token opcional pra autenticar webhook
 WEBHOOK_TOKEN = os.getenv("WHATSAPP_WEBHOOK_TOKEN", "")
 
-# Evolution API — pra controle administrativo (criar instância, gerar QR/pairing)
-EVOLUTION_API_URL = (os.getenv("EVOLUTION_API_URL") or "").rstrip("/")
-EVOLUTION_API_KEY = os.getenv("EVOLUTION_API_KEY", "")
-EVOLUTION_INSTANCE = os.getenv("EVOLUTION_INSTANCE", "sinapse")
+# WAHA — controle administrativo (criar sessão, gerar QR/pairing)
+WAHA_API_URL = (os.getenv("WAHA_API_URL") or "").rstrip("/")
+WAHA_API_KEY = os.getenv("WAHA_API_KEY", "")
+WAHA_SESSION = os.getenv("WAHA_SESSION", "sinapse")
 
 
-def _evolution_call(method: str, path: str, json_body: Optional[dict] = None) -> dict:
-    if not EVOLUTION_API_URL or not EVOLUTION_API_KEY:
-        raise HTTPException(503, "Evolution API não configurada (EVOLUTION_API_URL/EVOLUTION_API_KEY)")
-    url = f"{EVOLUTION_API_URL}{path}"
-    headers = {"apikey": EVOLUTION_API_KEY}
+def _waha_call(method: str, path: str, json_body: Optional[dict] = None) -> dict:
+    if not WAHA_API_URL:
+        raise HTTPException(503, "WAHA não configurado (WAHA_API_URL)")
+    url = f"{WAHA_API_URL}{path}"
+    headers = {}
+    if WAHA_API_KEY:
+        headers["X-Api-Key"] = WAHA_API_KEY
     if json_body is not None:
         headers["Content-Type"] = "application/json"
     try:
@@ -58,7 +59,7 @@ def _evolution_call(method: str, path: str, json_body: Optional[dict] = None) ->
             except Exception:
                 return {"status": r.status_code, "data": {"raw": r.text}}
     except httpx.HTTPError as e:
-        raise HTTPException(502, f"Falha ao chamar Evolution: {e}")
+        raise HTTPException(502, f"Falha ao chamar WAHA: {e}")
 
 
 # ── DB ────────────────────────────────────────────────────────────────────────
@@ -180,11 +181,11 @@ def _extract_text_and_type(message: dict) -> tuple[str, str, Optional[str]]:
 @router.post("/api/whatsapp/webhook")
 async def webhook(request: Request):
     """
-    Endpoint público (sem login) que recebe eventos da Evolution API.
-    Se WHATSAPP_WEBHOOK_TOKEN está setado, valida o header 'apikey'.
+    Endpoint público que recebe eventos do WAHA.
+    Se WHATSAPP_WEBHOOK_TOKEN está setado, valida o header X-Api-Key.
     """
     if WEBHOOK_TOKEN:
-        provided = request.headers.get("apikey") or request.headers.get("authorization", "").replace("Bearer ", "")
+        provided = request.headers.get("x-api-key") or request.headers.get("apikey") or ""
         if provided != WEBHOOK_TOKEN:
             raise HTTPException(401, "Token inválido")
 
@@ -193,18 +194,112 @@ async def webhook(request: Request):
     except Exception:
         raise HTTPException(400, "Body inválido")
 
-    event = payload.get("event") or ""
-    data = payload.get("data") or {}
+    event = (payload.get("event") or "").lower()
 
-    # Aceita variações do formato (Evolution v1 e v2)
-    if event in ("messages.upsert", "MESSAGES_UPSERT"):
-        return _handle_message_upsert(data, payload)
+    # WAHA: event="message" → mensagem nova
+    if event in ("message", "message.any"):
+        return _handle_waha_message(payload)
 
-    if event in ("groups.upsert", "GROUPS_UPSERT", "groups.update", "GROUPS_UPDATE"):
-        return _handle_group_upsert(data)
+    # Evolution legacy (caso ainda usem antigos webhooks)
+    if event in ("messages.upsert", "messages_upsert"):
+        return _handle_message_upsert(payload.get("data") or {}, payload)
+    if event in ("groups.upsert", "groups.update"):
+        return _handle_group_upsert(payload.get("data") or {})
 
-    # Eventos ignorados (mas retornamos 200 pra Evolution não retry)
     return {"ok": True, "ignored": event}
+
+
+def _handle_waha_message(payload: dict) -> dict:
+    """
+    Processa mensagem do WAHA. Formato:
+    {
+      "event": "message",
+      "session": "sinapse",
+      "payload": {
+        "id": "false_551199@g.us_ABCD",
+        "timestamp": 1683812345,
+        "from": "551199@g.us",      // JID do grupo
+        "fromMe": false,
+        "body": "Olá",
+        "hasMedia": false,
+        "_data": {
+          "notifyName": "João",
+          ...
+        }
+      }
+    }
+    """
+    p = payload.get("payload") or {}
+    if not isinstance(p, dict):
+        return {"ok": True, "skipped": "no payload"}
+
+    from_jid = p.get("from") or ""
+    if not from_jid.endswith("@g.us"):
+        return {"ok": True, "skipped": "not group"}
+
+    message_id = p.get("id") or ""
+    from_me = bool(p.get("fromMe"))
+    sender_jid = p.get("participant") or p.get("author") or from_jid
+    push_name = (p.get("_data") or {}).get("notifyName") or p.get("notifyName") or ""
+
+    body = p.get("body") or ""
+    has_media = bool(p.get("hasMedia"))
+    media_type = (p.get("media") or {}).get("mimetype") if isinstance(p.get("media"), dict) else None
+
+    # Tipo derivado
+    if has_media:
+        if media_type and media_type.startswith("audio/"):
+            tipo = "audio"
+        elif media_type and media_type.startswith("image/"):
+            tipo = "image"
+        elif media_type and media_type.startswith("video/"):
+            tipo = "video"
+        else:
+            tipo = "document"
+    else:
+        tipo = "text"
+
+    media_url = (p.get("media") or {}).get("url") if isinstance(p.get("media"), dict) else None
+    ts = _ts_to_dt(p.get("timestamp"))
+
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("SELECT id FROM wa_grupos WHERE jid=%s", (from_jid,))
+        row = cur.fetchone()
+        if row:
+            grupo_id = row["id"]
+        else:
+            cur.execute(
+                "INSERT INTO wa_grupos (jid, nome) VALUES (%s, %s) RETURNING id",
+                (from_jid, ""),
+            )
+            grupo_id = cur.fetchone()["id"]
+
+        if message_id:
+            cur.execute("SELECT 1 FROM wa_mensagens WHERE message_id=%s", (message_id,))
+            if cur.fetchone():
+                return {"ok": True, "skipped": "duplicate"}
+
+        cur.execute("""
+            INSERT INTO wa_mensagens
+                (message_id, grupo_id, from_me, sender_jid, sender_name,
+                 tipo, body, media_url, message_timestamp, raw)
+            VALUES (%s,%s,%s,%s,%s, %s,%s,%s,%s, %s::jsonb)
+        """, (
+            message_id or None, grupo_id, from_me, sender_jid, push_name,
+            tipo, body, media_url, ts, json.dumps(p, ensure_ascii=False, default=str),
+        ))
+        cur.execute(
+            "UPDATE wa_grupos SET last_message_at=GREATEST(COALESCE(last_message_at, %s), %s) WHERE id=%s",
+            (ts, ts, grupo_id),
+        )
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
+
+    return {"ok": True, "inserted": 1}
 
 
 def _handle_group_upsert(data) -> dict:
@@ -314,41 +409,49 @@ def _handle_message_upsert(data, full_payload) -> dict:
     return {"ok": True, "inserted": inserted, "skipped": skipped}
 
 
-# ── Connect/QR/Pairing (proxy pra Evolution API) ─────────────────────────────
+# ── Connect/QR/Pairing (proxy pra WAHA) ──────────────────────────────────────
+
+def _waha_session_status() -> str:
+    """Retorna status: WORKING / STARTING / SCAN_QR_CODE / FAILED / STOPPED / NOT_FOUND."""
+    r = _waha_call("GET", f"/api/sessions/{WAHA_SESSION}")
+    if r["status"] == 404:
+        return "NOT_FOUND"
+    return (r["data"] or {}).get("status") or "UNKNOWN"
+
 
 @router.get("/api/whatsapp/instance/state")
 async def instance_state(request: Request):
     _require(request)
-    r = _evolution_call("GET", f"/instance/connectionState/{EVOLUTION_INSTANCE}")
-    return {"http_status": r["status"], "data": r["data"]}
-
-
-def _extract_credentials(data: dict) -> tuple[Optional[str], Optional[str], Optional[str]]:
-    """Procura qr_base64 / qr_code / pairing_code em várias formas que a Evolution retorna."""
-    qr_base64 = None
-    qr_code = None
-    pairing_code = None
-
-    qrcode_obj = data.get("qrcode") or {}
-    if isinstance(qrcode_obj, dict):
-        qr_base64 = qrcode_obj.get("base64") or qr_base64
-        qr_code = qrcode_obj.get("code") or qr_code
-        pairing_code = qrcode_obj.get("pairingCode") or pairing_code
-
-    pairing_code = pairing_code or data.get("pairingCode") or data.get("code")
-    qr_base64 = qr_base64 or data.get("base64")
-    return qr_base64, qr_code, pairing_code
+    try:
+        status = _waha_session_status()
+    except HTTPException:
+        raise
+    # Mapeia status do WAHA pra padrão usado pelo frontend
+    state_map = {
+        "WORKING": "open",
+        "STARTING": "connecting",
+        "SCAN_QR_CODE": "connecting",
+        "FAILED": "close",
+        "STOPPED": "close",
+        "NOT_FOUND": "close",
+    }
+    return {
+        "http_status": 200,
+        "data": {
+            "instance": {
+                "instanceName": WAHA_SESSION,
+                "state": state_map.get(status, "close"),
+                "wahaStatus": status,
+            }
+        },
+    }
 
 
 @router.post("/api/whatsapp/instance/connect")
 async def instance_connect(request: Request):
     """
-    Cria/recria a instância e retorna pairing code ou QR.
-    Body opcional: { "number": "5547999999999" } pra pairing code via número.
-                   Sem number, gera QR code.
-
-    Evolution v2 às vezes não retorna o pairing/QR direto no /create;
-    precisa chamar /instance/connect depois. Esse endpoint faz ambos.
+    Inicia/reinicia a sessão WAHA. Retorna QR base64 ou pairing code.
+    Body opcional: { "number": "5547999999999" } pra pairing via número.
     """
     import time as _t
     _require(request)
@@ -359,67 +462,68 @@ async def instance_connect(request: Request):
         pass
     number = (body.get("number") or "").strip()
 
-    # 1) Deleta instância existente (idempotente — ignora 404)
-    _evolution_call("DELETE", f"/instance/delete/{EVOLUTION_INSTANCE}")
+    public_base = (os.getenv("PUBLIC_BASE_URL") or "https://sinapse.cardomarketing.com.br").rstrip("/")
+    webhook_url = f"{public_base}/api/whatsapp/webhook"
 
-    # 2) Cria de novo
-    payload = {
-        "instanceName": EVOLUTION_INSTANCE,
-        "integration": "WHATSAPP-BAILEYS",
-    }
-    if number:
-        payload["number"] = number
-    else:
-        payload["qrcode"] = True
+    # 1) Limpa sessão existente (idempotente)
+    for path in (f"/api/sessions/{WAHA_SESSION}/logout", f"/api/sessions/{WAHA_SESSION}/stop"):
+        try: _waha_call("POST", path)
+        except Exception: pass
+    try: _waha_call("DELETE", f"/api/sessions/{WAHA_SESSION}")
+    except Exception: pass
+    _t.sleep(1)
 
-    r_create = _evolution_call("POST", "/instance/create", payload)
-    create_data = r_create.get("data") or {}
+    # 2) Cria nova sessão com webhook
+    _waha_call("POST", "/api/sessions", {
+        "name": WAHA_SESSION,
+        "start": True,
+        "config": {
+            "webhooks": [{
+                "url": webhook_url,
+                "events": ["message", "session.status"],
+            }]
+        },
+    })
 
-    qr_base64, qr_code, pairing_code = _extract_credentials(create_data)
-
-    # Se não veio QR/pairing no create, faz polling no /connect (até 3 tentativas)
-    if not qr_base64 and not pairing_code:
-        for _ in range(3):
-            _t.sleep(2)
-            r_conn = _evolution_call("GET", f"/instance/connect/{EVOLUTION_INSTANCE}")
-            conn_data = r_conn.get("data") or {}
-            qr_base64, qr_code, pairing_code = _extract_credentials(conn_data)
-            if qr_base64 or pairing_code:
-                # mescla a resposta do connect na pra debugging
-                create_data["_connect"] = conn_data
-                break
+    # 3) Aguarda WAHA chegar em SCAN_QR_CODE e pega credencial
+    qr_base64 = None
+    pairing_code = None
+    for _ in range(15):  # ~30s max
+        _t.sleep(2)
+        status = _waha_session_status()
+        if status == "WORKING":
+            break
+        if status == "SCAN_QR_CODE":
+            if number:
+                r = _waha_call("POST", f"/api/{WAHA_SESSION}/auth/request-code", {"phoneNumber": number})
+                d = r.get("data") or {}
+                pairing_code = d.get("code") or d.get("pairingCode")
+                if pairing_code:
+                    break
+            else:
+                r = _waha_call("GET", f"/api/{WAHA_SESSION}/auth/qr?format=image")
+                d = r.get("data") or {}
+                if isinstance(d, dict):
+                    qr_base64 = d.get("data") or d.get("base64") or d.get("qr")
+                    if qr_base64 and not qr_base64.startswith("data:"):
+                        qr_base64 = f"data:image/png;base64,{qr_base64}"
+                if qr_base64:
+                    break
 
     return {
         "ok": True,
-        "instance": create_data.get("instance") or {},
         "qr_base64": qr_base64,
-        "qr_code": qr_code,
         "pairing_code": pairing_code,
-        "raw": create_data,
-    }
-
-
-@router.post("/api/whatsapp/instance/refresh-qr")
-async def instance_refresh_qr(request: Request):
-    """Tenta pegar um novo QR sem recriar a instância (caso QR tenha expirado)."""
-    _require(request)
-    r = _evolution_call("GET", f"/instance/connect/{EVOLUTION_INSTANCE}")
-    data = r.get("data") or {}
-    qr = data.get("qrcode") or {}
-    return {
-        "ok": True,
-        "qr_base64": qr.get("base64") if isinstance(qr, dict) else None,
-        "qr_code": qr.get("code") if isinstance(qr, dict) else None,
-        "pairing_code": data.get("pairingCode") or data.get("code"),
-        "raw": data,
+        "session_status": _waha_session_status(),
     }
 
 
 @router.post("/api/whatsapp/instance/disconnect")
 async def instance_disconnect(request: Request):
     _require(request)
-    r = _evolution_call("DELETE", f"/instance/logout/{EVOLUTION_INSTANCE}")
-    return {"ok": True, "data": r["data"]}
+    try: _waha_call("POST", f"/api/sessions/{WAHA_SESSION}/logout")
+    except Exception: pass
+    return {"ok": True}
 
 
 # ── Grupos: CRUD pra vincular a clientes ──────────────────────────────────────
