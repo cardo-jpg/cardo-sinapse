@@ -2586,26 +2586,39 @@ async def dashboards_clientes_page(request: Request):
     return resp
 
 
-@app.get("/dashboard/nf", response_class=HTMLResponse)
-async def dashboard_nf_page(request: Request):
-    """Dashboard de performance — Grupo NF (Gráfica NF). Standalone HTML embedado."""
+_DASH_URLS = {
+    "nf":       "https://cardo-jpg.github.io/gnf-dash-gnf/",
+    "dft":      "https://cardo-jpg.github.io/dft-dash-dft/",
+    "sri":      "https://cardo-jpg.github.io/sri-dashboard-maio/",
+    "patricia": "https://cardo-jpg.github.io/patricia-dashboard/",
+    "mavie":    "https://cardo-jpg.github.io/mavie-dash/",
+}
+
+def _dash(request: Request, sigla: str):
     username = verify_session(request)
     if not username:
         return RedirectResponse("/login")
-    resp = templates.TemplateResponse("dashboard_nf.html", {"request": request})
+    resp = templates.TemplateResponse("dashboard_iframe.html", {
+        "request": request,
+        "dash_url": _DASH_URLS[sigla],
+    })
     resp.headers["Cache-Control"] = "no-store"
     return resp
 
+@app.get("/dashboard/nf",       response_class=HTMLResponse)
+async def dashboard_nf_page(request: Request):       return _dash(request, "nf")
 
-@app.get("/dashboard/dft", response_class=HTMLResponse)
-async def dashboard_dft_page(request: Request):
-    """Dashboard de performance — DFT Logística. Standalone HTML embedado."""
-    username = verify_session(request)
-    if not username:
-        return RedirectResponse("/login")
-    resp = templates.TemplateResponse("dashboard_dft.html", {"request": request})
-    resp.headers["Cache-Control"] = "no-store"
-    return resp
+@app.get("/dashboard/dft",      response_class=HTMLResponse)
+async def dashboard_dft_page(request: Request):      return _dash(request, "dft")
+
+@app.get("/dashboard/sri",      response_class=HTMLResponse)
+async def dashboard_sri_page(request: Request):      return _dash(request, "sri")
+
+@app.get("/dashboard/patricia", response_class=HTMLResponse)
+async def dashboard_patricia_page(request: Request): return _dash(request, "patricia")
+
+@app.get("/dashboard/mavie",    response_class=HTMLResponse)
+async def dashboard_mavie_page(request: Request):    return _dash(request, "mavie")
 
 
 @app.get("/api/trafego/metrics")
