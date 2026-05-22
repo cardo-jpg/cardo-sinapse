@@ -223,12 +223,21 @@
     (function () {
       const canvas = document.getElementById('constellation');
       const ctx = canvas.getContext('2d');
-      const ORANGE = [233, 121, 25];
-      const BLUE   = [120, 130, 220];
+
+      // Constants
+      const TH = 140;          // distância de conexão entre neurônios
+      const TH_M = 180;        // distância de conexão com mouse
+      const MAX_PULSES = 18;   // pulsos sinápticos simultâneos
+      const PULSE_SPEED = 0.018; // 0→1 por frame (~55 frames de viagem)
+      const FLASH_FRAMES = 26; // duração do flash no receptor
+      const SPAWN_EVERY = 7;   // tenta criar pulso a cada N frames
 
       let W = 0, H = 0, dpr = Math.min(window.devicePixelRatio || 1, 2);
-      let particles = [];
+      let neurons = [];     // {x,y,vx,vy,r,flash}
+      let pulses = [];      // {a,b,t,col}
+      let edges = [];       // pares conectados [iA, iB] recomputados por frame
       let mouse = { x: -1e6, y: -1e6 };
+      let frame = 0;
 
       function resize() {
         W = window.innerWidth;
@@ -242,60 +251,81 @@
       }
 
       function spawn() {
-        const target = Math.max(50, Math.min(120, Math.floor((W * H) / 16000)));
-        particles = [];
+        const target = Math.max(45, Math.min(95, Math.floor((W * H) / 19000)));
+        neurons = [];
         for (let i = 0; i < target; i++) {
-          particles.push({
+          neurons.push({
             x: Math.random() * W,
             y: Math.random() * H,
-            vx: (Math.random() - .5) * .25,
-            vy: (Math.random() - .5) * .25,
-            r: 1 + Math.random() * 1.6,
-            // mistura paleta: maioria azul, alguns laranja
-            c: Math.random() < 0.18 ? ORANGE : BLUE
+            vx: (Math.random() - .5) * .22,
+            vy: (Math.random() - .5) * .22,
+            r:  1.1 + Math.random() * 1.4,
+            // pulso de fundo (respiração) com fase aleatória
+            phase: Math.random() * Math.PI * 2,
+            flash: 0
           });
         }
+        pulses = [];
+      }
+
+      function trySpawnPulse() {
+        if (pulses.length >= MAX_PULSES) return;
+        if (edges.length === 0) return;
+        // escolhe uma aresta aleatória dentre as conectadas neste frame
+        const e = edges[(Math.random() * edges.length) | 0];
+        // 78% laranja (Cardô), 22% azul-claro (mistura visual)
+        const orange = Math.random() < 0.78;
+        pulses.push({
+          a: e[0],
+          b: e[1],
+          t: 0,
+          col: orange ? [255, 170, 80] : [180, 200, 255]
+        });
       }
 
       function step() {
+        frame++;
         ctx.clearRect(0, 0, W, H);
 
-        // Update positions
-        for (const p of particles) {
+        // Atualiza posições dos neurônios
+        for (const p of neurons) {
           p.x += p.vx;
           p.y += p.vy;
           if (p.x < 0 || p.x > W) p.vx *= -1;
           if (p.y < 0 || p.y > H) p.vy *= -1;
+          if (p.flash > 0) p.flash--;
         }
 
-        // Lines (connection threshold)
-        const TH = 130;
-        const TH_M = 180; // perto do mouse
-        for (let i = 0; i < particles.length; i++) {
-          const a = particles[i];
-          for (let j = i + 1; j < particles.length; j++) {
-            const b = particles[j];
+        // Recomputa arestas (linhas) + desenha axônios sutis
+        edges.length = 0;
+        for (let i = 0; i < neurons.length; i++) {
+          const a = neurons[i];
+          for (let j = i + 1; j < neurons.length; j++) {
+            const b = neurons[j];
             const dx = a.x - b.x;
             const dy = a.y - b.y;
-            const d = Math.sqrt(dx*dx + dy*dy);
-            if (d < TH) {
-              const alpha = (1 - d / TH) * 0.18;
+            const d2 = dx*dx + dy*dy;
+            if (d2 < TH * TH) {
+              const d = Math.sqrt(d2);
+              const alpha = (1 - d / TH) * 0.12;
               ctx.strokeStyle = `rgba(140,150,210,${alpha})`;
-              ctx.lineWidth = 0.6;
+              ctx.lineWidth = 0.55;
               ctx.beginPath();
               ctx.moveTo(a.x, a.y);
               ctx.lineTo(b.x, b.y);
               ctx.stroke();
+              edges.push([i, j]);
             }
           }
-          // mouse link
+          // linha pro mouse
           const mdx = a.x - mouse.x;
           const mdy = a.y - mouse.y;
-          const md = Math.sqrt(mdx*mdx + mdy*mdy);
-          if (md < TH_M) {
-            const alpha = (1 - md / TH_M) * 0.35;
+          const md2 = mdx*mdx + mdy*mdy;
+          if (md2 < TH_M * TH_M) {
+            const md = Math.sqrt(md2);
+            const alpha = (1 - md / TH_M) * 0.45;
             ctx.strokeStyle = `rgba(233,121,25,${alpha})`;
-            ctx.lineWidth = 0.8;
+            ctx.lineWidth = 0.9;
             ctx.beginPath();
             ctx.moveTo(a.x, a.y);
             ctx.lineTo(mouse.x, mouse.y);
@@ -303,11 +333,75 @@
           }
         }
 
-        // Dots
-        for (const p of particles) {
-          ctx.fillStyle = `rgba(${p.c[0]},${p.c[1]},${p.c[2]},.85)`;
+        // Spawn de pulsos sinápticos
+        if (frame % SPAWN_EVERY === 0) trySpawnPulse();
+
+        // Atualiza + desenha pulsos com trail
+        for (let k = pulses.length - 1; k >= 0; k--) {
+          const ps = pulses[k];
+          const a = neurons[ps.a];
+          const b = neurons[ps.b];
+          if (!a || !b) { pulses.splice(k, 1); continue; }
+          ps.t += PULSE_SPEED;
+
+          if (ps.t >= 1) {
+            // chegou no destino → flash + remove
+            b.flash = FLASH_FRAMES;
+            pulses.splice(k, 1);
+            continue;
+          }
+
+          // posição atual + trail (3 amostras)
+          for (let s = 0; s < 4; s++) {
+            const tt = Math.max(0, ps.t - s * 0.05);
+            const x = a.x + (b.x - a.x) * tt;
+            const y = a.y + (b.y - a.y) * tt;
+            const fade = (1 - s * 0.27);
+            const r = 2.6 - s * 0.5;
+            // glow (radial)
+            const grad = ctx.createRadialGradient(x, y, 0, x, y, r * 4);
+            grad.addColorStop(0, `rgba(${ps.col[0]},${ps.col[1]},${ps.col[2]},${0.95 * fade})`);
+            grad.addColorStop(0.4, `rgba(${ps.col[0]},${ps.col[1]},${ps.col[2]},${0.25 * fade})`);
+            grad.addColorStop(1, `rgba(${ps.col[0]},${ps.col[1]},${ps.col[2]},0)`);
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(x, y, r * 4, 0, Math.PI * 2);
+            ctx.fill();
+            // núcleo
+            if (s === 0) {
+              ctx.fillStyle = `rgba(255,255,255,${0.95 * fade})`;
+              ctx.beginPath();
+              ctx.arc(x, y, r * 0.55, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+        }
+
+        // Neurônios (com respiração + flash de recepção)
+        for (const p of neurons) {
+          const breathe = 0.5 + 0.5 * Math.sin(frame * 0.025 + p.phase);
+          const flashK = p.flash / FLASH_FRAMES; // 0..1
+          const rEff = p.r * (1 + breathe * 0.18 + flashK * 1.4);
+          // halo expandido se em flash
+          if (flashK > 0) {
+            const haloR = rEff * (3 + flashK * 4);
+            const halo = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, haloR);
+            halo.addColorStop(0, `rgba(255,180,100,${0.55 * flashK})`);
+            halo.addColorStop(0.5, `rgba(233,121,25,${0.2 * flashK})`);
+            halo.addColorStop(1, 'rgba(233,121,25,0)');
+            ctx.fillStyle = halo;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, haloR, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          // corpo do neurônio (azul-claro com leve mistura laranja se em flash)
+          const baseA = 0.85;
+          const r = flashK > 0 ? 255 : 150;
+          const g = flashK > 0 ? 200 : 160;
+          const b = flashK > 0 ? 130 : 220;
+          ctx.fillStyle = `rgba(${r},${g},${b},${baseA})`;
           ctx.beginPath();
-          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.arc(p.x, p.y, rEff, 0, Math.PI * 2);
           ctx.fill();
         }
 
