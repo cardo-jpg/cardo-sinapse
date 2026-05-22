@@ -558,10 +558,14 @@ async def page_whatsapp(request: Request):
     if not user:
         return RedirectResponse("/login")
     from backend.main import _nav_base
-    return templates.TemplateResponse(
+    resp = templates.TemplateResponse(
         "whatsapp.html",
         {"request": request, **_nav_base(request, "whatsapp")},
     )
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
 
 
 @router.get("/api/whatsapp/grupos")
