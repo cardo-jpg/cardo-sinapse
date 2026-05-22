@@ -1838,6 +1838,12 @@
         <span>Financeiro</span>
       </a>
       <button class="g-nav-link" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit"
+              :class="mainMode==='embed' && iframeUrl==='/whatsapp' ? 'active' : ''"
+              @click="openEmbed('/whatsapp')" data-label="WhatsApp">
+        <span class="g-nav-icon">📱</span>
+        <span>WhatsApp</span>
+      </button>
+      <button class="g-nav-link" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit"
               :class="mainMode==='embed' && iframeUrl==='/habitos' ? 'active' : ''"
               @click="openEmbed('/habitos')" data-label="Hábitos">
         <span class="g-nav-icon">🎯</span>
