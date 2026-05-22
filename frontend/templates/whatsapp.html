@@ -165,7 +165,8 @@
               <div>
                 <div class="wa-grupo-name" x-text="g.nome || g.jid"></div>
                 <div class="wa-grupo-meta">
-                  <span x-text="g.total_mensagens + ' msgs'"></span>
+                  <span style="color: #4ade80; font-weight: 600;" x-show="g.cliente_sigla" x-text="`→ [${g.cliente_sigla}] ${g.cliente_nome}`"></span>
+                  · <span x-text="g.total_mensagens + ' msgs'"></span>
                   <span x-show="g.last_message_at"> · última </span>
                   <span x-show="g.last_message_at" x-text="fmtRel(g.last_message_at)"></span>
                 </div>

@@ -683,8 +683,10 @@ async def cliente_whatsapp(cliente_id: int, request: Request, limit: int = 50):
     conn = get_conn()
     cur = dict_cursor(conn)
     try:
-        cur.execute("SELECT id, nome, jid, last_message_at FROM wa_grupos WHERE cliente_id=%s AND ativo=TRUE", (cliente_id,))
-        grupos = [dict(r) for r in cur.fetchall()]
+        cur.execute("SELECT id, nome, jid, last_message_at, ativo, cliente_id FROM wa_grupos WHERE cliente_id=%s", (cliente_id,))
+        all_grupos = cur.fetchall()
+        print(f"[wa cliente_whatsapp] cliente_id={cliente_id} grupos_encontrados={[dict(g) for g in all_grupos]}", flush=True)
+        grupos = [dict(r) for r in all_grupos if r["ativo"]]
         if not grupos:
             return {"grupos": [], "mensagens": [], "saude": _empty_saude()}
 
