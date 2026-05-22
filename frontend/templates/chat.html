@@ -212,89 +212,73 @@
       background: var(--cb-bg) !important;
     }
 
-    /* Sidebar do chat */
-    .sidebar {
-      width: 260px !important;
-      flex-shrink: 0 !important;
-      background: var(--cb-bg-2) !important;
-      border-right: 1px solid var(--cb-border) !important;
-      display: flex !important;
-      flex-direction: column !important;
-      padding: 18px 14px !important;
-      overflow: hidden;
-    }
-    .sidebar-logo {
+    /* Topbar do chat (substitui a sidebar interna) */
+    .chat-topbar {
       display: flex !important;
       align-items: center !important;
-      gap: 10px !important;
-      padding: 4px 6px 18px !important;
-      border-bottom: 1px solid var(--cb-border);
-      margin-bottom: 14px;
+      justify-content: space-between !important;
+      gap: 12px !important;
+      padding: 12px 24px !important;
+      border-bottom: 1px solid var(--cb-border) !important;
+      background: var(--cb-bg-2) !important;
+      flex-shrink: 0 !important;
     }
-    .sidebar-logo-img {
-      height: 22px !important;
-      width: auto !important;
-      filter: brightness(1.1);
-    }
-    .sidebar-logo-sub {
-      font-size: .68rem !important;
-      text-transform: uppercase !important;
-      letter-spacing: .22em !important;
-      color: var(--cb-orange) !important;
-      font-weight: 700 !important;
-    }
+    .chat-topbar-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .chat-topbar-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
     .sidebar-client-badge {
-      display: flex !important;
+      display: inline-flex !important;
       align-items: center !important;
       gap: 8px !important;
-      padding: 8px 12px !important;
+      padding: 7px 14px !important;
       background: linear-gradient(135deg, rgba(233,121,25,.15) 0%, rgba(25,25,108,.15) 100%) !important;
       border: 1px solid rgba(233,121,25,.25) !important;
-      border-radius: 10px !important;
+      border-radius: 999px !important;
       font-size: .85rem !important;
       color: var(--cb-text) !important;
-      margin-bottom: 12px !important;
     }
     .sidebar-client-badge:empty { display: none !important; }
     .sidebar-client-badge .badge-text { font-weight: 600; }
 
-    .new-chat-btn {
-      width: 100% !important;
-      padding: 11px 14px !important;
-      background: var(--cb-orange) !important;
-      color: #fff !important;
-      border: none !important;
-      border-radius: 10px !important;
-      font-family: inherit !important;
-      font-size: .9rem !important;
-      font-weight: 600 !important;
-      cursor: pointer !important;
-      margin-bottom: 8px !important;
-      transition: all .15s !important;
-    }
-    .new-chat-btn:hover { background: #d56b14 !important; transform: translateY(-1px); box-shadow: 0 6px 16px -6px rgba(233,121,25,.5); }
-
-    .change-client-btn {
-      width: 100% !important;
-      padding: 9px 14px !important;
+    .topbar-btn {
+      padding: 8px 14px !important;
       background: transparent !important;
       color: var(--cb-text-dim) !important;
       border: 1px solid var(--cb-border) !important;
-      border-radius: 10px !important;
+      border-radius: 8px !important;
       font-family: inherit !important;
       font-size: .82rem !important;
       cursor: pointer !important;
-      margin-bottom: 14px !important;
-      transition: all .15s !important;
+      transition: all .12s !important;
+      white-space: nowrap !important;
     }
-    .change-client-btn:hover { border-color: var(--cb-orange) !important; color: var(--cb-orange) !important; }
+    .topbar-btn:hover { border-color: var(--cb-orange) !important; color: var(--cb-orange) !important; }
+    .topbar-btn-primary {
+      background: var(--cb-orange) !important;
+      color: #fff !important;
+      border-color: var(--cb-orange) !important;
+      font-weight: 600 !important;
+    }
+    .topbar-btn-primary:hover { background: #d56b14 !important; border-color: #d56b14 !important; color: #fff !important; }
+
+    .topbar-popover-wrap { position: relative; }
+    .topbar-popover {
+      position: absolute !important;
+      top: calc(100% + 6px) !important;
+      right: 0 !important;
+      width: 320px !important;
+      max-height: 70vh !important;
+      overflow-y: auto !important;
+      background: var(--cb-bg-2) !important;
+      border: 1px solid var(--cb-border) !important;
+      border-radius: 12px !important;
+      box-shadow: 0 12px 32px -8px rgba(0,0,0,.5) !important;
+      padding: 10px !important;
+      z-index: 50 !important;
+    }
 
     .conv-list {
-      flex: 1 !important;
+      max-height: 56vh !important;
       overflow-y: auto !important;
-      padding: 4px 0 !important;
-      margin: 4px -8px !important;
-      padding: 0 8px !important;
     }
     .conv-list::-webkit-scrollbar { width: 6px; }
     .conv-list::-webkit-scrollbar-thumb { background: var(--cb-border); border-radius: 99px; }
@@ -635,7 +619,8 @@
     @keyframes spin { to { transform: rotate(360deg); } }
 
     @media (max-width: 720px) {
-      .sidebar { width: 220px !important; }
+      .chat-topbar { padding: 10px 14px !important; }
+      .topbar-btn { padding: 7px 10px !important; font-size: .78rem !important; }
       .message { padding: 0 16px !important; }
       .input-area { padding: 12px 16px 18px !important; }
       .welcome h3 { font-size: 1.5rem !important; }
@@ -694,24 +679,25 @@
 
   <!-- MAIN APP -->
   <div class="app" id="appScreen" style="display:none !important;">
-    <aside class="sidebar">
-      <div class="sidebar-logo">
-        <img src="/static/logo.png" alt="Cardô Marketing" class="sidebar-logo-img">
-        <span class="sidebar-logo-sub">Cérebro</span>
-      </div>
-      <div class="sidebar-client-badge" id="sidebarClientBadge"></div>
-      <input type="hidden" id="userName" value="{{ nav_username }}">
-      <button class="new-chat-btn" onclick="newChat()">+ Nova conversa</button>
-      <button class="change-client-btn" onclick="showClientScreen()">Trocar cliente</button>
-      <div class="conv-list" id="convList"></div>
-      <div class="sidebar-topics">
-        <span class="sidebar-topics-label">Atalhos</span>
-        <button class="topic-btn" onclick="switchToProcessos()">📚 Processos da agência</button>
-      </div>
-      <a href="/logs" class="logs-link">Ver histórico completo →</a>
-    </aside>
-
+    <input type="hidden" id="userName" value="{{ nav_username }}">
     <main class="chat-area">
+      <div class="chat-topbar">
+        <div class="chat-topbar-left">
+          <div class="sidebar-client-badge" id="sidebarClientBadge"></div>
+        </div>
+        <div class="chat-topbar-right">
+          <button class="topbar-btn topbar-btn-primary" onclick="newChat()" title="Nova conversa">+ Nova conversa</button>
+          <div class="topbar-popover-wrap">
+            <button class="topbar-btn" onclick="toggleConvDrawer(event)" id="convDrawerBtn" title="Conversas anteriores">💬 Conversas</button>
+            <div class="topbar-popover" id="convDrawer" style="display:none;">
+              <div class="conv-list" id="convList"></div>
+              <a href="/logs" class="logs-link">Ver histórico completo →</a>
+            </div>
+          </div>
+          <button class="topbar-btn" onclick="switchToProcessos()" title="Processos da agência">📚 Processos</button>
+          <button class="topbar-btn" onclick="showClientScreen()" title="Trocar cliente">↺ Trocar cliente</button>
+        </div>
+      </div>
       <div class="messages" id="messages">
         <div class="welcome">
           <h3>Olá! Sou o Cérebro da Cardō.</h3>
@@ -829,6 +815,20 @@
       if (!selectedClient) { badge.innerHTML = ''; return; }
       badge.innerHTML = `<span class="badge-text">${selectedClient.sigla} · ${selectedClient.nome}</span>`;
     }
+
+    function toggleConvDrawer(ev) {
+      ev && ev.stopPropagation();
+      const drawer = document.getElementById('convDrawer');
+      if (!drawer) return;
+      drawer.style.display = (drawer.style.display === 'none' || !drawer.style.display) ? 'block' : 'none';
+    }
+    document.addEventListener('click', (e) => {
+      const drawer = document.getElementById('convDrawer');
+      const btn = document.getElementById('convDrawerBtn');
+      if (!drawer || drawer.style.display !== 'block') return;
+      if (drawer.contains(e.target) || (btn && btn.contains(e.target))) return;
+      drawer.style.display = 'none';
+    });
 
     async function loadConversationList() {
       const res = await fetch('/api/conversations');
