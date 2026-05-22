@@ -105,37 +105,36 @@
       padding: 14px;
       max-height: 650px;
       overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
     }
-    .wa-item { display: contents; }
+    .wa-row {
+      display: flex;
+      margin-bottom: 4px;
+    }
+    .wa-row-them { justify-content: flex-start; }
+    .wa-row-me { justify-content: flex-end; }
+    .wa-row-date { justify-content: center; margin: 12px 0 8px; }
+
     .wa-date-sep {
-      align-self: center;
       background: #1a1a1a; border: 1px solid var(--border);
       padding: 3px 12px; border-radius: 999px;
       font-size: .68rem; color: var(--muted);
-      margin: 10px 0 6px;
       text-transform: capitalize;
-      width: fit-content;
     }
     .wa-msg {
       max-width: 75%;
-      padding: 7px 11px 5px;
+      padding: 6px 10px 4px;
       border-radius: 8px;
       font-size: .88rem;
       line-height: 1.4;
       word-break: break-word;
-      width: fit-content;
+      display: inline-block;
     }
     .wa-msg-them {
-      align-self: flex-start;
       background: #1f2937;
       color: #e5e7eb;
       border-bottom-left-radius: 2px;
     }
     .wa-msg-me {
-      align-self: flex-end;
       background: #14532d;
       color: #f0fdf4;
       border-bottom-right-radius: 2px;
@@ -639,29 +638,33 @@
                     </div>
                     <div class="wa-chat">
                       <template x-for="(item, idx) in conversaAgrupada" :key="idx">
-                        <div class="wa-item">
-                          <div class="wa-date-sep" x-show="item.tipo === 'date'" x-text="item.label"></div>
-                          <div class="wa-msg" :class="item.from_me ? 'wa-msg-me' : 'wa-msg-them'" x-show="item.tipo === 'msg'">
-                            <div class="wa-msg-sender" x-show="!item.from_me" x-text="item.sender_name || 'Cliente'"></div>
-                            <div class="wa-msg-body">
-                              <template x-if="item.message_tipo === 'text'"><span x-text="item.body"></span></template>
-                              <template x-if="item.message_tipo === 'audio'">
-                                <div>
-                                  <div><span class="wa-msg-tag">🎤 Áudio</span></div>
-                                  <div x-show="item.transcricao" x-text="item.transcricao" style="margin-top: 4px;"></div>
-                                  <div x-show="!item.transcricao" style="margin-top: 4px;">
-                                    <span class="wa-msg-pending" x-text="item._transcrevendo ? 'transcrevendo…' : '(transcrição pendente)'"></span>
-                                    <a href="#" @click.prevent="transcrever(item)" x-show="!item._transcrevendo" style="margin-left: 8px; color: #93c5fd; font-size: .72rem;">transcrever</a>
+                        <div :class="item.tipo === 'date' ? 'wa-row wa-row-date' : (item.from_me ? 'wa-row wa-row-me' : 'wa-row wa-row-them')">
+                          <template x-if="item.tipo === 'date'">
+                            <div class="wa-date-sep" x-text="item.label"></div>
+                          </template>
+                          <template x-if="item.tipo === 'msg'">
+                            <div class="wa-msg" :class="item.from_me ? 'wa-msg-me' : 'wa-msg-them'">
+                              <div class="wa-msg-sender" x-show="!item.from_me" x-text="item.sender_name || 'Cliente'"></div>
+                              <div class="wa-msg-body">
+                                <template x-if="item.message_tipo === 'text'"><span x-text="item.body"></span></template>
+                                <template x-if="item.message_tipo === 'audio'">
+                                  <div>
+                                    <div><span class="wa-msg-tag">🎤 Áudio</span></div>
+                                    <div x-show="item.transcricao" x-text="item.transcricao" style="margin-top: 4px;"></div>
+                                    <div x-show="!item.transcricao" style="margin-top: 4px;">
+                                      <span class="wa-msg-pending" x-text="item._transcrevendo ? 'transcrevendo…' : '(transcrição pendente)'"></span>
+                                      <a href="#" @click.prevent="transcrever(item)" x-show="!item._transcrevendo" style="margin-left: 8px; color: #93c5fd; font-size: .72rem;">transcrever</a>
+                                    </div>
                                   </div>
-                                </div>
-                              </template>
-                              <template x-if="item.message_tipo === 'image'"><span><span class="wa-msg-tag">🖼️</span> <span x-text="item.body || 'imagem'"></span></span></template>
-                              <template x-if="item.message_tipo === 'video'"><span><span class="wa-msg-tag">🎬</span> <span x-text="item.body || 'vídeo'"></span></span></template>
-                              <template x-if="item.message_tipo === 'document'"><span><span class="wa-msg-tag">📎</span> <span x-text="item.body || 'documento'"></span></span></template>
-                              <template x-if="!['text','audio','image','video','document'].includes(item.message_tipo)"><span class="wa-msg-pending" x-text="`[${item.message_tipo}]`"></span></template>
+                                </template>
+                                <template x-if="item.message_tipo === 'image'"><span><span class="wa-msg-tag">🖼️</span> <span x-text="item.body || 'imagem'"></span></span></template>
+                                <template x-if="item.message_tipo === 'video'"><span><span class="wa-msg-tag">🎬</span> <span x-text="item.body || 'vídeo'"></span></span></template>
+                                <template x-if="item.message_tipo === 'document'"><span><span class="wa-msg-tag">📎</span> <span x-text="item.body || 'documento'"></span></span></template>
+                                <template x-if="!['text','audio','image','video','document'].includes(item.message_tipo)"><span class="wa-msg-pending" x-text="`[${item.message_tipo}]`"></span></template>
+                              </div>
+                              <div class="wa-msg-foot" x-text="fmtTime(item.message_timestamp)"></div>
                             </div>
-                            <div class="wa-msg-foot" x-text="fmtTime(item.message_timestamp)"></div>
-                          </div>
+                          </template>
                         </div>
                       </template>
                     </div>
