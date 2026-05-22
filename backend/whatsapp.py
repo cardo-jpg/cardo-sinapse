@@ -638,10 +638,20 @@ async def refresh_nomes(request: Request):
 async def update_grupo(grupo_id: int, request: Request):
     _require(request)
     body = await request.json()
+    print(f"[wa update_grupo] grupo_id={grupo_id} body={body}", flush=True)
+
     sets, params = [], []
     if "cliente_id" in body:
+        v = body["cliente_id"]
+        if v in (None, "", "null"):
+            cid = None
+        else:
+            try:
+                cid = int(v)
+            except (TypeError, ValueError):
+                cid = None
         sets.append("cliente_id=%s")
-        params.append(body["cliente_id"] if body["cliente_id"] else None)
+        params.append(cid)
     if "ativo" in body:
         sets.append("ativo=%s")
         params.append(bool(body["ativo"]))
@@ -656,11 +666,13 @@ async def update_grupo(grupo_id: int, request: Request):
     cur = conn.cursor()
     try:
         cur.execute(f"UPDATE wa_grupos SET {', '.join(sets)} WHERE id=%s", params)
+        rowcount = cur.rowcount
         conn.commit()
+        print(f"[wa update_grupo] rowcount={rowcount}", flush=True)
     finally:
         cur.close()
         conn.close()
-    return {"ok": True}
+    return {"ok": True, "rowcount": rowcount}
 
 
 # ── Cliente: histórico, saúde e resumo ────────────────────────────────────────

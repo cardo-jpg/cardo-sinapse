@@ -314,14 +314,26 @@ function waApp() {
     },
 
     async vincular(g) {
+      // Garante que cliente_id é número (ou null) — o <select> retorna string
+      const raw = g.cliente_id;
+      let cid = null;
+      if (raw !== null && raw !== undefined && raw !== '' && raw !== 'null') {
+        const n = Number(raw);
+        cid = Number.isFinite(n) ? n : null;
+      }
       try {
-        await fetch(`/api/whatsapp/grupos/${g.id}`, {
+        const r = await fetch(`/api/whatsapp/grupos/${g.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cliente_id: g.cliente_id || null }),
+          body: JSON.stringify({ cliente_id: cid }),
         });
+        const d = await r.json().catch(() => ({}));
+        console.log('[vincular]', { grupo: g.id, cliente_id: cid, response: d });
+        if (!r.ok || !d.rowcount) {
+          alert(`Falha ao vincular. Status ${r.status}. rowcount=${d.rowcount}`);
+        }
         await this.load();
-      } catch (e) { console.error(e); }
+      } catch (e) { console.error(e); alert('Erro de rede'); }
     },
 
     async toggleAtivo(g) {
