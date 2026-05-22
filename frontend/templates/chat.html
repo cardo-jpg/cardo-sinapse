@@ -650,7 +650,7 @@
   <main class="sinapse-main" style="padding:0; overflow:hidden; position:relative;">
 
   <!-- CLIENT SELECTION SCREEN -->
-  <div id="clientScreen" class="client-screen" style="display:none;">
+  <div id="clientScreen" class="client-screen" style="display:none !important;">
     <div class="client-screen-inner">
       <div class="client-screen-header">
         <div class="client-logo-sub">Cérebro</div>
@@ -693,7 +693,7 @@
   </div>
 
   <!-- MAIN APP -->
-  <div class="app" id="appScreen" style="display:none;">
+  <div class="app" id="appScreen" style="display:none !important;">
     <aside class="sidebar">
       <div class="sidebar-logo">
         <img src="/static/logo.png" alt="Cardô Marketing" class="sidebar-logo-img">
@@ -765,8 +765,8 @@
     }
 
     function showClientScreen() {
-      document.getElementById('clientScreen').style.display = 'flex';
-      document.getElementById('appScreen').style.display = 'none';
+      document.getElementById('clientScreen').style.setProperty('display', 'flex', 'important');
+      document.getElementById('appScreen').style.setProperty('display', 'none', 'important');
       renderClientGrid();
     }
 
@@ -814,8 +814,8 @@
     }
 
     function showAppScreen() {
-      document.getElementById('clientScreen').style.display = 'none';
-      document.getElementById('appScreen').style.display = 'flex';
+      document.getElementById('clientScreen').style.setProperty('display', 'none', 'important');
+      document.getElementById('appScreen').style.setProperty('display', 'flex', 'important');
       updateClientBadge();
       loadConversationList().then(() => {
         const params = new URLSearchParams(window.location.search);
