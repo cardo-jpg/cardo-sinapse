@@ -44,10 +44,15 @@ WAHA_SESSION = os.getenv("WAHA_SESSION", "default")  # WAHA Core só aceita 'def
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 WHISPER_URL = "https://api.openai.com/v1/audio/transcriptions"
 
-# Número conectado no WhatsApp (formato sem +, sem espaços). Usado pra
-# detectar from_me quando o engine NOWEB do WAHA marca tudo como fromMe=false.
-# Ex: "554792222955"
-WHATSAPP_OWN_NUMBER = os.getenv("WHATSAPP_OWN_NUMBER", "").strip()
+# Números do TIME (agência) no WhatsApp — separados por vírgula.
+# Qualquer mensagem cujo sender é um desses números é tratada como
+# from_me (do nosso lado), não do cliente.
+# Exemplo: "554792222955,554791111111,554798888888"
+# Backwards-compat: aceita também WHATSAPP_OWN_NUMBER (singular).
+_raw = os.getenv("WHATSAPP_OWN_NUMBERS") or os.getenv("WHATSAPP_OWN_NUMBER") or ""
+WHATSAPP_OWN_NUMBERS: set[str] = {
+    re.sub(r"\D", "", n) for n in _raw.split(",") if n.strip()
+}
 
 
 def _waha_call(method: str, path: str, json_body: Optional[dict] = None) -> dict:
@@ -345,10 +350,9 @@ def _handle_waha_message(payload: dict) -> dict:
     sender_jid = p.get("participant") or p.get("author") or from_jid
     push_name = (p.get("_data") or {}).get("notifyName") or p.get("notifyName") or ""
     # Fallback: NOWEB do WAHA às vezes marca fromMe errado. Confere pelo número.
-    if not from_me and WHATSAPP_OWN_NUMBER and sender_jid:
+    if not from_me and WHATSAPP_OWN_NUMBERS and sender_jid:
         sender_num = re.sub(r"\D", "", sender_jid.split("@")[0])
-        own_num = re.sub(r"\D", "", WHATSAPP_OWN_NUMBER)
-        if sender_num == own_num:
+        if sender_num in WHATSAPP_OWN_NUMBERS:
             from_me = True
     print(f"[wa msg] tipo={'?' if not p.get('hasMedia') else 'media'} from_me={from_me} sender={sender_jid} push={push_name!r}", flush=True)
 
