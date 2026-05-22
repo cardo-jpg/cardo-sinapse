@@ -323,13 +323,34 @@ async def instance_state(request: Request):
     return {"http_status": r["status"], "data": r["data"]}
 
 
+def _extract_credentials(data: dict) -> tuple[Optional[str], Optional[str], Optional[str]]:
+    """Procura qr_base64 / qr_code / pairing_code em várias formas que a Evolution retorna."""
+    qr_base64 = None
+    qr_code = None
+    pairing_code = None
+
+    qrcode_obj = data.get("qrcode") or {}
+    if isinstance(qrcode_obj, dict):
+        qr_base64 = qrcode_obj.get("base64") or qr_base64
+        qr_code = qrcode_obj.get("code") or qr_code
+        pairing_code = qrcode_obj.get("pairingCode") or pairing_code
+
+    pairing_code = pairing_code or data.get("pairingCode") or data.get("code")
+    qr_base64 = qr_base64 or data.get("base64")
+    return qr_base64, qr_code, pairing_code
+
+
 @router.post("/api/whatsapp/instance/connect")
 async def instance_connect(request: Request):
     """
     Cria/recria a instância e retorna pairing code ou QR.
     Body opcional: { "number": "5547999999999" } pra pairing code via número.
                    Sem number, gera QR code.
+
+    Evolution v2 às vezes não retorna o pairing/QR direto no /create;
+    precisa chamar /instance/connect depois. Esse endpoint faz ambos.
     """
+    import time as _t
     _require(request)
     body = {}
     try:
@@ -351,31 +372,30 @@ async def instance_connect(request: Request):
     else:
         payload["qrcode"] = True
 
-    r = _evolution_call("POST", "/instance/create", payload)
-    data = r.get("data") or {}
+    r_create = _evolution_call("POST", "/instance/create", payload)
+    create_data = r_create.get("data") or {}
 
-    # Normaliza retorno pro frontend
-    qr_base64 = None
-    qr_code = None
-    pairing_code = None
+    qr_base64, qr_code, pairing_code = _extract_credentials(create_data)
 
-    qrcode_obj = data.get("qrcode") or {}
-    if isinstance(qrcode_obj, dict):
-        qr_base64 = qrcode_obj.get("base64")
-        qr_code = qrcode_obj.get("code")
-        pairing_code = qrcode_obj.get("pairingCode")
-
-    # Algumas versões da Evolution colocam pairingCode no nível raiz
-    if not pairing_code:
-        pairing_code = data.get("pairingCode") or data.get("code")
+    # Se não veio QR/pairing no create, faz polling no /connect (até 3 tentativas)
+    if not qr_base64 and not pairing_code:
+        for _ in range(3):
+            _t.sleep(2)
+            r_conn = _evolution_call("GET", f"/instance/connect/{EVOLUTION_INSTANCE}")
+            conn_data = r_conn.get("data") or {}
+            qr_base64, qr_code, pairing_code = _extract_credentials(conn_data)
+            if qr_base64 or pairing_code:
+                # mescla a resposta do connect na pra debugging
+                create_data["_connect"] = conn_data
+                break
 
     return {
         "ok": True,
-        "instance": data.get("instance") or {},
+        "instance": create_data.get("instance") or {},
         "qr_base64": qr_base64,
         "qr_code": qr_code,
         "pairing_code": pairing_code,
-        "raw": data,
+        "raw": create_data,
     }
 
 
