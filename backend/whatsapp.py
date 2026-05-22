@@ -44,15 +44,32 @@ WAHA_SESSION = os.getenv("WAHA_SESSION", "default")  # WAHA Core só aceita 'def
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 WHISPER_URL = "https://api.openai.com/v1/audio/transcriptions"
 
-# Números do TIME (agência) no WhatsApp — separados por vírgula.
-# Qualquer mensagem cujo sender é um desses números é tratada como
-# from_me (do nosso lado), não do cliente.
-# Exemplo: "554792222955,554791111111,554798888888"
-# Backwards-compat: aceita também WHATSAPP_OWN_NUMBER (singular).
+# Identificadores do TIME (agência) no WhatsApp — separados por vírgula.
+# Aceita NÚMEROS (554792222955) ou JIDs completos com @lid/@c.us.
+# WAHA NOWEB tipicamente retorna senders como "@lid" (linked device id),
+# que NÃO corresponde ao número de telefone — então é melhor cadastrar
+# o JID completo. Use o endpoint /api/whatsapp/debug/senders pra ver
+# os JIDs que estão chegando.
 _raw = os.getenv("WHATSAPP_OWN_NUMBERS") or os.getenv("WHATSAPP_OWN_NUMBER") or ""
-WHATSAPP_OWN_NUMBERS: set[str] = {
-    re.sub(r"\D", "", n) for n in _raw.split(",") if n.strip()
-}
+WHATSAPP_OWN_IDS: set[str] = set()
+for _item in _raw.split(","):
+    _item = _item.strip()
+    if not _item:
+        continue
+    if "@" in _item:
+        WHATSAPP_OWN_IDS.add(_item.lower())
+    else:
+        WHATSAPP_OWN_IDS.add(re.sub(r"\D", "", _item))
+
+
+def _is_own_sender(sender_jid: str) -> bool:
+    """True se sender_jid representa um número/identidade do time."""
+    if not sender_jid or not WHATSAPP_OWN_IDS:
+        return False
+    if sender_jid.lower() in WHATSAPP_OWN_IDS:
+        return True
+    sender_num = re.sub(r"\D", "", sender_jid.split("@")[0])
+    return bool(sender_num and sender_num in WHATSAPP_OWN_IDS)
 
 
 def _waha_call(method: str, path: str, json_body: Optional[dict] = None) -> dict:
@@ -376,11 +393,9 @@ def _handle_waha_message(payload: dict) -> dict:
     from_me = bool(p.get("fromMe"))
     sender_jid = p.get("participant") or p.get("author") or from_jid
     push_name = (p.get("_data") or {}).get("notifyName") or p.get("notifyName") or ""
-    # Fallback: NOWEB do WAHA às vezes marca fromMe errado. Confere pelo número.
-    if not from_me and WHATSAPP_OWN_NUMBERS and sender_jid:
-        sender_num = re.sub(r"\D", "", sender_jid.split("@")[0])
-        if sender_num in WHATSAPP_OWN_NUMBERS:
-            from_me = True
+    # Fallback: NOWEB do WAHA às vezes marca fromMe errado. Confere pelo JID/número.
+    if not from_me and _is_own_sender(sender_jid):
+        from_me = True
     print(f"[wa msg] tipo={'?' if not p.get('hasMedia') else 'media'} from_me={from_me} sender={sender_jid} push={push_name!r}", flush=True)
 
     body = p.get("body") or ""
@@ -802,16 +817,51 @@ async def update_grupo(grupo_id: int, request: Request):
     return {"ok": True, "rowcount": rowcount}
 
 
+# ── Debug: descobrir JIDs dos remetentes ─────────────────────────────────────
+
+@router.get("/api/whatsapp/debug/senders")
+async def debug_senders(request: Request):
+    """
+    Lista todos os sender_jids únicos encontrados nas mensagens, com
+    contagem e push_name mais comum. Útil pra descobrir lids do time.
+    """
+    _require(request)
+    conn = get_conn()
+    cur = dict_cursor(conn)
+    try:
+        cur.execute("""
+            SELECT sender_jid,
+                   COUNT(*) AS msgs,
+                   from_me,
+                   MAX(sender_name) AS sample_name,
+                   MAX(message_timestamp) AS last_seen
+              FROM wa_mensagens
+             WHERE sender_jid IS NOT NULL
+             GROUP BY sender_jid, from_me
+             ORDER BY msgs DESC
+        """)
+        rows = []
+        for r in cur.fetchall():
+            d = dict(r)
+            if isinstance(d.get("last_seen"), datetime):
+                d["last_seen"] = d["last_seen"].isoformat()
+            d["is_own_atual"] = _is_own_sender(d["sender_jid"])
+            rows.append(d)
+    finally:
+        cur.close(); conn.close()
+    return {"senders": rows, "own_ids_configurados": sorted(WHATSAPP_OWN_IDS)}
+
+
 # ── Reclassificar from_me das mensagens antigas ──────────────────────────────
 
 @router.post("/api/whatsapp/mensagens/reclassificar")
 async def reclassificar_remetentes(request: Request):
     """
     Reprocessa from_me em todas as mensagens com base no WHATSAPP_OWN_NUMBERS atual.
-    Útil quando se cadastra novos números do time depois que as mensagens já entraram.
+    Útil quando se cadastra novos números/lids do time depois que as mensagens já entraram.
     """
     _require(request)
-    if not WHATSAPP_OWN_NUMBERS:
+    if not WHATSAPP_OWN_IDS:
         return {"ok": False, "error": "WHATSAPP_OWN_NUMBERS não configurada", "updated": 0}
 
     conn = get_conn()
@@ -823,8 +873,7 @@ async def reclassificar_remetentes(request: Request):
         ids_to_true = []
         ids_to_false = []
         for r in rows:
-            sender_num = re.sub(r"\D", "", (r["sender_jid"] or "").split("@")[0])
-            should_be_me = sender_num in WHATSAPP_OWN_NUMBERS
+            should_be_me = _is_own_sender(r["sender_jid"] or "")
             if should_be_me and not r["from_me"]:
                 ids_to_true.append(r["id"])
             elif not should_be_me and r["from_me"]:
