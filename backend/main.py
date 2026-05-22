@@ -1766,58 +1766,70 @@ async def get_conversations(request: Request):
 @app.get("/api/cerebro/clients")
 async def cerebro_clients(request: Request):
     """
-    Retorna os clientes ATIVOS do Painel de Clientes do Sinapse.
-    Usado pra popular a tela inicial do Cérebro dinamicamente.
-    Best-effort: se algo falha, devolve {"clients": [], "error": "..."}
-    em vez de 500 — assim a UI mostra mensagem útil em vez de travar.
+    Retorna clientes ATIVOS — preferindo a tabela nativa `clientes`.
+    Fallback: Painel de Clientes do ClickUp (legacy) se a tabela nativa
+    estiver vazia. Best-effort: se algo falha, devolve clients vazios.
     """
     if not verify_session(request):
         raise HTTPException(status_code=401)
-    rows = []
-    err  = None
-    list_id = None
+
+    clients = []
+    fonte = "nativo"
+    err = None
+
+    # 1ª opção: tabela nativa
     try:
         conn = get_conn(); cur = dict_cursor(conn)
         try:
-            # Variantes de nome aceitas (alguns clientes nomeiam diferente)
-            for name in ("Painel de Clientes", "Painel de Cliente", "Painel de clientes"):
-                cur.execute("SELECT id, name FROM lists WHERE LOWER(name) = LOWER(%s) LIMIT 1", (name,))
-                row = cur.fetchone()
-                if row:
-                    list_id = row["id"]
-                    break
-            if list_id:
-                cur.execute(
-                    "SELECT title, status FROM tasks WHERE list_id=%s ORDER BY title",
-                    (list_id,),
-                )
-                rows = cur.fetchall() or []
+            cur.execute(
+                "SELECT sigla, razao_social FROM clientes WHERE ativo=TRUE ORDER BY razao_social"
+            )
+            rows = cur.fetchall() or []
+            for r in rows:
+                clients.append({
+                    "sigla": (r.get("sigla") or "").upper(),
+                    "nome": r.get("razao_social") or "",
+                })
         finally:
             cur.close(); conn.close()
     except Exception as e:
         err = str(e)
 
-    clients = []
-    for r in rows:
-        # Filtra por status='ativo' (case insensitive)
-        status = str(r.get("status") or "").strip().lower()
-        if status != "ativo":
-            continue
-        title = (r.get("title") or "").strip()
-        m = re.match(r"^\s*\[([A-Za-z0-9]+)\]\s*(.+?)\s*$", title)
-        if not m:
-            words = [w for w in re.split(r"\s+", title) if w]
-            sigla = "".join(w[0].upper() for w in words[:3]) if words else "?"
-            clients.append({"sigla": sigla, "nome": title})
-            continue
-        clients.append({"sigla": m.group(1).upper(), "nome": m.group(2).strip()})
+    # Fallback: Painel de Clientes do ClickUp (caso a tabela nativa esteja vazia)
+    if not clients:
+        fonte = "painel"
+        try:
+            conn = get_conn(); cur = dict_cursor(conn)
+            list_id = None
+            try:
+                for name in ("Painel de Clientes", "Painel de Cliente", "Painel de clientes"):
+                    cur.execute("SELECT id FROM lists WHERE LOWER(name) = LOWER(%s) LIMIT 1", (name,))
+                    row = cur.fetchone()
+                    if row:
+                        list_id = row["id"]
+                        break
+                if list_id:
+                    cur.execute(
+                        "SELECT title, status FROM tasks WHERE list_id=%s ORDER BY title",
+                        (list_id,),
+                    )
+                    for r in cur.fetchall() or []:
+                        if str(r.get("status") or "").strip().lower() != "ativo":
+                            continue
+                        title = (r.get("title") or "").strip()
+                        m = re.match(r"^\s*\[([A-Za-z0-9]+)\]\s*(.+?)\s*$", title)
+                        if m:
+                            clients.append({"sigla": m.group(1).upper(), "nome": m.group(2).strip()})
+                        else:
+                            words = [w for w in re.split(r"\s+", title) if w]
+                            sigla = "".join(w[0].upper() for w in words[:3]) if words else "?"
+                            clients.append({"sigla": sigla, "nome": title})
+            finally:
+                cur.close(); conn.close()
+        except Exception as e:
+            err = str(e)
 
-    return JSONResponse({
-        "clients":  clients,
-        "list_id":  list_id,
-        "error":    err,
-        "raw_count": len(rows),
-    })
+    return JSONResponse({"clients": clients, "fonte": fonte, "error": err})
 
 @app.delete("/api/conversations/{conv_id}")
 async def delete_conversation(conv_id: str, request: Request):

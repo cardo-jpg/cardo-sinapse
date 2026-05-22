@@ -794,7 +794,7 @@
       grid.innerHTML = '<div class="client-grid-loading">Carregando clientes…</div>';
       await loadClientsFromSinapse();
       if (!CLIENTS.length) {
-        grid.innerHTML = '<div class="client-grid-loading">Nenhum cliente ativo no Painel de Clientes.</div>';
+        grid.innerHTML = '<div class="client-grid-loading">Nenhum cliente ativo cadastrado.</div>';
         return;
       }
       grid.innerHTML = '';
