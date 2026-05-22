@@ -4,22 +4,328 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sinapse — Entrar</title>
-  <link rel="stylesheet" href="/static/style.css?v=2">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap">
+  <style>
+    :root {
+      --bg:         #0a0a14;
+      --bg-2:       #0f0f1c;
+      --panel:      #14142a;
+      --border:     #232342;
+      --text:       #ebe9f5;
+      --text-dim:   #a8a4ba;
+      --muted:      #6b6786;
+      --orange:     #E97919;
+      --orange-soft:#f59854;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      min-height: 100vh;
+    }
+
+    /* Background canvas (constelação) */
+    #constellation {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      background:
+        radial-gradient(1000px 600px at 30% 20%, rgba(25,25,108,.55) 0%, transparent 60%),
+        radial-gradient(800px 500px at 80% 80%, rgba(233,121,25,.18) 0%, transparent 60%),
+        var(--bg);
+    }
+
+    /* Center stage */
+    .stage {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 420px;
+      background: rgba(15, 15, 28, .72);
+      backdrop-filter: blur(20px) saturate(140%);
+      -webkit-backdrop-filter: blur(20px) saturate(140%);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 20px;
+      padding: 40px 36px 36px;
+      box-shadow:
+        0 24px 48px -16px rgba(0,0,0,.55),
+        0 0 0 1px rgba(233,121,25,.04) inset;
+      animation: rise .8s cubic-bezier(.16,1,.3,1);
+    }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(16px) scale(.98); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+    .brand-logo {
+      height: 44px;
+      width: auto;
+      filter: brightness(1.05);
+    }
+    .brand-name {
+      font-family: 'Fraunces', serif;
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: .01em;
+      background: linear-gradient(135deg, #fff 0%, var(--orange-soft) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1;
+    }
+    .brand-tag {
+      font-size: .72rem;
+      text-transform: uppercase;
+      letter-spacing: .26em;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .form-title {
+      text-align: center;
+      font-size: .92rem;
+      color: var(--text-dim);
+      margin-bottom: 22px;
+      font-weight: 400;
+    }
+
+    form { display: flex; flex-direction: column; gap: 12px; }
+    .field {
+      position: relative;
+    }
+    .field input {
+      width: 100%;
+      padding: 14px 16px;
+      background: rgba(255,255,255,.03);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-size: .92rem;
+      font-family: inherit;
+      transition: border-color .18s, background .18s, box-shadow .18s;
+      outline: none;
+    }
+    .field input::placeholder { color: var(--muted); }
+    .field input:hover { border-color: #2d2d52; }
+    .field input:focus {
+      border-color: var(--orange);
+      background: rgba(255,255,255,.05);
+      box-shadow: 0 0 0 4px rgba(233,121,25,.12);
+    }
+
+    .btn {
+      margin-top: 8px;
+      padding: 14px 18px;
+      background: var(--orange);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-family: inherit;
+      font-size: .95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform .12s, box-shadow .18s, background .18s;
+      letter-spacing: .01em;
+    }
+    .btn:hover {
+      background: #d56b14;
+      transform: translateY(-1px);
+      box-shadow: 0 10px 22px -8px rgba(233,121,25,.55);
+    }
+    .btn:active { transform: translateY(0); }
+
+    .error-msg {
+      background: rgba(239,68,68,.12);
+      border: 1px solid rgba(239,68,68,.3);
+      color: #ff8a8a;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: .82rem;
+      text-align: center;
+      margin-bottom: 14px;
+    }
+
+    .footer {
+      position: fixed;
+      bottom: 18px;
+      left: 0; right: 0;
+      text-align: center;
+      font-size: .72rem;
+      color: var(--muted);
+      z-index: 1;
+      letter-spacing: .04em;
+    }
+    .footer span { color: var(--text-dim); font-weight: 600; }
+
+    @media (max-width: 480px) {
+      .card { padding: 32px 24px 28px; border-radius: 16px; }
+      .brand-name { font-size: 1.7rem; }
+    }
+  </style>
 </head>
-<body class="login-body">
-  <div class="login-container">
-    <div class="login-logo">
-      <img src="/static/logo.png" alt="Cardô Marketing" class="home-logo">
-      <div class="home-sinapse-name">Sinapse</div>
+<body>
+  <canvas id="constellation"></canvas>
+
+  <div class="stage">
+    <div class="card">
+      <div class="brand">
+        <img src="/static/logo.png" alt="Cardô Marketing" class="brand-logo">
+        <div class="brand-name">Sinapse</div>
+        <div class="brand-tag">Cardō Marketing</div>
+      </div>
+
+      {% if request.query_params.get('error') %}
+      <div class="error-msg">Senha incorreta. Tente novamente.</div>
+      {% endif %}
+
+      <div class="form-title">Entre com suas credenciais para continuar</div>
+
+      <form method="post" action="/login">
+        <div class="field">
+          <input type="text" name="username" placeholder="Seu usuário" autofocus required autocomplete="username">
+        </div>
+        <div class="field">
+          <input type="password" name="password" placeholder="Senha de acesso" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn">Entrar</button>
+      </form>
     </div>
-    {% if request.query_params.get('error') %}
-    <div class="error-msg">Senha incorreta. Tente novamente.</div>
-    {% endif %}
-    <form method="post" action="/login">
-      <input type="text" name="username" placeholder="Seu usuário" autofocus required autocomplete="username">
-      <input type="password" name="password" placeholder="Senha de acesso" required autocomplete="current-password">
-      <button type="submit">Entrar</button>
-    </form>
   </div>
+
+  <div class="footer">
+    <span>Sinapse</span> · Plataforma interna da Cardō Marketing
+  </div>
+
+  <script>
+    (function () {
+      const canvas = document.getElementById('constellation');
+      const ctx = canvas.getContext('2d');
+      const ORANGE = [233, 121, 25];
+      const BLUE   = [120, 130, 220];
+
+      let W = 0, H = 0, dpr = Math.min(window.devicePixelRatio || 1, 2);
+      let particles = [];
+      let mouse = { x: -1e6, y: -1e6 };
+
+      function resize() {
+        W = window.innerWidth;
+        H = window.innerHeight;
+        canvas.width  = Math.floor(W * dpr);
+        canvas.height = Math.floor(H * dpr);
+        canvas.style.width  = W + 'px';
+        canvas.style.height = H + 'px';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        spawn();
+      }
+
+      function spawn() {
+        const target = Math.max(50, Math.min(120, Math.floor((W * H) / 16000)));
+        particles = [];
+        for (let i = 0; i < target; i++) {
+          particles.push({
+            x: Math.random() * W,
+            y: Math.random() * H,
+            vx: (Math.random() - .5) * .25,
+            vy: (Math.random() - .5) * .25,
+            r: 1 + Math.random() * 1.6,
+            // mistura paleta: maioria azul, alguns laranja
+            c: Math.random() < 0.18 ? ORANGE : BLUE
+          });
+        }
+      }
+
+      function step() {
+        ctx.clearRect(0, 0, W, H);
+
+        // Update positions
+        for (const p of particles) {
+          p.x += p.vx;
+          p.y += p.vy;
+          if (p.x < 0 || p.x > W) p.vx *= -1;
+          if (p.y < 0 || p.y > H) p.vy *= -1;
+        }
+
+        // Lines (connection threshold)
+        const TH = 130;
+        const TH_M = 180; // perto do mouse
+        for (let i = 0; i < particles.length; i++) {
+          const a = particles[i];
+          for (let j = i + 1; j < particles.length; j++) {
+            const b = particles[j];
+            const dx = a.x - b.x;
+            const dy = a.y - b.y;
+            const d = Math.sqrt(dx*dx + dy*dy);
+            if (d < TH) {
+              const alpha = (1 - d / TH) * 0.18;
+              ctx.strokeStyle = `rgba(140,150,210,${alpha})`;
+              ctx.lineWidth = 0.6;
+              ctx.beginPath();
+              ctx.moveTo(a.x, a.y);
+              ctx.lineTo(b.x, b.y);
+              ctx.stroke();
+            }
+          }
+          // mouse link
+          const mdx = a.x - mouse.x;
+          const mdy = a.y - mouse.y;
+          const md = Math.sqrt(mdx*mdx + mdy*mdy);
+          if (md < TH_M) {
+            const alpha = (1 - md / TH_M) * 0.35;
+            ctx.strokeStyle = `rgba(233,121,25,${alpha})`;
+            ctx.lineWidth = 0.8;
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(mouse.x, mouse.y);
+            ctx.stroke();
+          }
+        }
+
+        // Dots
+        for (const p of particles) {
+          ctx.fillStyle = `rgba(${p.c[0]},${p.c[1]},${p.c[2]},.85)`;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        requestAnimationFrame(step);
+      }
+
+      window.addEventListener('resize', resize);
+      window.addEventListener('mousemove', (e) => {
+        mouse.x = e.clientX;
+        mouse.y = e.clientY;
+      });
+      window.addEventListener('mouseleave', () => {
+        mouse.x = -1e6; mouse.y = -1e6;
+      });
+
+      resize();
+      step();
+    })();
+  </script>
 </body>
 </html>
