@@ -254,13 +254,17 @@
         const target = Math.max(45, Math.min(95, Math.floor((W * H) / 19000)));
         neurons = [];
         for (let i = 0; i < target; i++) {
+          // ~22% somas grandes (corpos celulares), resto dendritos/terminais pequenos
+          const isSoma = Math.random() < 0.22;
           neurons.push({
             x: Math.random() * W,
             y: Math.random() * H,
-            vx: (Math.random() - .5) * .22,
-            vy: (Math.random() - .5) * .22,
-            r:  1.1 + Math.random() * 1.4,
-            // pulso de fundo (respiração) com fase aleatória
+            vx: (Math.random() - .5) * .18,
+            vy: (Math.random() - .5) * .18,
+            r:  isSoma ? (2.4 + Math.random() * 2.2) : (0.7 + Math.random() * 1.0),
+            soma: isSoma,
+            // controle de curvatura único por neurônio (assina suas conexões)
+            curveBias: (Math.random() - .5) * 0.55,
             phase: Math.random() * Math.PI * 2,
             flash: 0
           });
@@ -268,16 +272,40 @@
         pulses = [];
       }
 
+      // Curva Bezier quadrática entre dois neurônios — control point ortogonal
+      function curveControl(a, b) {
+        const mx = (a.x + b.x) / 2;
+        const my = (a.y + b.y) / 2;
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        // perpendicular normalizada, offset por curveBias dos dois
+        const len = Math.sqrt(dx*dx + dy*dy) || 1;
+        const nx = -dy / len;
+        const ny =  dx / len;
+        const off = (a.curveBias + b.curveBias) * 22;
+        return { x: mx + nx * off, y: my + ny * off };
+      }
+
+      // Posição num ponto t da curva Bezier quadrática
+      function bezierAt(a, c, b, t) {
+        const u = 1 - t;
+        return {
+          x: u*u*a.x + 2*u*t*c.x + t*t*b.x,
+          y: u*u*a.y + 2*u*t*c.y + t*t*b.y
+        };
+      }
+
       function trySpawnPulse() {
         if (pulses.length >= MAX_PULSES) return;
         if (edges.length === 0) return;
-        // escolhe uma aresta aleatória dentre as conectadas neste frame
         const e = edges[(Math.random() * edges.length) | 0];
-        // 78% laranja (Cardô), 22% azul-claro (mistura visual)
-        const orange = Math.random() < 0.78;
+        const orange = Math.random() < 0.82;
         pulses.push({
           a: e[0],
           b: e[1],
+          // snapshot do control point — neurônios podem se mover durante a viagem
+          cx: e[2].x,
+          cy: e[2].y,
           t: 0,
           col: orange ? [255, 170, 80] : [180, 200, 255]
         });
@@ -296,7 +324,7 @@
           if (p.flash > 0) p.flash--;
         }
 
-        // Recomputa arestas (linhas) + desenha axônios sutis
+        // Recomputa arestas (axônios curvos) + desenha
         edges.length = 0;
         for (let i = 0; i < neurons.length; i++) {
           const a = neurons[i];
@@ -307,28 +335,46 @@
             const d2 = dx*dx + dy*dy;
             if (d2 < TH * TH) {
               const d = Math.sqrt(d2);
-              const alpha = (1 - d / TH) * 0.12;
-              ctx.strokeStyle = `rgba(140,150,210,${alpha})`;
-              ctx.lineWidth = 0.55;
+              const fade = 1 - d / TH;
+              const c = curveControl(a, b);
+              // axônio (curva azul fina)
+              ctx.strokeStyle = `rgba(140,160,220,${fade * 0.16})`;
+              ctx.lineWidth = 0.7;
               ctx.beginPath();
               ctx.moveTo(a.x, a.y);
-              ctx.lineTo(b.x, b.y);
+              ctx.quadraticCurveTo(c.x, c.y, b.x, b.y);
               ctx.stroke();
-              edges.push([i, j]);
+              // terminais sinápticos: glow laranja nas duas pontas (constante)
+              const glowR = 5 * fade;
+              if (glowR > 1.4) {
+                for (const end of [a, b]) {
+                  const g = ctx.createRadialGradient(end.x, end.y, 0, end.x, end.y, glowR);
+                  g.addColorStop(0, `rgba(255,160,80,${0.45 * fade})`);
+                  g.addColorStop(0.5, `rgba(233,121,25,${0.15 * fade})`);
+                  g.addColorStop(1, 'rgba(233,121,25,0)');
+                  ctx.fillStyle = g;
+                  ctx.beginPath();
+                  ctx.arc(end.x, end.y, glowR, 0, Math.PI * 2);
+                  ctx.fill();
+                }
+              }
+              edges.push([i, j, c]);
             }
           }
-          // linha pro mouse
+          // linha pro mouse (também curva, mais suave)
           const mdx = a.x - mouse.x;
           const mdy = a.y - mouse.y;
           const md2 = mdx*mdx + mdy*mdy;
           if (md2 < TH_M * TH_M) {
             const md = Math.sqrt(md2);
-            const alpha = (1 - md / TH_M) * 0.45;
-            ctx.strokeStyle = `rgba(233,121,25,${alpha})`;
-            ctx.lineWidth = 0.9;
+            const fadeM = 1 - md / TH_M;
+            const mouseNode = { x: mouse.x, y: mouse.y, curveBias: 0 };
+            const cm = curveControl(a, mouseNode);
+            ctx.strokeStyle = `rgba(233,121,25,${fadeM * 0.55})`;
+            ctx.lineWidth = 1.0;
             ctx.beginPath();
             ctx.moveTo(a.x, a.y);
-            ctx.lineTo(mouse.x, mouse.y);
+            ctx.quadraticCurveTo(cm.x, cm.y, mouse.x, mouse.y);
             ctx.stroke();
           }
         }
@@ -351,12 +397,13 @@
             continue;
           }
 
-          // posição atual + trail (3 amostras)
-          for (let s = 0; s < 4; s++) {
-            const tt = Math.max(0, ps.t - s * 0.05);
-            const x = a.x + (b.x - a.x) * tt;
-            const y = a.y + (b.y - a.y) * tt;
-            const fade = (1 - s * 0.27);
+          // posição atual + trail (5 amostras) seguindo a curva Bezier
+          const cp = { x: ps.cx, y: ps.cy };
+          for (let s = 0; s < 5; s++) {
+            const tt = Math.max(0, ps.t - s * 0.045);
+            const p = bezierAt(a, cp, b, tt);
+            const x = p.x, y = p.y;
+            const fade = (1 - s * 0.22);
             const r = 2.6 - s * 0.5;
             // glow (radial)
             const grad = ctx.createRadialGradient(x, y, 0, x, y, r * 4);
@@ -377,29 +424,43 @@
           }
         }
 
-        // Neurônios (com respiração + flash de recepção)
+        // Neurônios — somas com halo azul ambiente; terminais pequenos puros
         for (const p of neurons) {
           const breathe = 0.5 + 0.5 * Math.sin(frame * 0.025 + p.phase);
-          const flashK = p.flash / FLASH_FRAMES; // 0..1
-          const rEff = p.r * (1 + breathe * 0.18 + flashK * 1.4);
-          // halo expandido se em flash
+          const flashK = p.flash / FLASH_FRAMES;
+          const rEff = p.r * (1 + breathe * 0.18 + flashK * 1.3);
+
+          // halo azul ambiente em somas (sempre visível)
+          if (p.soma) {
+            const haloR = rEff * 3.6;
+            const halo = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, haloR);
+            halo.addColorStop(0,   'rgba(120,160,255,0.28)');
+            halo.addColorStop(0.45,'rgba(80,110,200,0.12)');
+            halo.addColorStop(1,   'rgba(40,60,140,0)');
+            ctx.fillStyle = halo;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, haloR, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          // halo laranja expandido durante flash
           if (flashK > 0) {
             const haloR = rEff * (3 + flashK * 4);
             const halo = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, haloR);
-            halo.addColorStop(0, `rgba(255,180,100,${0.55 * flashK})`);
-            halo.addColorStop(0.5, `rgba(233,121,25,${0.2 * flashK})`);
+            halo.addColorStop(0, `rgba(255,180,100,${0.6 * flashK})`);
+            halo.addColorStop(0.5, `rgba(233,121,25,${0.22 * flashK})`);
             halo.addColorStop(1, 'rgba(233,121,25,0)');
             ctx.fillStyle = halo;
             ctx.beginPath();
             ctx.arc(p.x, p.y, haloR, 0, Math.PI * 2);
             ctx.fill();
           }
-          // corpo do neurônio (azul-claro com leve mistura laranja se em flash)
-          const baseA = 0.85;
-          const r = flashK > 0 ? 255 : 150;
-          const g = flashK > 0 ? 200 : 160;
-          const b = flashK > 0 ? 130 : 220;
-          ctx.fillStyle = `rgba(${r},${g},${b},${baseA})`;
+
+          // corpo
+          const r = flashK > 0 ? 255 : (p.soma ? 180 : 220);
+          const g = flashK > 0 ? 200 : (p.soma ? 210 : 230);
+          const b = flashK > 0 ? 130 : 255;
+          ctx.fillStyle = `rgba(${r},${g},${b},${p.soma ? 0.95 : 0.78})`;
           ctx.beginPath();
           ctx.arc(p.x, p.y, rEff, 0, Math.PI * 2);
           ctx.fill();
