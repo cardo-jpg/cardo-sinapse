@@ -21,3 +21,6 @@ backend/gestao.db
 Financeiro/
 Finanças Pessoais/
 scripts/
+Conversas WhatsApp/
+*.docx.pdf
+nohup.out
