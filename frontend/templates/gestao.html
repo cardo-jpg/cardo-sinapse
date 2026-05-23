@@ -88,18 +88,21 @@
     .g-nav.collapsed .g-nav-toggle { transform: rotate(180deg); }
 
     /* fixed links (Cérebro) */
-    .g-nav-links { padding: 6px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .g-nav-links { padding: 6px; border-bottom: 1px solid var(--border-subtle); flex-shrink: 0; }
     .g-nav-link {
       display: flex; align-items: center; gap: var(--space-2);
-      padding: var(--space-1) var(--space-2); border-radius: 6px;
-      min-height: var(--row-height-sm); margin-bottom: 2px;
-      color: var(--muted); text-decoration: none; font-size: var(--font-size-base); font-weight: var(--font-weight-normal);
-      transition: background .12s, color .12s; white-space: nowrap; overflow: hidden;
+      padding: 0 var(--space-2); border-radius: 6px;
+      height: var(--row-height-sm); margin-bottom: 2px;
+      color: var(--text-secondary); text-decoration: none;
+      font-size: var(--font-size-base); font-weight: var(--font-weight-normal);
+      transition: background 120ms ease, color 120ms ease;
+      white-space: nowrap; overflow: hidden;
       position: relative;
     }
-    .g-nav-link:hover { background: var(--bg-tertiary); color: var(--text); }
+    .g-nav-link:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+    .g-nav-link.active,
     .g-nav-link.active-link { background: var(--bg-tertiary); color: var(--text-primary); font-weight: var(--font-weight-medium); }
-    .g-nav-icon { font-size: .9rem; flex-shrink: 0; width: 18px; text-align: center; }
+    .g-nav-icon { font-size: .9rem; flex-shrink: 0; width: 16px; height: 16px; text-align: center; line-height: 16px; }
     .g-nav.collapsed .g-nav-link::after {
       content: attr(data-label);
       position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%);
@@ -118,7 +121,8 @@
     .g-nav.collapsed .g-nav-tree { overflow: hidden; }
 
     .g-tree-header {
-      padding: 10px 14px 4px;
+      padding-left: var(--space-3); padding-right: var(--space-2);
+      margin-top: var(--space-4); margin-bottom: var(--space-2);
       font-size: var(--font-size-xs); font-weight: var(--font-weight-medium); letter-spacing: var(--letter-spacing-wide);
       text-transform: uppercase; color: var(--text-tertiary);
       display: flex; align-items: center; justify-content: space-between;
@@ -127,55 +131,65 @@
     .g-nav.collapsed .g-tree-header { opacity: 0; pointer-events: none; }
 
     .g-tree-add {
-      background: none; border: none; color: var(--muted); cursor: pointer;
+      background: none; border: none; color: var(--text-tertiary); cursor: pointer;
       font-size: 1rem; line-height: 1; padding: 1px 4px; border-radius: 4px;
+      opacity: 0; transition: opacity 120ms ease, color 120ms ease, background 120ms ease;
     }
-    .g-tree-add:hover { color: var(--text); background: #ffffff10; }
+    .g-tree-header:hover .g-tree-add { opacity: 1; }
+    .g-tree-add:focus-visible { opacity: 1; outline: 1px solid var(--accent); outline-offset: 1px; }
+    .g-tree-add:hover { color: var(--text-primary); background: var(--bg-tertiary); }
 
-    /* space rows */
+    /* space rows (nível 1) */
     .g-space-row {
       display: flex; align-items: center; gap: var(--space-2);
-      padding: var(--space-1) var(--space-2); cursor: pointer; border-radius: 6px;
-      margin: 0 var(--space-1) 2px; min-height: var(--row-height-sm);
-      font-size: var(--font-size-base); font-weight: var(--font-weight-medium); color: var(--text);
-      transition: background .12s;
+      padding: 0 var(--space-2); cursor: pointer; border-radius: 6px;
+      margin: 0 var(--space-1) 2px; height: var(--row-height-sm);
+      font-size: var(--font-size-base); font-weight: var(--font-weight-medium); color: var(--text-primary);
+      transition: background 120ms ease;
     }
     .g-space-row:hover { background: var(--bg-tertiary); }
     .g-space-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
     .g-space-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    /* folder rows */
+    /* folder rows (nível 2) */
     .g-folder-row {
       display: flex; align-items: center; gap: var(--space-1);
-      padding: var(--space-1) var(--space-2) var(--space-1) 22px; cursor: pointer; border-radius: 6px;
-      margin: 0 var(--space-1) 2px; min-height: var(--row-height-sm);
-      font-size: var(--font-size-base); color: var(--muted);
-      transition: background .12s, color .12s;
+      padding: 0 var(--space-2) 0 calc(var(--space-2) + var(--nav-indent));
+      cursor: pointer; border-radius: 6px;
+      margin: 0 var(--space-1) 2px; height: var(--row-height-sm);
+      font-size: var(--font-size-base); color: var(--text-secondary);
+      transition: background 120ms ease, color 120ms ease;
     }
-    .g-folder-row:hover { background: var(--bg-tertiary); color: var(--text); }
+    .g-folder-row:hover { background: var(--bg-tertiary); color: var(--text-primary); }
 
-    /* list rows */
+    /* list rows (nível 3) */
     .g-list-row {
       display: flex; align-items: center; gap: var(--space-1);
-      padding: var(--space-1) var(--space-2) var(--space-1) 46px; cursor: pointer; border-radius: 6px;
-      margin: 0 var(--space-1) 2px; min-height: var(--row-height-sm);
-      font-size: var(--font-size-base); color: var(--muted);
-      transition: background .12s, color .12s;
+      padding: 0 var(--space-2) 0 calc(var(--space-2) + 2 * var(--nav-indent));
+      cursor: pointer; border-radius: 6px;
+      margin: 0 var(--space-1) 2px; height: var(--row-height-sm);
+      font-size: var(--font-size-base); color: var(--text-secondary);
+      transition: background 120ms ease, color 120ms ease;
     }
     .g-list-row.active { background: var(--bg-tertiary); color: var(--text-primary); font-weight: var(--font-weight-medium); }
-    .g-list-row:not(.active):hover { background: var(--bg-tertiary); color: var(--text); }
+    .g-list-row:not(.active):hover { background: var(--bg-tertiary); color: var(--text-primary); }
     .g-list-dot { display: none; }
-    .g-list-row.direct { padding-left: 22px; margin-left: 28px; margin-right: 0; }
+    /* lista direta (sem folder pai) — nível 2 */
+    .g-list-row.direct {
+      padding-left: calc(var(--space-2) + var(--nav-indent));
+      margin-left: 0; margin-right: var(--space-1);
+    }
 
-    /* feature link inside a space (Dashboard, Ata) */
+    /* feature link inside a space (Dashboard, Ata) — nível 2 */
     .g-feature-row {
       display: flex; align-items: center; gap: var(--space-1);
-      padding: var(--space-1) var(--space-2) var(--space-1) 22px; border-radius: 6px;
-      margin: 0 var(--space-1) 2px; min-height: var(--row-height-sm);
-      font-size: var(--font-size-base); color: var(--muted); text-decoration: none;
-      transition: background .12s, color .12s;
+      padding: 0 var(--space-2) 0 calc(var(--space-2) + var(--nav-indent));
+      border-radius: 6px;
+      margin: 0 var(--space-1) 2px; height: var(--row-height-sm);
+      font-size: var(--font-size-base); color: var(--text-secondary); text-decoration: none;
+      transition: background 120ms ease, color 120ms ease;
     }
-    .g-feature-row:hover { background: var(--bg-tertiary); color: var(--text); }
+    .g-feature-row:hover { background: var(--bg-tertiary); color: var(--text-primary); }
     .g-feature-row.active-link { background: var(--bg-tertiary); color: var(--text-primary); font-weight: var(--font-weight-medium); }
 
 
@@ -298,13 +312,15 @@
 
     /* footer */
     .g-nav-footer {
-      padding: 10px 14px; border-top: 1px solid var(--border);
+      padding: 0 var(--space-3); padding-top: var(--space-2);
+      border-top: 1px solid var(--border-subtle);
       display: flex; align-items: center; justify-content: space-between;
-      font-size: .76rem; flex-shrink: 0; overflow: hidden;
+      font-size: var(--font-size-sm); flex-shrink: 0; overflow: hidden;
+      min-height: var(--row-height-sm); box-sizing: content-box;
     }
-    .g-nav-user { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity .15s, max-width .2s; max-width: 160px; }
+    .g-nav-user { color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity .15s, max-width .2s; max-width: 160px; }
     .g-nav.collapsed .g-nav-user { opacity: 0; max-width: 0; }
-    .g-nav-logout { color: var(--muted); text-decoration: none; font-size: .72rem; flex-shrink: 0; white-space: nowrap; }
+    .g-nav-logout { color: var(--text-tertiary); text-decoration: none; font-size: var(--font-size-xs); flex-shrink: 0; white-space: nowrap; transition: color 120ms ease; }
     .g-nav-logout:hover { color: #ef4444; }
     .g-nav.collapsed .g-nav-footer { justify-content: center; }
 
@@ -1588,16 +1604,22 @@
     .ProseMirror ::selection { background: rgba(59, 130, 246, 0.45); color: inherit; }
     .ProseMirror ::-moz-selection { background: rgba(59, 130, 246, 0.45); color: inherit; }
 
-    /* doc item in sidebar */
+    /* doc item in sidebar (nível 3) */
     .g-doc-row {
       display: flex; align-items: center; gap: 6px;
-      padding: 5px 10px 5px 46px; cursor: pointer; border-radius: 7px; margin: 0 4px;
-      font-size: .81rem; color: var(--muted);
-      transition: background .12s, color .12s;
+      padding: 0 var(--space-2) 0 calc(var(--space-2) + 2 * var(--nav-indent));
+      cursor: pointer; border-radius: 6px; margin: 0 var(--space-1) 2px;
+      height: var(--row-height-sm);
+      font-size: var(--font-size-base); color: var(--text-secondary);
+      transition: background 120ms ease, color 120ms ease;
     }
-    .g-doc-row.active { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
-    .g-doc-row:not(.active):hover { background: #ffffff07; color: var(--text); }
-    .g-doc-row.direct { padding-left: 22px; margin-left: 28px; margin-right: 0; }
+    .g-doc-row.active { background: var(--bg-tertiary); color: var(--text-primary); font-weight: var(--font-weight-medium); }
+    .g-doc-row:not(.active):hover { background: var(--bg-tertiary); color: var(--text-primary); }
+    /* doc direto (sem folder pai) — nível 2 */
+    .g-doc-row.direct {
+      padding-left: calc(var(--space-2) + var(--nav-indent));
+      margin-left: 0; margin-right: var(--space-1);
+    }
     .g-doc-row .g-row-actions { opacity: 0; transition: opacity .12s; }
     .g-doc-row:hover .g-row-actions { opacity: 1; }
     .g-folder-content { position: relative; }
@@ -1633,21 +1655,24 @@
     .btn-restore { padding: 5px 12px; background: transparent; color: #22c55e; border: 1px solid #22c55e44; border-radius: 6px; font-size: .78rem; font-weight: 600; cursor: pointer; transition: background .12s; flex-shrink: 0; }
     .btn-restore:hover { background: rgba(34,197,94,.12); }
 
-    /* tree connector: linha no fundo do container, alinhada ao ícone de pasta */
+    /* tree connector: linha no fundo do container, alinhada entre L2 e L3 */
     .g-space-children {
-      background: linear-gradient(#2d2d2d, #2d2d2d) no-repeat 42px 14px / 1px 100%;
+      background: linear-gradient(var(--border-default), var(--border-default))
+                  no-repeat calc(var(--space-2) + 1.5 * var(--nav-indent)) 6px / 1px calc(100% - 12px);
     }
     .g-folder-content { margin-left: 0; }
 
-    /* ver arquivados link */
+    /* ver arquivados link (separa do rodapé com borda sutil) */
     .g-archived-link {
-      display: flex; align-items: center; gap: 8px;
-      padding: 6px 14px; color: #404040; font-size: .78rem;
+      display: flex; align-items: center; gap: var(--space-2);
+      padding: 0 var(--space-3); margin-top: var(--space-2);
+      color: var(--text-tertiary); font-size: var(--font-size-sm);
       cursor: pointer; border: none; background: none; width: 100%;
-      text-align: left; border-top: 1px solid var(--border);
-      transition: color .12s;
+      height: var(--row-height-sm); text-align: left;
+      border-top: 1px solid var(--border-subtle);
+      transition: color 120ms ease, background 120ms ease;
     }
-    .g-archived-link:hover { color: var(--muted); }
+    .g-archived-link:hover { color: var(--text-secondary); background: var(--bg-tertiary); }
 
     /* ── permissions modal ───────────────────────────────────────────────────── */
     .perm-option {
@@ -2129,7 +2154,7 @@
     </button>
 
     {% if nav_is_admin %}
-    <a href="/config" class="g-nav-link" style="margin:4px 8px;font-size:.8rem;color:var(--muted)" data-label="Configurações">
+    <a href="/config" class="g-nav-link" style="margin:0 var(--space-1) 2px" data-label="Configurações">
       <span class="g-nav-icon">⚙️</span>
       <span>Configurações</span>
     </a>
