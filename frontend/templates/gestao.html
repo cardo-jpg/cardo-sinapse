@@ -2782,7 +2782,7 @@
     <!-- ── kanban view ──────────────────────────────────────────────────────── -->
     <template x-if="mainMode === 'tasks' && activeList && !loading && view==='kanban'">
       <div class="kanban-board">
-        <template x-for="status in statuses" :key="status.id">
+        <template x-for="status in selectableStatuses()" :key="status.id">
           <div class="kanban-col">
             <div class="kanban-col-header">
               <span style="width:8px;height:8px;border-radius:50%;display:inline-block" :style="`background:${status.color}`"></span>
@@ -3293,7 +3293,7 @@
          @click.outside="statusPickerTask=null" x-cloak>
       <input class="status-picker-search" type="text" placeholder="Buscar..."
              x-model="statusPickerQ" @keydown.escape="statusPickerTask=null" x-init="$nextTick(()=>$el.focus())">
-      <template x-for="s in statuses.filter(s=>!statusPickerQ||s.name.toLowerCase().includes(statusPickerQ.toLowerCase()))" :key="s.id">
+      <template x-for="s in selectableStatuses().filter(s=>!statusPickerQ||s.name.toLowerCase().includes(statusPickerQ.toLowerCase()))" :key="s.id">
         <div class="status-picker-item" @click="pickStatus(s.id)">
           <span class="status-item" :class="`status-item--${statusVariant(s.id)}`" style="cursor:inherit">
             <span class="status-icon"></span>
@@ -3421,7 +3421,7 @@
   <!-- Bulk popovers -->
   <template x-if="bulkPop.open && bulkPop.kind === 'status'">
     <div class="bulk-pop" :style="`top:${bulkPop.y}px;left:${bulkPop.x}px`" @click.outside="bulkPop.open=false" x-cloak>
-      <template x-for="s in statuses" :key="s.id">
+      <template x-for="s in selectableStatuses()" :key="s.id">
         <div class="bulk-pop-item" @click="bulkApply({status: s.id}); bulkPop.open=false">
           <span class="status-item" :class="`status-item--${statusVariant(s.id)}`" style="cursor:inherit">
             <span class="status-icon"></span>
@@ -3793,7 +3793,7 @@
             <div class="form-group">
               <label class="form-label">Status</label>
               <select class="form-select" x-model="form.status">
-                <template x-for="s in statuses" :key="s.id"><option :value="s.id" x-text="s.name"></option></template>
+                <template x-for="s in selectableStatuses()" :key="s.id"><option :value="s.id" x-text="s.name"></option></template>
               </select>
             </div>
             <div class="form-group">
@@ -3885,7 +3885,7 @@
                 </template>
                 <template x-if="propEditing.status">
                   <select x-model="form.status" @change="patchTask('status',form.status); propEditing.status=false" @blur="propEditing.status=false" x-init="$nextTick(()=>$el.focus())">
-                    <template x-for="s in statuses" :key="s.id"><option :value="s.id" x-text="s.name"></option></template>
+                    <template x-for="s in selectableStatuses()" :key="s.id"><option :value="s.id" x-text="s.name"></option></template>
                   </select>
                 </template>
               </div>
@@ -4740,7 +4740,7 @@
       <span class="ctx-icon">→</span> Mover para
       <span class="ctx-arrow">▶</span>
       <div class="ctx-menu ctx-submenu">
-        <template x-for="st in statuses" :key="st.id">
+        <template x-for="st in selectableStatuses()" :key="st.id">
           <div class="ctx-item" @click.stop="taskCtxMoveStatus(st.id)">
             <span class="ctx-icon" style="font-size:.65rem" :style="`color:${st.color}`">●</span>
             <span x-text="st.name"></span>
@@ -5748,6 +5748,12 @@ document.addEventListener('alpine:init', () => {
       if (g === 'not_started') return 'pendente';
       return 'todo';
     },
+    // Status legados que não devem mais ser SELECIONÁVEIS pela UI
+    // (tarefas que já estão nesses status continuam exibindo o label via statusObj).
+    _legacyStatusIds: ['concluido'],
+    selectableStatuses() {
+      return this.statuses.filter(s => !this._legacyStatusIds.includes(s.id));
+    },
     memberName(id) { return this.members.find(m=>m.id===id)?.name||id; },
     priorityColor(p) { return {high:'#ef4444',normal:'#6b7280',low:'#3b82f6'}[p]||'#6b7280'; },
     priorityLabel(p) { return {high:'Alta',normal:'Normal',low:'Baixa'}[p]||p; },
@@ -5926,7 +5932,7 @@ document.addEventListener('alpine:init', () => {
     },
 
     async cycleStatus(task) {
-      const ids=this.statuses.map(s=>s.id);
+      const ids=this.selectableStatuses().map(s=>s.id);
       await this.patchTask(task,{status:ids[(ids.indexOf(task.status)+1)%ids.length]});
     },
     openStatusPicker(task, event) {
