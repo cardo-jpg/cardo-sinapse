@@ -144,10 +144,17 @@
       display: flex; align-items: center; gap: var(--space-2);
       padding: 0 var(--space-2); cursor: pointer; border-radius: 6px;
       margin: 0 var(--space-1) 2px; height: var(--row-height-sm);
-      font-size: var(--font-size-base); font-weight: var(--font-weight-medium); color: var(--text-primary);
-      transition: background 120ms ease;
+      font-size: var(--font-size-base); font-weight: var(--font-weight-normal); color: var(--text-primary);
+      transition: background 120ms ease, font-weight 120ms ease;
     }
     .g-space-row:hover { background: var(--bg-tertiary); }
+    /* Espaço ativo = wrapper contém uma lista/doc/feature ativa.
+       Usa :has() para evitar binding extra no markup (não muda HTML). */
+    .g-nav-tree > div:has(.g-list-row.active) > .g-space-row,
+    .g-nav-tree > div:has(.g-doc-row.active) > .g-space-row,
+    .g-nav-tree > div:has(.g-feature-row.active-link) > .g-space-row {
+      font-weight: var(--font-weight-medium);
+    }
     .g-space-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
     .g-space-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -205,13 +212,27 @@
     }
     .g-action-btn:hover { color: var(--text); background: #ffffff14; }
 
-    /* pastas e listas: botões só aparecem no hover da linha */
+    /* Actions (···, +) ocultas por padrão, visíveis no hover OU focus-within */
+    .g-space-row .g-row-actions,
     .g-folder-row .g-row-actions,
     .g-list-row .g-row-actions,
-    .g-feature-row .g-row-actions { opacity: 0; transition: opacity .12s; }
+    .g-feature-row .g-row-actions { opacity: 0; transition: opacity 120ms ease; }
+    .g-space-row:hover .g-row-actions,
     .g-folder-row:hover .g-row-actions,
     .g-list-row:hover .g-row-actions,
-    .g-feature-row:hover .g-row-actions { opacity: 1; }
+    .g-feature-row:hover .g-row-actions,
+    .g-space-row:focus-within .g-row-actions,
+    .g-folder-row:focus-within .g-row-actions,
+    .g-list-row:focus-within .g-row-actions,
+    .g-feature-row:focus-within .g-row-actions { opacity: 1; }
+
+    /* Touch: hover não é confiável, mantém actions visíveis */
+    @media (hover: none) {
+      .g-space-row .g-row-actions,
+      .g-folder-row .g-row-actions,
+      .g-list-row .g-row-actions,
+      .g-feature-row .g-row-actions { opacity: 1; }
+    }
 
     /* ── Drag & Drop ─────────────────────────────────────────────────────────── */
     .g-space-row, .g-folder-row, .g-list-row { position: relative; }
