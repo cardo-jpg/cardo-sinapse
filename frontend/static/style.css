@@ -31,6 +31,25 @@
   --tag-client-bg:   rgba(232, 100, 58, 0.25);
   --tag-client-text: #f7c4af;
 
+  /* ── Typography ─────────────────────────────────────────────────── */
+  --font-size-xs:   11px;   /* labels de coluna, badges, helpers */
+  --font-size-sm:   12px;   /* metadata, datas, contadores */
+  --font-size-base: 13px;   /* texto principal (tabela/lista, denso) */
+  --font-size-md:   14px;   /* títulos de seção, breadcrumb */
+  --font-size-lg:   16px;
+  --font-size-xl:   20px;
+
+  --font-weight-normal:   400;
+  --font-weight-medium:   500;
+  --font-weight-semibold: 600;
+
+  --line-height-tight:   1.3;
+  --line-height-normal:  1.5;
+  --line-height-relaxed: 1.6;
+
+  --letter-spacing-tight: -0.01em;
+  --letter-spacing-wide:  0.04em;
+
   /* ── Brand (Cardō blue, mantidos) ───────────────────────────────── */
   --blue:        #19196c;
   --blue-light:  #2a2a9a;
@@ -45,7 +64,15 @@
   --muted:   var(--text-secondary);
 }
 
-body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; height: 100vh; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-feature-settings: "cv11", "ss01", "ss03";
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  height: 100vh;
+}
 
 /* ── LOGIN ───────────────────────────────────────────────────────────────── */
 .login-body { display: flex; align-items: center; justify-content: center; }
@@ -497,14 +524,14 @@ body { background: var(--bg); color: var(--text); font-family: -apple-system, Bl
 .apres-erro { background: #2a1a1a; border: 1px solid #c0392b; border-radius: 10px; padding: 14px; color: #e74c3c; font-size: 14px; }
 
 /* ── fin-nav: sidebar padrão escuro ──────────────────────────────────────── */
-.fin-nav { width: 260px; flex-shrink: 0; background: #0f0f1c; border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100vh; overflow: hidden; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+.fin-nav { width: 260px; flex-shrink: 0; background: #0f0f1c; border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .fin-nav-brand { padding: 13px 14px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); flex-shrink: 0; min-height: 48px; }
 .fin-nav-brand-name { font-size: .88rem; font-weight: 600; color: var(--text); letter-spacing: .01em; flex: 1; }
 .fin-nav-back { font-size: .68rem; color: #404040; text-decoration: none; white-space: nowrap; transition: color .15s; }
 .fin-nav-back:hover { color: var(--muted); }
 .fin-nav-section { flex: 1; overflow-y: auto; padding: 6px 0; }
-.fin-nav-label { font-size: .67rem; font-weight: 500; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); padding: 9px 14px 3px; }
-.fin-nav-item { display: flex; align-items: center; gap: 8px; padding: 6px 14px; font-size: .82rem; font-weight: 400; color: var(--muted); cursor: pointer; border: none; background: none; width: 100%; text-align: left; border-left: 2px solid transparent; transition: color .15s, background .15s, border-color .15s; text-decoration: none; }
+.fin-nav-label { font-size: var(--font-size-xs); font-weight: var(--font-weight-medium); text-transform: uppercase; letter-spacing: var(--letter-spacing-wide); color: var(--text-tertiary); padding: 9px 14px 3px; }
+.fin-nav-item { display: flex; align-items: center; gap: 8px; padding: 6px 14px; font-size: var(--font-size-base); font-weight: var(--font-weight-normal); color: var(--muted); cursor: pointer; border: none; background: none; width: 100%; text-align: left; border-left: 2px solid transparent; transition: color .15s, background .15s, border-color .15s; text-decoration: none; }
 .fin-nav-item:hover { color: var(--text); background: #ffffff07; }
 .fin-nav-item.active { color: var(--text); border-left-color: var(--accent); background: var(--accent-soft); }
 .fin-nav-sep { height: 1px; background: var(--border); margin: 5px 14px; }
