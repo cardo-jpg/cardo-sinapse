@@ -91,8 +91,9 @@
     .g-nav-links { padding: 6px; border-bottom: 1px solid var(--border-subtle); flex-shrink: 0; }
     .g-nav-link {
       display: flex; align-items: center; gap: var(--space-2);
-      padding: 0 var(--space-2); border-radius: 6px;
+      padding: 6px var(--space-2); border-radius: 6px;
       height: var(--row-height-sm); margin-bottom: 2px;
+      min-width: 0;
       color: var(--text-secondary); text-decoration: none;
       font-size: var(--font-size-base); font-weight: var(--font-weight-normal);
       transition: background 120ms ease, color 120ms ease;
@@ -142,8 +143,9 @@
     /* space rows (nível 1) */
     .g-space-row {
       display: flex; align-items: center; gap: var(--space-2);
-      padding: 0 var(--space-2); cursor: pointer; border-radius: 6px;
+      padding: 6px var(--space-2); cursor: pointer; border-radius: 6px;
       margin: 0 var(--space-1) 2px; height: var(--row-height-sm);
+      min-width: 0;
       font-size: var(--font-size-base); font-weight: var(--font-weight-normal); color: var(--text-primary);
       transition: background 120ms ease, font-weight 120ms ease;
     }
@@ -156,14 +158,20 @@
       font-weight: var(--font-weight-medium);
     }
     .g-space-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-    .g-space-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Labels truncados com ellipsis (nomes longos viram "Nome lon…") */
+    .g-space-name,
+    .g-nav-label {
+      flex: 1; min-width: 0;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
 
     /* folder rows (nível 2) */
     .g-folder-row {
       display: flex; align-items: center; gap: var(--space-1);
-      padding: 0 var(--space-2) 0 calc(var(--space-2) + var(--nav-indent));
+      padding: 6px var(--space-2) 6px calc(var(--space-2) + var(--nav-indent));
       cursor: pointer; border-radius: 6px;
       margin: 0 var(--space-1) 2px; height: var(--row-height-sm);
+      min-width: 0;
       font-size: var(--font-size-base); color: var(--text-secondary);
       transition: background 120ms ease, color 120ms ease;
     }
@@ -172,9 +180,10 @@
     /* list rows (nível 3) */
     .g-list-row {
       display: flex; align-items: center; gap: var(--space-1);
-      padding: 0 var(--space-2) 0 calc(var(--space-2) + 2 * var(--nav-indent));
+      padding: 6px var(--space-2) 6px calc(var(--space-2) + 2 * var(--nav-indent));
       cursor: pointer; border-radius: 6px;
       margin: 0 var(--space-1) 2px; height: var(--row-height-sm);
+      min-width: 0;
       font-size: var(--font-size-base); color: var(--text-secondary);
       transition: background 120ms ease, color 120ms ease;
     }
@@ -190,9 +199,10 @@
     /* feature link inside a space (Dashboard, Ata) — nível 2 */
     .g-feature-row {
       display: flex; align-items: center; gap: var(--space-1);
-      padding: 0 var(--space-2) 0 calc(var(--space-2) + var(--nav-indent));
+      padding: 6px var(--space-2) 6px calc(var(--space-2) + var(--nav-indent));
       border-radius: 6px;
       margin: 0 var(--space-1) 2px; height: var(--row-height-sm);
+      min-width: 0;
       font-size: var(--font-size-base); color: var(--text-secondary); text-decoration: none;
       transition: background 120ms ease, color 120ms ease;
     }
@@ -1628,9 +1638,10 @@
     /* doc item in sidebar (nível 3) */
     .g-doc-row {
       display: flex; align-items: center; gap: 6px;
-      padding: 0 var(--space-2) 0 calc(var(--space-2) + 2 * var(--nav-indent));
+      padding: 6px var(--space-2) 6px calc(var(--space-2) + 2 * var(--nav-indent));
       cursor: pointer; border-radius: 6px; margin: 0 var(--space-1) 2px;
       height: var(--row-height-sm);
+      min-width: 0;
       font-size: var(--font-size-base); color: var(--text-secondary);
       transition: background 120ms ease, color 120ms ease;
     }
@@ -1989,7 +2000,7 @@
               <span class="g-space-icon-emoji" x-text="space.icon || '⚡'"></span>
               <span class="g-space-chevron-hover" :class="expanded[space.id] ? 'open' : ''">▾</span>
             </div>
-            <span class="g-space-name" x-text="space.name"></span>
+            <span class="g-space-name" :title="space.name" x-text="space.name"></span>
             <div class="g-row-actions" @click.stop>
               <button class="g-action-btn" title="Opções"
                       @click="openCtxMenu($event, 'space', space, space, null)">···</button>
@@ -2015,7 +2026,7 @@
                        @click="!_drag && openEmbed(feat.url)">
                     <span style="width:17px;flex-shrink:0"></span>
                     <span style="font-size:.8rem;flex-shrink:0" x-text="feat.icon"></span>
-                    <span style="flex:1" x-text="feat.label"></span>
+                    <span class="g-nav-label" :title="feat.label" x-text="feat.label"></span>
                     <div class="g-row-actions" @click.stop>
                       <button class="g-action-btn" title="Mover"
                               @click="openFeatCtxMenu($event, feat)">···</button>
@@ -2043,7 +2054,7 @@
                 <template x-if="!lst.icon">
                   <span class="g-list-dot" :style="`background:${lst.color||'#6b7280'}`"></span>
                 </template>
-                <span style="flex:1" x-text="lst.name"></span>
+                <span class="g-nav-label" :title="lst.name" x-text="lst.name"></span>
                 <div class="g-row-actions" @click.stop>
                   <button class="g-action-btn"
                           @click="openCtxMenu($event, 'list', lst, space, null)">···</button>
@@ -2058,7 +2069,7 @@
                    @contextmenu.prevent="openDocCtxMenu($event, doc, space, null)"
                    @click="openDoc(doc)">
                 <span style="font-size:.8rem; flex-shrink:0">📄</span>
-                <span style="flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis" x-text="doc.title"></span>
+                <span class="g-nav-label" :title="doc.title" x-text="doc.title"></span>
                 <div class="g-row-actions" @click.stop>
                   <button class="g-action-btn"
                           @click="openDocCtxMenu($event, doc, space, null)">···</button>
@@ -2082,7 +2093,7 @@
                         :style="`color:${folder.color||'#6b7280'}`"
                         x-text="expanded['f_'+folder.id] ? '▾' : '▸'"></span>
                   <span style="font-size:.8rem; flex-shrink:0; margin-right:1px">📁</span>
-                  <span style="flex:1" x-text="folder.name"></span>
+                  <span class="g-nav-label" :title="folder.name" x-text="folder.name"></span>
                   <div class="g-row-actions" @click.stop>
                     <button class="g-action-btn"
                             @click="openCtxMenu($event, 'folder', folder, space, folder)">···</button>
@@ -2093,9 +2104,9 @@
                 <div class="g-folder-content" x-show="expanded['f_'+folder.id]" x-collapse>
                   <!-- briefings link dentro do folder Novas Contas -->
                   <template x-if="(folder.name||'').toLowerCase().includes('novas contas')">
-                    <a href="/briefings" class="g-list-row" style="text-decoration:none;color:inherit">
+                    <a href="/briefings" class="g-list-row" style="text-decoration:none;color:inherit" title="Briefings">
                       <span style="font-size:.75rem; flex-shrink:0">📋</span>
-                      <span style="flex:1">Briefings</span>
+                      <span class="g-nav-label">Briefings</span>
                     </a>
                   </template>
                   <template x-for="lst in folder.lists" :key="lst.id">
@@ -2115,7 +2126,7 @@
                       <template x-if="!lst.icon">
                         <span class="g-list-dot" :style="`background:${lst.color||'#6b7280'}`"></span>
                       </template>
-                      <span style="flex:1" x-text="lst.name"></span>
+                      <span class="g-nav-label" :title="lst.name" x-text="lst.name"></span>
                       <div class="g-row-actions" @click.stop>
                         <button class="g-action-btn"
                                 @click="openCtxMenu($event, 'list', lst, space, folder)">···</button>
@@ -2129,7 +2140,7 @@
                          @contextmenu.prevent="openDocCtxMenu($event, doc, space, folder)"
                          @click="openDoc(doc)">
                       <span style="font-size:.8rem; flex-shrink:0">📄</span>
-                      <span style="flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis" x-text="doc.title"></span>
+                      <span class="g-nav-label" :title="doc.title" x-text="doc.title"></span>
                       <div class="g-row-actions" @click.stop>
                         <button class="g-action-btn"
                                 @click="openDocCtxMenu($event, doc, space, folder)">···</button>
@@ -2151,7 +2162,7 @@
                              @drop.stop="dndDrop($event,'feature',feat,space,folder)"
                              @click="!_drag && openEmbed(feat.url)">
                           <span style="font-size:.8rem;flex-shrink:0" x-text="feat.icon"></span>
-                          <span style="flex:1" x-text="feat.label"></span>
+                          <span class="g-nav-label" :title="feat.label" x-text="feat.label"></span>
                           <div class="g-row-actions" @click.stop>
                             <button class="g-action-btn" title="Mover"
                                     @click="openFeatCtxMenu($event, feat)">···</button>
