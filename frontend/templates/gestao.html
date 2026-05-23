@@ -838,13 +838,16 @@
     .status-item--feito .status-icon {
       background: var(--status-feito);
       border: none;
+      display: flex; align-items: center; justify-content: center;
     }
     .status-item--feito .status-icon::after {
       content: '';
       width: 6px; height: 3px;
+      box-sizing: content-box;             /* sobrescreve o * { box-sizing: border-box } global */
       border-left: 1.5px solid #fff;
       border-bottom: 1.5px solid #fff;
       transform: rotate(-45deg) translate(0.5px, -0.5px);
+      display: block;
     }
     /* compat: ainda usado em alguns popovers com inline style */
     .status-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
