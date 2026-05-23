@@ -549,7 +549,7 @@ body {
 .apres-erro { background: #2a1a1a; border: 1px solid #c0392b; border-radius: 10px; padding: 14px; color: #e74c3c; font-size: 14px; }
 
 /* ── fin-nav: sidebar padrão escuro (refinada Fase 5) ────────────────────── */
-.fin-nav { width: 220px; flex-shrink: 0; background: #0f0f1c; border-right: 1px solid var(--border-subtle); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+.fin-nav { width: 260px; flex-shrink: 0; background: #0f0f1c; border-right: 1px solid var(--border-subtle); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .fin-nav-brand { padding: 13px 14px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border-subtle); flex-shrink: 0; min-height: 48px; }
 .fin-nav-brand-name { font-size: .88rem; font-weight: 600; color: var(--text-primary); letter-spacing: .01em; flex: 1; }
 .fin-nav-back { font-size: .68rem; color: var(--text-tertiary); text-decoration: none; white-space: nowrap; transition: color .15s; }
