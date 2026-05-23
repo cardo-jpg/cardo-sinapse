@@ -31,6 +31,14 @@
   --tag-client-bg:   rgba(232, 100, 58, 0.25);
   --tag-client-text: #f7c4af;
 
+  /* ── Status semântico (Fase 4) ──────────────────────────────────── */
+  --status-pendente: var(--text-secondary); /* algo bloqueia o início */
+  --status-todo:     #f2c94c;               /* pode começar agora */
+  --status-feito:    #4cb782;               /* finalizado */
+
+  /* ── Prioridade ─────────────────────────────────────────────────── */
+  --priority-urgent: #e5484d;
+
   /* ── Typography ─────────────────────────────────────────────────── */
   --font-size-xs:   11px;   /* labels de coluna, badges, helpers */
   --font-size-sm:   12px;   /* metadata, datas, contadores */
