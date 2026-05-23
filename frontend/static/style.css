@@ -27,6 +27,10 @@
   --accent-soft:  rgba(224, 104, 58, 0.10);
   --accent-ring:  rgba(224, 104, 58, 0.40);
 
+  /* ── Tags (ex: cliente) ─────────────────────────────────────────── */
+  --tag-client-bg:   rgba(232, 100, 58, 0.25);
+  --tag-client-text: #f7c4af;
+
   /* ── Brand (Cardō blue, mantidos) ───────────────────────────────── */
   --blue:        #19196c;
   --blue-light:  #2a2a9a;
@@ -366,7 +370,7 @@ body { background: var(--bg); color: var(--text); font-family: -apple-system, Bl
 .task-meta-tag { font-size: 0.72rem; padding: 2px 8px; border-radius: 4px; background: var(--border); color: var(--muted); }
 .task-meta-area   { background: #1a1f0e; color: #9cbb5a; }
 .task-meta-client { background: #12123a; color: #7a7af0; }
-.task-meta-cardo  { background: var(--accent-soft); color: var(--accent); }
+.task-meta-cardo  { background: var(--tag-client-bg); color: var(--tag-client-text); }
 
 /* ── RESPONSIVE ──────────────────────────────────────────────────────────── */
 @media (max-width: 600px) {

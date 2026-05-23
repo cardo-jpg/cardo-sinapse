@@ -2510,7 +2510,7 @@
                       <span>
                         <template x-if="getCfValue(row.task,cf.id)">
                           <span class="cf-badge"
-                                :style="`background:${getCfOpt(cf,getCfValue(row.task,cf.id))?.color||'#6b7280'}22;color:${getCfOpt(cf,getCfValue(row.task,cf.id))?.color||'#6b7280'};border-color:${getCfOpt(cf,getCfValue(row.task,cf.id))?.color||'#6b7280'}44`"
+                                :style="`background:${getCfOpt(cf,getCfValue(row.task,cf.id))?.color||'#6b7280'}40;color:color-mix(in srgb, ${getCfOpt(cf,getCfValue(row.task,cf.id))?.color||'#6b7280'} 45%, white);border:none`"
                                 x-text="getCfValue(row.task,cf.id)"></span>
                         </template>
                         <template x-if="!getCfValue(row.task,cf.id)">
