@@ -208,6 +208,10 @@
     }
     .g-feature-row:hover { background: var(--bg-tertiary); color: var(--text-primary); }
     .g-feature-row.active-link { background: var(--bg-tertiary); color: var(--text-primary); font-weight: var(--font-weight-medium); }
+    /* Tool dentro de folder e' irmao das Lists (L3), nao filho delas */
+    .g-folder-content .g-feature-row {
+      padding-left: calc(var(--space-2) + 2 * var(--nav-indent));
+    }
 
 
     /* ── action buttons ──────────────────────────────────────────────────────── */
@@ -2153,7 +2157,6 @@
                       <template x-for="feat in folder.features" :key="feat.id">
                         <div class="g-feature-row"
                              :class="mainMode==='embed' && iframeUrl===feat.url ? 'active-link' : ''"
-                             style="padding-left:44px"
                              :draggable="true"
                              @dragstart.stop="dndStart($event,'feature',feat,space,folder)"
                              @dragend="dndEnd($event)"
