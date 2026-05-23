@@ -5743,11 +5743,15 @@ document.addEventListener('alpine:init', () => {
     folderName(id) { for(const s of this.tree){const f=s.folders.find(f=>f.id===id); if(f)return f.name;} return ''; },
     tasksByStatus(sid) { return this.tasks.filter(t=>t.status===sid); },
     statusObj(id) { return this.statuses.find(s=>s.id===id)||{name:id,color:'#888'}; },
-    // Fase 4 — mapeia o `group` do status para a variante visual discreta
-    // not_started → pendente (cinza vazado) | active/done → todo (amarelo vazado) | closed → feito (verde com check)
+    // Fase 4 — mapeia o `group` do status para a variante visual discreta.
+    // O grupo `done` no Sinapse é rotulado "Feito" (ver statusGroups), então
+    // ele E `closed` viram a variante feito (verde + check).
+    //   not_started → pendente (cinza vazado)
+    //   active      → todo     (amarelo vazado)
+    //   done|closed → feito    (verde preenchido com check)
     statusVariant(id) {
       const g = (this.statusObj(id).group || 'not_started');
-      if (g === 'closed') return 'feito';
+      if (g === 'closed' || g === 'done') return 'feito';
       if (g === 'not_started') return 'pendente';
       return 'todo';
     },
