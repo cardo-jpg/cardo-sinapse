@@ -1,3 +1,4 @@
+{% from "_icon.html" import icon %}
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -1955,7 +1956,7 @@
       <button class="g-nav-link" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit"
               :class="mainMode==='embed' && iframeUrl==='/inicio' ? 'active' : ''"
               @click="openEmbed('/inicio')" data-label="Início">
-        <span class="g-nav-icon">🏠</span>
+        {{ icon("🏠", size=14) }}
         <span>Início</span>
       </button>
     </div>
@@ -1967,36 +1968,36 @@
     <div class="g-nav-links">
       {% if nav_fin_pessoais %}
       <a href="/financas-pessoais" class="g-nav-link" data-label="Finanças Pessoais">
-        <span class="g-nav-icon">💸</span>
+        {{ icon("💸", size=14) }}
         <span>Finanças Pessoais</span>
       </a>
       {% endif %}
       <button class="g-nav-link" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit"
               :class="mainMode==='embed' && iframeUrl==='/clientes' ? 'active' : ''"
               @click="openEmbed('/clientes')" data-label="Clientes">
-        <span class="g-nav-icon">👥</span>
+        {{ icon("👥", size=14) }}
         <span>Clientes</span>
       </button>
       <button class="g-nav-link" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit"
               :class="mainMode==='embed' && iframeUrl==='/conversar' ? 'active' : ''"
               @click="openEmbed('/conversar')" data-label="Cérebro">
-        <span class="g-nav-icon">🧠</span>
+        {{ icon("🧠", size=14) }}
         <span>Cérebro</span>
       </button>
       <a href="/financeiro" class="g-nav-link" data-label="Financeiro">
-        <span class="g-nav-icon">💰</span>
+        {{ icon("💰", size=14) }}
         <span>Financeiro</span>
       </a>
       <button class="g-nav-link" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit"
               :class="mainMode==='embed' && iframeUrl==='/whatsapp' ? 'active' : ''"
               @click="openEmbed('/whatsapp')" data-label="WhatsApp">
-        <span class="g-nav-icon">📱</span>
+        {{ icon("📱", size=14) }}
         <span>WhatsApp</span>
       </button>
       <button class="g-nav-link" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit"
               :class="mainMode==='embed' && iframeUrl==='/habitos' ? 'active' : ''"
               @click="openEmbed('/habitos')" data-label="Hábitos">
-        <span class="g-nav-icon">🎯</span>
+        {{ icon("🎯", size=14) }}
         <span>Hábitos</span>
       </button>
     </div>
@@ -2024,7 +2025,15 @@
                @click="toggleSpace(space.id)">
             <div class="g-space-icon-wrap"
                  :style="`background:${space.color}2e; border:1px solid ${space.color}50`">
-              <span class="g-space-icon-emoji" x-text="space.icon || '⚡'"></span>
+              <span class="g-space-icon-emoji">
+                <template x-if="isLucideName(space.icon)">
+                  <i :data-lucide="space.icon" class="sb-icon" aria-hidden="true"
+                     :style="`--sb-icon-color:${space.color||'#a0a4ab'};width:16px;height:16px`"></i>
+                </template>
+                <template x-if="!isLucideName(space.icon)">
+                  <span aria-hidden="true" x-text="space.icon || '⚡'"></span>
+                </template>
+              </span>
               <span class="g-space-chevron-hover" :class="expanded[space.id] ? 'open' : ''">▾</span>
             </div>
             <span class="g-space-name" :title="space.name" x-text="space.name"></span>
@@ -2052,7 +2061,13 @@
                        @drop.stop="dndDrop($event,'feature',feat,space,null)"
                        @click="!_drag && openEmbed(feat.url)">
                     <span style="width:17px;flex-shrink:0"></span>
-                    <span style="font-size:.8rem;flex-shrink:0" x-text="feat.icon"></span>
+                    <template x-if="isLucideName(feat.icon)">
+                      <i :data-lucide="feat.icon" class="sb-icon" aria-hidden="true"
+                         style="width:14px;height:14px"></i>
+                    </template>
+                    <template x-if="!isLucideName(feat.icon)">
+                      <span style="font-size:.8rem;flex-shrink:0" aria-hidden="true" x-text="feat.icon"></span>
+                    </template>
                     <span class="g-nav-label" :title="feat.label" x-text="feat.label"></span>
                     <div class="g-row-actions" @click.stop>
                       <button class="g-action-btn" title="Mover"
@@ -2075,8 +2090,12 @@
                    @drop.stop="dndDrop($event,'list',lst,space,null)"
                    @contextmenu.prevent="openCtxMenu($event,'list',lst,space,null)"
                    @click="selectList(lst)">
-                <template x-if="lst.icon">
-                  <span style="font-size:.75rem; flex-shrink:0" x-text="lst.icon"></span>
+                <template x-if="lst.icon && isLucideName(lst.icon)">
+                  <i :data-lucide="lst.icon" class="sb-icon" aria-hidden="true"
+                     :style="`--sb-icon-color:${lst.color||'#a0a4ab'};width:14px;height:14px`"></i>
+                </template>
+                <template x-if="lst.icon && !isLucideName(lst.icon)">
+                  <span style="font-size:.75rem; flex-shrink:0" aria-hidden="true" x-text="lst.icon"></span>
                 </template>
                 <template x-if="!lst.icon">
                   <span class="g-list-dot" :style="`background:${lst.color||'#6b7280'}`"></span>
@@ -2095,7 +2114,7 @@
                    :class="activeDoc?.id === doc.id ? 'active' : ''"
                    @contextmenu.prevent="openDocCtxMenu($event, doc, space, null)"
                    @click="openDoc(doc)">
-                <span style="font-size:.8rem; flex-shrink:0">📄</span>
+                {{ icon("📄", size=14) }}
                 <span class="g-nav-label" :title="doc.title" x-text="doc.title"></span>
                 <div class="g-row-actions" @click.stop>
                   <button class="g-action-btn"
@@ -2119,7 +2138,7 @@
                   <span style="font-size:.7rem; flex-shrink:0; width:10px; text-align:center"
                         :style="`color:${folder.color||'#6b7280'}`"
                         x-text="expanded['f_'+folder.id] ? '▾' : '▸'"></span>
-                  <span style="font-size:.8rem; flex-shrink:0; margin-right:1px">📁</span>
+                  {{ icon("📁", size=14) }}
                   <span class="g-nav-label" :title="folder.name" x-text="folder.name"></span>
                   <div class="g-row-actions" @click.stop>
                     <button class="g-action-btn"
@@ -2132,7 +2151,7 @@
                   <!-- briefings link dentro do folder Novas Contas -->
                   <template x-if="(folder.name||'').toLowerCase().includes('novas contas')">
                     <a href="/briefings" class="g-list-row" style="text-decoration:none;color:inherit" title="Briefings">
-                      <span style="font-size:.75rem; flex-shrink:0">📋</span>
+                      {{ icon("📋", size=14) }}
                       <span class="g-nav-label">Briefings</span>
                     </a>
                   </template>
@@ -2147,8 +2166,12 @@
                          @drop.stop="dndDrop($event,'list',lst,space,folder)"
                          @contextmenu.prevent="openCtxMenu($event,'list',lst,space,folder)"
                          @click="selectList(lst)">
-                      <template x-if="lst.icon">
-                        <span style="font-size:.75rem; flex-shrink:0" x-text="lst.icon"></span>
+                      <template x-if="lst.icon && isLucideName(lst.icon)">
+                        <i :data-lucide="lst.icon" class="sb-icon" aria-hidden="true"
+                           :style="`--sb-icon-color:${lst.color||'#a0a4ab'};width:14px;height:14px`"></i>
+                      </template>
+                      <template x-if="lst.icon && !isLucideName(lst.icon)">
+                        <span style="font-size:.75rem; flex-shrink:0" aria-hidden="true" x-text="lst.icon"></span>
                       </template>
                       <template x-if="!lst.icon">
                         <span class="g-list-dot" :style="`background:${lst.color||'#6b7280'}`"></span>
@@ -2166,7 +2189,7 @@
                          :class="activeDoc?.id === doc.id ? 'active' : ''"
                          @contextmenu.prevent="openDocCtxMenu($event, doc, space, folder)"
                          @click="openDoc(doc)">
-                      <span style="font-size:.8rem; flex-shrink:0">📄</span>
+                      {{ icon("📄", size=14) }}
                       <span class="g-nav-label" :title="doc.title" x-text="doc.title"></span>
                       <div class="g-row-actions" @click.stop>
                         <button class="g-action-btn"
@@ -2187,7 +2210,13 @@
                              @dragleave="dndLeave($event)"
                              @drop.stop="dndDrop($event,'feature',feat,space,folder)"
                              @click="!_drag && openEmbed(feat.url)">
-                          <span style="font-size:.8rem;flex-shrink:0" x-text="feat.icon"></span>
+                          <template x-if="isLucideName(feat.icon)">
+                            <i :data-lucide="feat.icon" class="sb-icon" aria-hidden="true"
+                               style="width:14px;height:14px"></i>
+                          </template>
+                          <template x-if="!isLucideName(feat.icon)">
+                            <span style="font-size:.8rem;flex-shrink:0" aria-hidden="true" x-text="feat.icon"></span>
+                          </template>
                           <span class="g-nav-label" :title="feat.label" x-text="feat.label"></span>
                           <div class="g-row-actions" @click.stop>
                             <button class="g-action-btn" title="Mover"
@@ -2207,13 +2236,13 @@
     </div>
 
     <button class="g-archived-link" @click="openArchivedModal()">
-      <span style="font-size:.8rem">📦</span>
+      {{ icon("📦", size=14) }}
       <span>Ver arquivados</span>
     </button>
 
     {% if nav_is_admin %}
     <a href="/config" class="g-nav-link" style="margin:0 var(--space-1) 2px" data-label="Configurações">
-      <span class="g-nav-icon">⚙️</span>
+      {{ icon("⚙️", size=14) }}
       <span>Configurações</span>
     </a>
     {% endif %}
@@ -5826,6 +5855,12 @@ document.addEventListener('alpine:init', () => {
     folderName(id) { for(const s of this.tree){const f=s.folders.find(f=>f.id===id); if(f)return f.name;} return ''; },
     tasksByStatus(sid) { return this.tasks.filter(t=>t.status===sid); },
     statusObj(id) { return this.statuses.find(s=>s.id===id)||{name:id,color:'#888'}; },
+    // Detecta se a string parece um nome Lucide (kebab-case ASCII).
+    // Usado no x-if que escolhe entre <i data-lucide> e <span> emoji-fallback.
+    // Espelha a lógica do macro Jinja icon() em _icon.html.
+    isLucideName(v) {
+      return typeof v === 'string' && v.length > 0 && /^[a-z][a-z0-9-]*$/.test(v);
+    },
     // Fase 4 — mapeia o `group` do status para a variante visual discreta.
     // O grupo `done` no Sinapse é rotulado "Feito" (ver statusGroups), então
     // ele E `closed` viram a variante feito (verde + check).
