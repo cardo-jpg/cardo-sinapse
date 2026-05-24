@@ -70,7 +70,10 @@
   /* ── Row heights ────────────────────────────────────────────────── */
   --row-height-sm: 28px;   /* sidebar items, dropdown options */
   --row-height-md: 32px;   /* task rows, table headers */
-  --row-height-lg: 40px;   /* topbar */
+  --row-height-lg: 40px;   /* legacy — substituído por --header-row-height nas 4 linhas do shell */
+
+  /* ── Shell rows (linhas horizontais do app: brand/topbar/Início/toolbar) ── */
+  --header-row-height: 48px;  /* altura unificada das 4 linhas divisórias do shell */
 
   /* ── Navegação ──────────────────────────────────────────────────── */
   --nav-indent: 12px;      /* incremento por nível de hierarquia (sidebar) */
