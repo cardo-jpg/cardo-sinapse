@@ -214,9 +214,14 @@
     .g-list-row.active { background: var(--bg-tertiary); color: var(--text-primary); font-weight: var(--font-weight-medium); }
     .g-list-row:not(.active):hover { background: var(--bg-tertiary); color: var(--text-primary); }
     .g-list-dot { display: none; }
-    /* lista direta (sem folder pai) — nível 2 */
+    /* Lista direta (sem folder pai): empurrada para o mesmo offset de texto
+       das listas dentro de folder (L3 = 32px), pra alinhar visualmente com
+       o texto das folders em outros espaços. Espaços que só têm direct_lists
+       (Ferramentas, PRO) ficavam parecendo "colados na borda" antes.
+       A informação hierárquica (sem folder pai) continua visível pela
+       ausência de chevron expandível na linha. */
     .g-list-row.direct {
-      padding-left: calc(var(--space-2) + var(--nav-indent));
+      padding-left: calc(var(--space-2) + 2 * var(--nav-indent));
       margin-left: 0; margin-right: var(--space-1);
     }
 
@@ -1675,9 +1680,10 @@
     }
     .g-doc-row.active { background: var(--bg-tertiary); color: var(--text-primary); font-weight: var(--font-weight-medium); }
     .g-doc-row:not(.active):hover { background: var(--bg-tertiary); color: var(--text-primary); }
-    /* doc direto (sem folder pai) — nível 2 */
+    /* Doc direto (sem folder pai): mesmo critério da .g-list-row.direct —
+       alinha com texto de folders. Ver comentário acima. */
     .g-doc-row.direct {
-      padding-left: calc(var(--space-2) + var(--nav-indent));
+      padding-left: calc(var(--space-2) + 2 * var(--nav-indent));
       margin-left: 0; margin-right: var(--space-1);
     }
     .g-doc-row .g-row-actions { opacity: 0; transition: opacity .12s; }
