@@ -26,53 +26,53 @@
     {% if nav_fin_pessoais %}
     <div class="fin-nav-label">Pessoal</div>
     <a href="/financas-pessoais" class="fin-nav-item {% if active_page=='financas_pessoais' %}active{% endif %}">
-      {{ icon("💸", size=14) }} Finanças Pessoais
+      {{ icon("wallet", size=14) }} Finanças Pessoais
     </a>
     <div class="fin-nav-sep"></div>
     {% endif %}
 
     <a href="/inicio" class="fin-nav-item {% if active_page=='inicio' %}active{% endif %}">
-      {{ icon("🏠", size=14) }} Início
+      {{ icon("house", size=14) }} Início
     </a>
     <div class="fin-nav-sep"></div>
 
     <div class="fin-nav-label">Ferramentas</div>
     <a href="/clientes" class="fin-nav-item {% if active_page=='clientes' %}active{% endif %}">
-      {{ icon("👥", size=14) }} Clientes
+      {{ icon("users", size=14) }} Clientes
     </a>
     <a href="/conversar" class="fin-nav-item {% if active_page=='conversar' %}active{% endif %}">
-      {{ icon("🧠", size=14) }} Cérebro
+      {{ icon("brain", size=14) }} Cérebro
     </a>
     <a href="/financeiro" class="fin-nav-item {% if active_page=='financeiro' %}active{% endif %}">
-      {{ icon("💰", size=14) }} Financeiro
+      {{ icon("banknote", size=14) }} Financeiro
     </a>
     <a href="/gestao" class="fin-nav-item {% if active_page=='gestao' %}active{% endif %}">
-      {{ icon("📋", size=14) }} Tarefas
+      {{ icon("list-checks", size=14) }} Tarefas
     </a>
     <a href="/ata" class="fin-nav-item {% if active_page=='ata' %}active{% endif %}">
-      {{ icon("📝", size=14) }} Gerador de Atas
+      {{ icon("file-pen", size=14) }} Gerador de Atas
     </a>
     <a href="/trafego" class="fin-nav-item {% if active_page=='trafego' %}active{% endif %}">
-      {{ icon("📊", size=14) }} Dashboard
+      {{ icon("chart-bar", size=14) }} Dashboard
     </a>
     <a href="/whatsapp" class="fin-nav-item {% if active_page=='whatsapp' %}active{% endif %}">
-      {{ icon("📱", size=14) }} WhatsApp
+      {{ icon("smartphone", size=14) }} WhatsApp
     </a>
     <a href="/habitos" class="fin-nav-item {% if active_page=='habitos' %}active{% endif %}">
-      {{ icon("🎯", size=14) }} Hábitos
+      {{ icon("target", size=14) }} Hábitos
     </a>
 
     <div class="fin-nav-sep"></div>
     <div class="fin-nav-label">Espaços</div>
     <a href="/crm" class="fin-nav-item {% if active_page=='crm' %}active{% endif %}">
-      {{ icon("💼", size=14) }} Comercial — CRM
+      {{ icon("briefcase", size=14) }} Comercial — CRM
     </a>
 
     {% if nav_is_admin %}
     <div class="fin-nav-sep"></div>
     <div class="fin-nav-label">Sistema</div>
     <a href="/config" class="fin-nav-item {% if active_page=='config' %}active{% endif %}">
-      {{ icon("⚙️", size=14) }} Configurações
+      {{ icon("settings", size=14) }} Configurações
     </a>
     {% endif %}
 

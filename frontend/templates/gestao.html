@@ -1958,7 +1958,7 @@
       <button class="g-nav-link" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit"
               :class="mainMode==='embed' && iframeUrl==='/inicio' ? 'active' : ''"
               @click="openEmbed('/inicio')" data-label="Início">
-        {{ icon("🏠", size=14) }}
+        {{ icon("house", size=14) }}
         <span>Início</span>
       </button>
     </div>
@@ -1970,36 +1970,36 @@
     <div class="g-nav-links">
       {% if nav_fin_pessoais %}
       <a href="/financas-pessoais" class="g-nav-link" data-label="Finanças Pessoais">
-        {{ icon("💸", size=14) }}
+        {{ icon("wallet", size=14) }}
         <span>Finanças Pessoais</span>
       </a>
       {% endif %}
       <button class="g-nav-link" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit"
               :class="mainMode==='embed' && iframeUrl==='/clientes' ? 'active' : ''"
               @click="openEmbed('/clientes')" data-label="Clientes">
-        {{ icon("👥", size=14) }}
+        {{ icon("users", size=14) }}
         <span>Clientes</span>
       </button>
       <button class="g-nav-link" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit"
               :class="mainMode==='embed' && iframeUrl==='/conversar' ? 'active' : ''"
               @click="openEmbed('/conversar')" data-label="Cérebro">
-        {{ icon("🧠", size=14) }}
+        {{ icon("brain", size=14) }}
         <span>Cérebro</span>
       </button>
       <a href="/financeiro" class="g-nav-link" data-label="Financeiro">
-        {{ icon("💰", size=14) }}
+        {{ icon("banknote", size=14) }}
         <span>Financeiro</span>
       </a>
       <button class="g-nav-link" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit"
               :class="mainMode==='embed' && iframeUrl==='/whatsapp' ? 'active' : ''"
               @click="openEmbed('/whatsapp')" data-label="WhatsApp">
-        {{ icon("📱", size=14) }}
+        {{ icon("smartphone", size=14) }}
         <span>WhatsApp</span>
       </button>
       <button class="g-nav-link" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit"
               :class="mainMode==='embed' && iframeUrl==='/habitos' ? 'active' : ''"
               @click="openEmbed('/habitos')" data-label="Hábitos">
-        {{ icon("🎯", size=14) }}
+        {{ icon("target", size=14) }}
         <span>Hábitos</span>
       </button>
     </div>
@@ -2116,7 +2116,7 @@
                    :class="activeDoc?.id === doc.id ? 'active' : ''"
                    @contextmenu.prevent="openDocCtxMenu($event, doc, space, null)"
                    @click="openDoc(doc)">
-                {{ icon("📄", size=14) }}
+                {{ icon("file-text", size=14) }}
                 <span class="g-nav-label" :title="doc.title" x-text="doc.title"></span>
                 <div class="g-row-actions" @click.stop>
                   <button class="g-action-btn"
@@ -2140,7 +2140,7 @@
                   <span style="font-size:.7rem; flex-shrink:0; width:10px; text-align:center"
                         :style="`color:${folder.color||'#6b7280'}`"
                         x-text="expanded['f_'+folder.id] ? '▾' : '▸'"></span>
-                  {{ icon("📁", size=14) }}
+                  {{ icon("folder", size=14) }}
                   <span class="g-nav-label" :title="folder.name" x-text="folder.name"></span>
                   <div class="g-row-actions" @click.stop>
                     <button class="g-action-btn"
@@ -2153,7 +2153,7 @@
                   <!-- briefings link dentro do folder Novas Contas -->
                   <template x-if="(folder.name||'').toLowerCase().includes('novas contas')">
                     <a href="/briefings" class="g-list-row" style="text-decoration:none;color:inherit" title="Briefings">
-                      {{ icon("📋", size=14) }}
+                      {{ icon("clipboard-list", size=14) }}
                       <span class="g-nav-label">Briefings</span>
                     </a>
                   </template>
@@ -2191,7 +2191,7 @@
                          :class="activeDoc?.id === doc.id ? 'active' : ''"
                          @contextmenu.prevent="openDocCtxMenu($event, doc, space, folder)"
                          @click="openDoc(doc)">
-                      {{ icon("📄", size=14) }}
+                      {{ icon("file-text", size=14) }}
                       <span class="g-nav-label" :title="doc.title" x-text="doc.title"></span>
                       <div class="g-row-actions" @click.stop>
                         <button class="g-action-btn"
@@ -2238,13 +2238,13 @@
     </div>
 
     <button class="g-archived-link" @click="openArchivedModal()">
-      {{ icon("📦", size=14) }}
+      {{ icon("archive", size=14) }}
       <span>Ver arquivados</span>
     </button>
 
     {% if nav_is_admin %}
     <a href="/config" class="g-nav-link" style="margin:0 var(--space-1) 2px" data-label="Configurações">
-      {{ icon("⚙️", size=14) }}
+      {{ icon("settings", size=14) }}
       <span>Configurações</span>
     </a>
     {% endif %}
