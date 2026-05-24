@@ -2052,6 +2052,56 @@
       </button>
     </div>
 
+    <!-- Ferramentas — section colapsável logo abaixo do Início (default fechada) -->
+    <div class="g-nav-tools">
+      <div class="g-tree-header g-tree-header--collapsible"
+           @click="toggleTools()" role="button"
+           :aria-expanded="toolsExpanded ? 'true' : 'false'">
+        <span style="display:inline-flex;align-items:center;gap:4px">
+          <span class="g-tools-chevron" :class="toolsExpanded ? 'expanded' : ''">
+            {{ icon("chevron-right", size=10) }}
+          </span>
+          <span>Ferramentas</span>
+        </span>
+      </div>
+      <div class="g-nav-links" x-show="toolsExpanded" x-collapse>
+        {% if nav_fin_pessoais %}
+        <a href="/financas-pessoais" class="g-nav-link" data-label="Finanças Pessoais">
+          {{ icon("wallet", size=14) }}
+          <span>Finanças Pessoais</span>
+        </a>
+        {% endif %}
+        <button class="g-nav-link" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit"
+                :class="mainMode==='embed' && iframeUrl==='/clientes' ? 'active' : ''"
+                @click="openEmbed('/clientes')" data-label="Clientes">
+          {{ icon("users", size=14) }}
+          <span>Clientes</span>
+        </button>
+        <button class="g-nav-link" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit"
+                :class="mainMode==='embed' && iframeUrl==='/conversar' ? 'active' : ''"
+                @click="openEmbed('/conversar')" data-label="Cérebro">
+          {{ icon("brain", size=14) }}
+          <span>Cérebro</span>
+        </button>
+        <a href="/financeiro" class="g-nav-link" data-label="Financeiro">
+          {{ icon("banknote", size=14) }}
+          <span>Financeiro</span>
+        </a>
+        <button class="g-nav-link" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit"
+                :class="mainMode==='embed' && iframeUrl==='/whatsapp' ? 'active' : ''"
+                @click="openEmbed('/whatsapp')" data-label="WhatsApp">
+          {{ icon("smartphone", size=14) }}
+          <span>WhatsApp</span>
+        </button>
+        <button class="g-nav-link" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit"
+                :class="mainMode==='embed' && iframeUrl==='/habitos' ? 'active' : ''"
+                @click="openEmbed('/habitos')" data-label="Hábitos">
+          {{ icon("target", size=14) }}
+          <span>Hábitos</span>
+        </button>
+      </div>
+    </div>
+
     <!-- Espaços tree -->
     <div class="g-nav-tree"
          @dragover="if(_drag)$event.preventDefault()"
@@ -2283,56 +2333,6 @@
           </div>
         </div>
       </template>
-    </div>
-
-    <!-- Ferramentas — section colapsável abaixo de Espaços (default fechada) -->
-    <div class="g-nav-tools">
-      <div class="g-tree-header g-tree-header--collapsible"
-           @click="toggleTools()" role="button"
-           :aria-expanded="toolsExpanded ? 'true' : 'false'">
-        <span style="display:inline-flex;align-items:center;gap:4px">
-          <span class="g-tools-chevron" :class="toolsExpanded ? 'expanded' : ''">
-            {{ icon("chevron-right", size=10) }}
-          </span>
-          <span>Ferramentas</span>
-        </span>
-      </div>
-      <div class="g-nav-links" x-show="toolsExpanded" x-collapse>
-        {% if nav_fin_pessoais %}
-        <a href="/financas-pessoais" class="g-nav-link" data-label="Finanças Pessoais">
-          {{ icon("wallet", size=14) }}
-          <span>Finanças Pessoais</span>
-        </a>
-        {% endif %}
-        <button class="g-nav-link" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit"
-                :class="mainMode==='embed' && iframeUrl==='/clientes' ? 'active' : ''"
-                @click="openEmbed('/clientes')" data-label="Clientes">
-          {{ icon("users", size=14) }}
-          <span>Clientes</span>
-        </button>
-        <button class="g-nav-link" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit"
-                :class="mainMode==='embed' && iframeUrl==='/conversar' ? 'active' : ''"
-                @click="openEmbed('/conversar')" data-label="Cérebro">
-          {{ icon("brain", size=14) }}
-          <span>Cérebro</span>
-        </button>
-        <a href="/financeiro" class="g-nav-link" data-label="Financeiro">
-          {{ icon("banknote", size=14) }}
-          <span>Financeiro</span>
-        </a>
-        <button class="g-nav-link" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit"
-                :class="mainMode==='embed' && iframeUrl==='/whatsapp' ? 'active' : ''"
-                @click="openEmbed('/whatsapp')" data-label="WhatsApp">
-          {{ icon("smartphone", size=14) }}
-          <span>WhatsApp</span>
-        </button>
-        <button class="g-nav-link" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;font-family:inherit"
-                :class="mainMode==='embed' && iframeUrl==='/habitos' ? 'active' : ''"
-                @click="openEmbed('/habitos')" data-label="Hábitos">
-          {{ icon("target", size=14) }}
-          <span>Hábitos</span>
-        </button>
-      </div>
     </div>
 
     <button class="g-archived-link" @click="openArchivedModal()">
