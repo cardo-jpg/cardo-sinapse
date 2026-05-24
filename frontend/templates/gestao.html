@@ -7,6 +7,28 @@
   <link rel="stylesheet" href="/static/style.css?v=2">
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <script defer src="https://unpkg.com/lucide@1.16.0/dist/umd/lucide.js"></script>
+  <script>
+    // Renderiza ícones Lucide e mantém em sincronia com mutações do Alpine
+    // (toggle de espaço/pasta cria <i data-lucide> novos via x-for).
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!window.lucide || typeof window.lucide.createIcons !== 'function') return;
+      window.lucide.createIcons();
+      const watchTargets = [document.querySelector('.g-nav'), document.querySelector('.fin-nav')].filter(Boolean);
+      if (!watchTargets.length) return;
+      let pending = false;
+      const flush = () => {
+        pending = false;
+        const has = watchTargets.some(t => t.querySelector('i[data-lucide]'));
+        if (has) window.lucide.createIcons();
+      };
+      const obs = new MutationObserver(() => {
+        if (pending) return;
+        pending = true;
+        requestAnimationFrame(flush);  // coalesce mutations no mesmo frame
+      });
+      watchTargets.forEach(t => obs.observe(t, { childList: true, subtree: true }));
+    });
+  </script>
   <script type="module">
     import { Editor } from 'https://esm.sh/@tiptap/core@2';
     import StarterKit from 'https://esm.sh/@tiptap/starter-kit@2';

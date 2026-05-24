@@ -1,5 +1,14 @@
 <script>if(window.self!==window.top)document.documentElement.classList.add('in-iframe');</script>
 <script defer src="https://unpkg.com/lucide@1.16.0/dist/umd/lucide.js"></script>
+<script>
+  // Renderiza ícones Lucide após DOM ready. Como _sidebar.html é estático
+  // (Jinja-renderizado), basta uma chamada inicial — não há reinjeções.
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+      window.lucide.createIcons();
+    }
+  });
+</script>
 <style>
   html.in-iframe .fin-nav { display: none !important; }
   html.in-iframe .fin-shell { display: block !important; height: 100vh; overflow: hidden; }

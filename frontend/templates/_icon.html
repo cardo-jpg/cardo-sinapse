@@ -1,0 +1,49 @@
+{#
+  Componente reutilizável de ícone para a sidebar.
+
+  USO (Jinja — uso estático):
+      {% from "_icon.html" import icon %}
+      {{ icon("folder") }}
+      {{ icon("briefcase", color="#ff4d00") }}
+      {{ icon("users", size=14) }}
+
+  USO (Alpine — uso dinâmico em x-for de gestão):
+      Para items vindos do banco/estado do Alpine, renderiza via template
+      condicional. O Alpine define `isLucideName(v)` no escopo principal:
+
+      <template x-if="isLucideName(item.icon)">
+        <i :data-lucide="item.icon" class="sb-icon" aria-hidden="true"
+           :style="`--sb-icon-color:${item.color||'#a0a4ab'};width:16px;height:16px`"></i>
+      </template>
+      <template x-if="!isLucideName(item.icon)">
+        <span class="sb-icon-emoji" aria-hidden="true" x-text="item.icon"></span>
+      </template>
+
+  FALLBACK INTELIGENTE:
+      Se `name` é ASCII puro (ex: "folder", "chart-bar"), assume nome Lucide
+      e renderiza <i data-lucide=...>. Se contém caracteres não-ASCII (emoji),
+      renderiza como texto literal. Permite que o template novo entre no ar
+      ANTES da migração do banco (período de transição sem janela quebrada).
+
+  COR:
+      Default `#a0a4ab` (cinza neutro). Injetada via custom property
+      `--sb-icon-color`, não via inline `color:`, pra permitir override
+      no :hover/:active via CSS sem brigar com specificity.
+
+  ACESSIBILIDADE:
+      aria-hidden="true" em todos — o texto-label ao lado já descreve o item.
+
+  RENDERIZAÇÃO:
+      Após inserção no DOM, lucide.createIcons() troca cada <i data-lucide=X>
+      por um <svg> inline. Wire global em DOMContentLoaded + MutationObserver
+      pra mudanças dinâmicas do Alpine.
+#}
+{% macro icon(name, color="#a0a4ab", size=16) -%}
+  {%- if name and name.strip() and name.isascii() -%}
+    <i data-lucide="{{ name }}" class="sb-icon" aria-hidden="true"
+       style="--sb-icon-color: {{ color }}; width: {{ size }}px; height: {{ size }}px;"></i>
+  {%- else -%}
+    <span class="sb-icon-emoji" aria-hidden="true"
+          style="font-size: {{ size - 2 }}px; width: {{ size }}px; line-height: 1; text-align: center;">{{ name }}</span>
+  {%- endif -%}
+{%- endmacro %}

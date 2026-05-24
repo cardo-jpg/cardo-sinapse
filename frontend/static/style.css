@@ -74,6 +74,7 @@
 
   /* ── Navegação ──────────────────────────────────────────────────── */
   --nav-indent: 12px;      /* incremento por nível de hierarquia (sidebar) */
+  --sb-icon-default: #a0a4ab;  /* cor padrão de ícones da sidebar */
 
   /* ── Brand (Cardō blue, mantidos) ───────────────────────────────── */
   --blue:        #19196c;
@@ -547,6 +548,36 @@ body {
 .apres-btn:hover:not(:disabled) { background: #d9511a; }
 .apres-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .apres-erro { background: #2a1a1a; border: 1px solid #c0392b; border-radius: 10px; padding: 14px; color: #e74c3c; font-size: 14px; }
+
+/* ── Sidebar icons (Lucide + fallback emoji) ─────────────────────────────── */
+/* Cor vem de --sb-icon-color (custom prop por elemento) ou do default global.
+   Hover/active da row escurece o ícone para --text-primary. Lucide createIcons()
+   preserva style/class ao trocar <i data-lucide=...> por <svg>. */
+.sb-icon {
+  color: var(--sb-icon-color, var(--sb-icon-default));
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  vertical-align: middle;
+}
+.sb-icon-emoji {
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  vertical-align: middle;
+}
+/* Hover/active das rows da sidebar escurece o ícone */
+.g-nav-link:hover .sb-icon,
+.g-space-row:hover .sb-icon,
+.g-folder-row:hover .sb-icon,
+.g-list-row:not(.active):hover .sb-icon,
+.g-feature-row:not(.active-link):hover .sb-icon,
+.g-doc-row:not(.active):hover .sb-icon,
+.g-nav-link.active .sb-icon,
+.g-nav-link.active-link .sb-icon,
+.g-list-row.active .sb-icon,
+.g-feature-row.active-link .sb-icon,
+.g-doc-row.active .sb-icon,
+.fin-nav-item:hover .sb-icon,
+.fin-nav-item.active .sb-icon { color: var(--text-primary); }
 
 /* ── fin-nav: sidebar padrão escuro (refinada Fase 5) ────────────────────── */
 .fin-nav { width: 260px; flex-shrink: 0; background: #0f0f1c; border-right: 1px solid var(--border-subtle); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
