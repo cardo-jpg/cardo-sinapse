@@ -471,12 +471,58 @@
     .g-breadcrumb-sep { color: var(--text-tertiary); }
     .g-breadcrumb-list { color: var(--text-primary); font-weight: var(--font-weight-medium); flex-shrink: 1; overflow: hidden; text-overflow: ellipsis; }
 
-    .view-toggle { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-    .view-btn { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; font-size: .78rem; border: none; background: none; color: var(--muted); cursor: pointer; transition: background .12s, color .12s; }
-    .view-btn.active { background: var(--accent); color: #fff; font-weight: 600; }
-    .view-btn:not(.active):hover { background: #ffffff0a; color: var(--text); }
+    /* Segmented control (Lista/Quadro/Formulários) — wrapper estilo Linear */
+    .view-toggle {
+      display: inline-flex; align-items: center;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-default);
+      border-radius: 8px;
+      padding: 3px;
+      height: 32px; box-sizing: border-box;
+      gap: 2px;
+    }
+    /* Botões dentro do segmented: encaixam no wrapper (24px inner) */
+    .view-toggle .view-btn {
+      height: 24px; padding: 0 10px;
+      border-radius: 5px;
+      gap: 5px;
+    }
 
-    .g-new-btn { padding: 7px 14px; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-size: .82rem; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+    /* Ghost button standalone (Pessoas, Concluídas, Filtros, Agrupar, Colunas) */
+    .view-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 0 10px;
+      height: 32px; box-sizing: border-box;
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-normal);
+      color: var(--text-secondary);
+      border: none; background: none;
+      cursor: pointer; border-radius: 6px;
+      white-space: nowrap;
+      transition: background 150ms ease, color 150ms ease;
+    }
+    .view-btn:not(.active):hover { background: var(--bg-elevated); color: var(--text-primary); }
+    /* Active translúcido (não compete com o + Nova tarefa que é o único laranja sólido) */
+    .view-btn.active {
+      background: rgba(232, 100, 58, 0.20);
+      color: var(--text-primary);
+      font-weight: var(--font-weight-medium);
+    }
+    .view-btn.active svg { color: var(--accent); }
+
+    /* Primary action: + Nova tarefa — única fonte de laranja sólido no header */
+    .g-new-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 0 12px;
+      height: 32px; box-sizing: border-box;
+      background: var(--accent);
+      color: #fff;
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-medium);
+      border: none; border-radius: 8px;
+      cursor: pointer; white-space: nowrap; flex-shrink: 0;
+      transition: background 150ms ease;
+    }
     .g-new-btn:hover { background: var(--accent-hover); }
 
     /* empty state */
@@ -818,7 +864,17 @@
     .filter-add-btn { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 6px; background: none; border: 1px dashed #383838; color: var(--muted); font-size: .82rem; cursor: pointer; transition: border-color .12s, color .12s; margin-top: 4px; }
     .filter-add-btn:hover { border-color: var(--accent); color: var(--accent); }
     .filter-field-picker { position: absolute; top: calc(100% + 4px); left: 0; z-index: 10; background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 6px; min-width: 220px; box-shadow: 0 8px 20px #000a; }
-    .filter-count-badge { background: var(--accent); color: #fff; border-radius: 8px; padding: 0 5px; font-size: .68rem; margin-left: 4px; font-weight: 700; }
+    /* Badge "1" do filtros: laranja translúcido (vai junto com .view-btn.active) */
+    .filter-count-badge {
+      background: rgba(232, 100, 58, 0.20);
+      color: var(--accent);
+      border-radius: 8px;
+      padding: 0 5px;
+      font-size: var(--font-size-xs);
+      margin-left: 4px;
+      font-weight: var(--font-weight-medium);
+      min-width: 16px; text-align: center; line-height: 16px;
+    }
     .assignee-panel {
       position: absolute; top: calc(100% + 6px); right: 0; z-index: 900;
       background: #1a1a1a; border: 1px solid #2e2e2e; border-radius: 10px;
