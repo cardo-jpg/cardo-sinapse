@@ -213,7 +213,6 @@
     }
     .g-list-row.active { background: var(--bg-tertiary); color: var(--text-primary); font-weight: var(--font-weight-medium); }
     .g-list-row:not(.active):hover { background: var(--bg-tertiary); color: var(--text-primary); }
-    .g-list-dot { display: none; }
     /* Lista direta (sem folder pai): empurrada para o mesmo offset de texto
        das listas dentro de folder (L3 = 32px), pra alinhar visualmente com
        o texto das folders em outros espaços. Espaços que só têm direct_lists
@@ -309,8 +308,12 @@
     .g-space-icon-wrap:hover .g-space-icon-emoji { opacity: 0; }
     .g-space-icon-wrap:hover .g-space-chevron-hover { opacity: 1; }
 
-    /* list dot */
-    .g-list-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    /* List dot: NÃO é visual, é spacer de layout.
+       Lists sem icon caem no fallback que renderiza este elemento.
+       width 14px = mesma do <i data-lucide> (Lucide branch) → garante que
+       o texto começa na mesma posição independente de ter icon ou não.
+       visibility:hidden em vez de display:none preserva o slot no flex. */
+    .g-list-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; visibility: hidden; }
 
     /* color/icon picker swatches */
     .ci-swatch {
