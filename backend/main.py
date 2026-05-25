@@ -1646,6 +1646,273 @@ async def cerebro_client_page(sigla: str, request: Request):
         return RedirectResponse("/login")
     return _render_cerebro(request, _cerebro_client(sigla))
 
+
+# ── Cérebro · contexto estruturado dos 4 cards (Commit 3) ──────────────────────
+def _fmt_due(s):
+    """due_date é TEXT (YYYY-MM-DD…) → DD/MM. Best-effort."""
+    if not s:
+        return None
+    s = str(s)[:10]
+    try:
+        return datetime.strptime(s, "%Y-%m-%d").strftime("%d/%m")
+    except Exception:
+        return s
+
+def _brl_to_float(s):
+    """'R$ 1.182,22' → 1182.22. None se não parsear."""
+    s = re.sub(r"[^\d,.-]", "", s or "")
+    if not s:
+        return None
+    s = s.replace(".", "").replace(",", ".")
+    try:
+        return float(s)
+    except Exception:
+        return None
+
+def _int_br(s):
+    """'7.498' → 7498. None se vazio."""
+    s = re.sub(r"[^\d]", "", s or "")
+    try:
+        return int(s) if s else None
+    except Exception:
+        return None
+
+def _parse_perf_md(txt):
+    """Extrai métricas da tabela Google Ads (linha TOTAL) de um performance_*.md."""
+    out = {}
+    m = re.search(r"Google Ads\s*[—–-]\s*([0-9/]+\s*a\s*[0-9/]+)", txt)
+    if m:
+        out["periodo"] = m.group(1).strip()
+    lines = [l for l in txt.splitlines() if l.strip().startswith("|")]
+    header = None
+    total = None
+    for l in lines:
+        cells = [c.strip().strip("*").strip() for c in l.strip().strip("|").split("|")]
+        low = [c.lower() for c in cells]
+        if header is None and any(("investido" in c or "investimento" in c) for c in low) and any("lead" in c for c in low):
+            header = low
+            continue
+        if header and any("total" in c for c in low):
+            total = cells
+            break
+    if header and total and len(total) == len(header):
+        def col(*names):
+            for i, h in enumerate(header):
+                if any(n in h for n in names):
+                    return total[i]
+            return None
+        inv = _brl_to_float(col("investido", "investimento"))
+        leads = _int_br(col("lead"))
+        out.update({
+            "investido": inv,
+            "leads": leads,
+            "impressoes": _int_br(col("impress")),
+            "cliques": _int_br(col("clique")),
+            "cpl": round(inv / leads, 2) if (inv and leads) else None,
+        })
+    return out or None
+
+def _cerebro_perf(sigla):
+    """Card Performance — métricas de campanha do performance_*.md da pasta do cliente."""
+    sub = _client_subdir_for(sigla)
+    if not sub:
+        return None
+    files = list(sub.glob("performance*.md")) + list(sub.glob("Performance*.md"))
+    if not files:
+        return None
+    files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    for f in files:
+        try:
+            data = _parse_perf_md(f.read_text(encoding="utf-8"))
+        except Exception:
+            data = None
+        if data:
+            return data
+    return None
+
+def _cerebro_whatsapp(sigla):
+    """Card WhatsApp — última msg + não-lidas (heurística) + grupos ativos."""
+    try:
+        conn = get_conn(); cur = dict_cursor(conn)
+        try:
+            cur.execute(
+                """SELECT m.from_me, m.sender_name, m.tipo, m.body, m.transcricao, m.message_timestamp
+                     FROM wa_mensagens m
+                     JOIN wa_grupos g ON g.id = m.grupo_id
+                     JOIN clientes c ON c.id = g.cliente_id
+                    WHERE UPPER(c.sigla)=%s AND g.ativo=TRUE
+                    ORDER BY m.message_timestamp DESC NULLS LAST LIMIT 1""",
+                (sigla,),
+            )
+            last = cur.fetchone()
+            if not last:
+                return None
+            # não-lidas: msgs do cliente após a última resposta da agência (from_me=true)
+            cur.execute(
+                """SELECT COUNT(*) AS n
+                     FROM wa_mensagens m
+                     JOIN wa_grupos g ON g.id = m.grupo_id
+                     JOIN clientes c ON c.id = g.cliente_id
+                    WHERE UPPER(c.sigla)=%s AND g.ativo=TRUE AND m.from_me=FALSE
+                      AND m.message_timestamp > COALESCE((
+                          SELECT MAX(m2.message_timestamp)
+                            FROM wa_mensagens m2
+                            JOIN wa_grupos g2 ON g2.id = m2.grupo_id
+                            JOIN clientes c2 ON c2.id = g2.cliente_id
+                           WHERE UPPER(c2.sigla)=%s AND m2.from_me=TRUE
+                      ), '-infinity'::timestamptz)""",
+                (sigla, sigla),
+            )
+            nao_lidas = (cur.fetchone() or {}).get("n", 0)
+            cur.execute(
+                """SELECT COUNT(*) AS n FROM wa_grupos g JOIN clientes c ON c.id=g.cliente_id
+                    WHERE UPPER(c.sigla)=%s AND g.ativo=TRUE""",
+                (sigla,),
+            )
+            grupos = (cur.fetchone() or {}).get("n", 0)
+        finally:
+            cur.close(); conn.close()
+    except Exception:
+        return None
+    tipo = last.get("tipo") or "text"
+    if tipo == "audio":
+        preview = "[áudio] " + (last.get("transcricao") or "")
+    elif tipo == "text":
+        preview = last.get("body") or ""
+    else:
+        preview = f"[{tipo}] " + (last.get("body") or "")
+    preview = (preview or "").strip()
+    if len(preview) > 120:
+        preview = preview[:117] + "…"
+    ts = last.get("message_timestamp")
+    quando = ts.strftime("%d/%m %H:%M") if isinstance(ts, datetime) else None
+    autor = "Agência" if last.get("from_me") else (last.get("sender_name") or "Cliente")
+    return {
+        "ultima": {"autor": autor, "preview": preview, "quando": quando},
+        "nao_lidas": int(nao_lidas or 0),
+        "grupos": int(grupos or 0),
+    }
+
+def _cerebro_atas(sigla, limit=5):
+    """Card Atas — docs do cliente sob pasta/parent contendo 'ata' (top N recentes)."""
+    sigla = sigla.upper()
+    nome = _resolve_client_name(sigla)
+    patterns = [f"%[{sigla}]%"]
+    if nome:
+        patterns.append(f"%{nome}%")
+    out = []
+    try:
+        conn = get_conn(); cur = dict_cursor(conn)
+        try:
+            ph_t = " OR ".join(["title ILIKE %s"] * len(patterns))
+            ph_f = " OR ".join(["f.name ILIKE %s"] * len(patterns))
+            sql = f"""
+                WITH RECURSIVE doc_tree AS (
+                    SELECT id FROM documents WHERE {ph_t}
+                  UNION
+                    SELECT d.id FROM documents d LEFT JOIN folders f ON f.id=d.folder_id WHERE {ph_f}
+                  UNION
+                    SELECT d.id FROM documents d INNER JOIN doc_tree dt ON d.parent_id=dt.id
+                )
+                SELECT DISTINCT d.id, d.title, d.updated_at,
+                       COALESCE(f.name,'') AS folder_name, COALESCE(p.title,'') AS parent_title
+                  FROM documents d
+                  LEFT JOIN folders f ON f.id=d.folder_id
+                  LEFT JOIN documents p ON p.id=d.parent_id
+                 WHERE d.id IN (SELECT id FROM doc_tree)
+                   AND (f.name ILIKE '%%ata%%' OR p.title ILIKE '%%ata%%')
+                 ORDER BY d.updated_at DESC LIMIT %s
+            """
+            cur.execute(sql, patterns + patterns + [limit])
+            for r in cur.fetchall() or []:
+                ts = r.get("updated_at")
+                out.append({
+                    "doc_id": r.get("id"),
+                    "titulo": r.get("title") or "Sem título",
+                    "data": ts.strftime("%d/%m/%Y") if isinstance(ts, datetime) else None,
+                })
+        finally:
+            cur.close(); conn.close()
+    except Exception:
+        return []
+    return out
+
+def _cerebro_tarefas(sigla, limit=8):
+    """Card Tarefas — tarefas abertas do cliente.
+    Casa por cf 'Cliente' (== sigla ou [sigla]) OU título com [SIGLA]
+    (convenção dominante: Pendências Clientes, painel, etc.). Top-level, exclui done."""
+    sigla = sigla.upper()
+    tag = f"[{sigla}]"
+    DONE = {"concluido", "concluído", "done", "closed", "finalizado"}
+    seen = set()
+    out = []
+    def _add(t):
+        tid = t.get("id")
+        if tid in seen:
+            return
+        if str(t.get("status") or "").strip().lower() in DONE:
+            return
+        seen.add(tid)
+        out.append({
+            "titulo": t.get("title") or "Sem título",
+            "status": t.get("status") or "",
+            "prazo": _fmt_due(t.get("due_date")),
+        })
+    try:
+        conn = get_conn(); cur = dict_cursor(conn)
+        try:
+            # 1. cf 'Cliente' apontando pra sigla
+            cur.execute("SELECT id, custom_fields FROM lists WHERE custom_fields ILIKE '%cliente%'")
+            pairs = []
+            for r in cur.fetchall() or []:
+                try:
+                    cfs = json.loads(r.get("custom_fields") or "[]")
+                except Exception:
+                    cfs = []
+                for cf in cfs:
+                    if isinstance(cf, dict) and (cf.get("name", "").strip().lower() == "cliente"):
+                        pairs.append((r["id"], cf.get("id")))
+            for (lid, cfid) in pairs:
+                if not cfid:
+                    continue
+                cur.execute(
+                    "SELECT id, title, status, due_date, cf_values FROM tasks "
+                    "WHERE list_id=%s AND (parent_task_id IS NULL OR parent_task_id='')",
+                    (lid,),
+                )
+                for t in cur.fetchall() or []:
+                    try:
+                        cfv = json.loads(t.get("cf_values") or "{}")
+                    except Exception:
+                        cfv = {}
+                    val = str(cfv.get(cfid) or "").strip().upper()
+                    if val == sigla or tag in val:
+                        _add(t)
+            # 2. título com [SIGLA]
+            cur.execute(
+                "SELECT id, title, status, due_date FROM tasks "
+                "WHERE title ILIKE %s AND (parent_task_id IS NULL OR parent_task_id='')",
+                (f"%{tag}%",),
+            )
+            for t in cur.fetchall() or []:
+                _add(t)
+        finally:
+            cur.close(); conn.close()
+    except Exception:
+        return []
+    return out[:limit]
+
+@app.get("/api/cerebro/{sigla}/context")
+async def cerebro_context(sigla: str, request: Request):
+    if not verify_session(request):
+        raise HTTPException(status_code=401)
+    return JSONResponse({
+        "performance": _cerebro_perf(sigla),
+        "whatsapp": _cerebro_whatsapp(sigla),
+        "atas": _cerebro_atas(sigla),
+        "tarefas": _cerebro_tarefas(sigla),
+    })
+
 @app.get("/ata", response_class=HTMLResponse)
 async def ata_page(request: Request):
     if not verify_session(request):

@@ -34,13 +34,14 @@
       color: var(--text-primary);
     }
 
-    /* ── Coluna 2: painel de contexto ─────────────────────────────────────── */
+    /* ── Painel de contexto (coluna da direita) ───────────────────────────── */
     .cb-context {
       width: 280px; flex-shrink: 0;
       background: var(--bg-primary);
-      border-right: 1px solid var(--border-subtle);
+      border-left: 1px solid var(--border-subtle);
       display: flex; flex-direction: column;
       overflow-y: auto; min-height: 0;
+      order: 2;  /* chat à esquerda, contexto à direita */
     }
     .cb-context-head {
       padding: var(--space-4) var(--space-4) var(--space-2);
@@ -65,6 +66,27 @@
       font-size: var(--font-size-sm); color: var(--text-tertiary);
       line-height: var(--line-height-normal);
     }
+    .cb-card-head .cb-badge {
+      margin-left: auto; min-width: 18px; height: 18px; padding: 0 5px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--accent); color: #fff; font-size: 11px; font-weight: var(--font-weight-semibold);
+      border-radius: 999px;
+    }
+    /* key-value (Performance) */
+    .cb-kv { display: flex; flex-direction: column; gap: 5px; }
+    .cb-perf-period { margin-top: 8px; font-size: var(--font-size-xs); color: var(--text-tertiary); }
+    .cb-kv-row { display: flex; justify-content: space-between; gap: 10px; font-size: var(--font-size-sm); }
+    .cb-kv-row > span:first-child { color: var(--text-tertiary); flex-shrink: 0; }
+    .cb-kv-row > span:last-child { color: var(--text-secondary); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* WhatsApp */
+    .cb-wa-meta { font-size: var(--font-size-xs); color: var(--text-tertiary); margin-bottom: 3px; }
+    .cb-wa-preview { font-size: var(--font-size-sm); color: var(--text-secondary); line-height: var(--line-height-normal);
+                     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    /* listas (Atas, Tarefas) */
+    .cb-list { display: flex; flex-direction: column; gap: 7px; }
+    .cb-list-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+    .cb-list-title { font-size: var(--font-size-sm); color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cb-list-meta { font-size: var(--font-size-xs); color: var(--text-tertiary); flex-shrink: 0; }
 
     /* ── Coluna 3: chat ───────────────────────────────────────────────────── */
     .cb-chat { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
@@ -162,7 +184,7 @@
     .cb-drawer-foot a { display: block; padding: 6px 10px; font-size: var(--font-size-xs); color: var(--text-tertiary); text-decoration: none; }
     .cb-drawer-foot a:hover { color: var(--accent); }
 
-    /* ── mensagens ────────────────────────────────────────────────────────── */
+        /* ── mensagens ────────────────────────────────────────────────────────── */
     .cb-messages { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-6) var(--space-4); }
     .cb-thread { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--space-4); }
 
@@ -183,15 +205,32 @@
     .cb-msg { display: flex; }
     .cb-msg.user { justify-content: flex-end; }
     .cb-bubble {
-      max-width: 80%; padding: 10px 14px; border-radius: 12px;
-      font-size: var(--font-size-md); line-height: var(--line-height-normal);
+      max-width: 82%; padding: 14px 18px; border-radius: 14px;
+      font-size: var(--font-size-md); line-height: 1.65;
     }
-    .cb-msg.user .cb-bubble { background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
-    .cb-msg.assistant .cb-bubble { background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-subtle); border-bottom-left-radius: 4px; }
-    .cb-bubble :first-child { margin-top: 0; }
-    .cb-bubble :last-child { margin-bottom: 0; }
-    .cb-bubble p { margin: 0 0 .5em; }
+    .cb-msg.user .cb-bubble { background: var(--accent); color: #fff; border-bottom-right-radius: 4px; max-width: 75%; }
+    .cb-msg.assistant .cb-bubble { background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-subtle); border-bottom-left-radius: 4px; padding: 16px 20px; }
+    /* markdown dentro do bubble — respiro */
+    .cb-bubble > :first-child { margin-top: 0; }
+    .cb-bubble > :last-child { margin-bottom: 0; }
+    .cb-bubble p { margin: 0 0 .7em; }
+    .cb-bubble h1, .cb-bubble h2, .cb-bubble h3, .cb-bubble h4 {
+      margin: 1.15em 0 .55em; line-height: 1.3; font-weight: var(--font-weight-semibold);
+    }
+    .cb-bubble h1 { font-size: 1.2em; } .cb-bubble h2 { font-size: 1.12em; } .cb-bubble h3 { font-size: 1.05em; }
+    .cb-bubble ul, .cb-bubble ol { margin: .5em 0 .85em; padding-left: 1.45em; }
+    .cb-bubble li { margin: .35em 0; }
+    .cb-bubble li::marker { color: var(--text-tertiary); }
+    .cb-bubble strong { font-weight: var(--font-weight-semibold); color: var(--text-primary); }
+    .cb-bubble a { color: var(--accent); text-decoration: underline; }
+    .cb-bubble hr { border: none; border-top: 1px solid var(--border-default); margin: 1.1em 0; }
     .cb-bubble code { background: var(--bg-primary); padding: 1px 5px; border-radius: 4px; font-size: .9em; }
+    .cb-bubble pre { background: var(--bg-primary); padding: 12px 14px; border-radius: 8px; overflow-x: auto; margin: .6em 0 .9em; }
+    .cb-bubble pre code { background: none; padding: 0; }
+    .cb-bubble table { border-collapse: collapse; width: 100%; margin: .7em 0 .95em; font-size: .94em; }
+    .cb-bubble th, .cb-bubble td { padding: 7px 12px; text-align: left; border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
+    .cb-bubble th { color: var(--text-secondary); font-weight: var(--font-weight-semibold); }
+    .cb-bubble tbody tr:last-child td { border-bottom: none; }
 
     .cb-typing { display: inline-flex; gap: 4px; }
     .cb-typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--text-tertiary); animation: cb-blink 1.2s infinite both; }
@@ -231,26 +270,75 @@
   <main class="sinapse-main cb-main" x-data="cerebro()">
     <input type="hidden" id="cbUserName" value="{{ nav_username }}">
 
-    <!-- ── Coluna 2: painel de contexto (placeholders — Commit 3 integra) ── -->
+    <!-- ── Coluna 2: painel de contexto (dados reais — Commit 3) ── -->
     <aside class="cb-context">
       <div class="cb-context-head" x-text="client ? 'Contexto · ' + client.sigla : 'Contexto'"></div>
       <div class="cb-cards">
+
+        <!-- Performance -->
         <div class="cb-card">
           <div class="cb-card-head">{{ icon("trending-up", size=14) }} Performance</div>
-          <div class="cb-card-empty">Sem dados ainda.</div>
+          <template x-if="contextLoading"><div class="cb-card-empty">Carregando…</div></template>
+          <template x-if="!contextLoading && !client"><div class="cb-card-empty">Selecione um cliente.</div></template>
+          <template x-if="!contextLoading && client && !context.performance"><div class="cb-card-empty">Sem dados.</div></template>
+          <template x-if="!contextLoading && context.performance">
+            <div>
+              <div class="cb-kv">
+                <template x-if="context.performance.investido!=null"><div class="cb-kv-row"><span>Investido</span><span x-text="fmtBRL(context.performance.investido)"></span></div></template>
+                <template x-if="context.performance.leads!=null"><div class="cb-kv-row"><span>Leads</span><span x-text="fmtInt(context.performance.leads)"></span></div></template>
+                <template x-if="context.performance.cpl!=null"><div class="cb-kv-row"><span>CPL</span><span x-text="fmtBRL(context.performance.cpl)"></span></div></template>
+                <template x-if="context.performance.impressoes!=null"><div class="cb-kv-row"><span>Impressões</span><span x-text="fmtInt(context.performance.impressoes)"></span></div></template>
+                <template x-if="context.performance.cliques!=null"><div class="cb-kv-row"><span>Cliques</span><span x-text="fmtInt(context.performance.cliques)"></span></div></template>
+              </div>
+              <div class="cb-perf-period" x-show="context.performance.periodo" x-text="'Google Ads · ' + context.performance.periodo"></div>
+            </div>
+          </template>
         </div>
+
+        <!-- WhatsApp -->
         <div class="cb-card">
-          <div class="cb-card-head">{{ icon("message-circle", size=14) }} WhatsApp</div>
-          <div class="cb-card-empty">Sem dados ainda.</div>
+          <div class="cb-card-head">
+            {{ icon("message-circle", size=14) }} WhatsApp
+            <span class="cb-badge" x-show="context.whatsapp && context.whatsapp.nao_lidas" x-text="context.whatsapp ? context.whatsapp.nao_lidas : ''"></span>
+          </div>
+          <template x-if="contextLoading"><div class="cb-card-empty">Carregando…</div></template>
+          <template x-if="!contextLoading && client && !context.whatsapp"><div class="cb-card-empty">Sem mensagens.</div></template>
+          <template x-if="!contextLoading && context.whatsapp">
+            <div>
+              <div class="cb-wa-meta"><span x-text="context.whatsapp.ultima.autor"></span><span x-show="context.whatsapp.ultima.quando"> · <span x-text="context.whatsapp.ultima.quando"></span></span></div>
+              <div class="cb-wa-preview" x-text="context.whatsapp.ultima.preview"></div>
+            </div>
+          </template>
         </div>
+
+        <!-- Atas -->
         <div class="cb-card">
           <div class="cb-card-head">{{ icon("file-text", size=14) }} Atas</div>
-          <div class="cb-card-empty">Sem dados ainda.</div>
+          <template x-if="contextLoading"><div class="cb-card-empty">Carregando…</div></template>
+          <template x-if="!contextLoading && (!client || !context.atas.length)"><div class="cb-card-empty">Nenhuma ata.</div></template>
+          <template x-if="!contextLoading && context.atas.length">
+            <div class="cb-list">
+              <template x-for="a in context.atas" :key="a.doc_id">
+                <div class="cb-list-row"><span class="cb-list-title" x-text="a.titulo"></span><span class="cb-list-meta" x-text="a.data"></span></div>
+              </template>
+            </div>
+          </template>
         </div>
+
+        <!-- Tarefas -->
         <div class="cb-card">
           <div class="cb-card-head">{{ icon("list-checks", size=14) }} Tarefas</div>
-          <div class="cb-card-empty">Sem dados ainda.</div>
+          <template x-if="contextLoading"><div class="cb-card-empty">Carregando…</div></template>
+          <template x-if="!contextLoading && (!client || !context.tarefas.length)"><div class="cb-card-empty">Nenhuma tarefa aberta.</div></template>
+          <template x-if="!contextLoading && context.tarefas.length">
+            <div class="cb-list">
+              <template x-for="(t, i) in context.tarefas" :key="i">
+                <div class="cb-list-row"><span class="cb-list-title" x-text="t.titulo"></span><span class="cb-list-meta" x-text="t.prazo"></span></div>
+              </template>
+            </div>
+          </template>
         </div>
+
       </div>
     </aside>
 
@@ -284,7 +372,7 @@
             {{ icon("message-square", size=14) }} Conversas
           </button>
           <button class="cb-new-btn" @click="newChat()">
-            {{ icon("plus", size=14) }} Nova chat
+            {{ icon("plus", size=14, color="#ffffff") }} Novo chat
           </button>
         </div>
 
@@ -334,7 +422,7 @@
                     @input="autoGrow($event)"
                     @keydown.enter="if(!$event.shiftKey){ $event.preventDefault(); send(); }"></textarea>
           <button class="cb-send" @click="send()" :disabled="!input.trim() || sending" aria-label="Enviar">
-            {{ icon("arrow-up", size=16) }}
+            {{ icon("arrow-up", size=16, color="#ffffff") }}
           </button>
         </div>
       </div>
@@ -357,8 +445,8 @@
       clientMenu: false, clients: [], clientsLoaded: false, clientQ: '',
       userName: (document.getElementById('cbUserName') || {}).value || 'colaborador',
 
-      // Contexto mockado/vazio — Commit 3 substitui por /api/cerebro/{sigla}/context
       context: { performance: null, whatsapp: null, atas: [], tarefas: [] },
+      contextLoading: false,
 
       // Sugestões estáticas — Commit 5 gera dinamicamente do contexto real
       suggestions: [
@@ -371,6 +459,32 @@
       init() {
         this.$nextTick(() => window.lucide && lucide.createIcons());
         this.loadConvs();
+        if (this.client) this.loadContext();
+      },
+
+      async loadContext() {
+        if (!this.client) return;
+        this.contextLoading = true;
+        try {
+          const r = await fetch('/api/cerebro/' + encodeURIComponent(this.client.sigla) + '/context');
+          const d = await r.json();
+          this.context = {
+            performance: d.performance || null,
+            whatsapp: d.whatsapp || null,
+            atas: d.atas || [],
+            tarefas: d.tarefas || [],
+          };
+        } catch (e) {}
+        this.contextLoading = false;
+      },
+      fmtBRL(n) {
+        if (n == null) return '';
+        try { return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }); }
+        catch (e) { return 'R$ ' + n; }
+      },
+      fmtInt(n) {
+        if (n == null) return '';
+        try { return n.toLocaleString('pt-BR'); } catch (e) { return '' + n; }
       },
 
       // Seletor mínimo de cliente (⌘K palette completo vem no Commit 4)
