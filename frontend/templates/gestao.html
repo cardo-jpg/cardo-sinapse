@@ -362,27 +362,10 @@
     .ci-icon-btn svg { width: 16px; height: 16px; vertical-align: middle; color: var(--text-secondary); }
     .ci-icon-btn.selected svg { color: var(--accent); }
     /* tabs Emoji/Ícones do picker */
-    .ci-icon-tabs { display: inline-flex; gap: 2px; background: var(--bg-tertiary); border-radius: 8px; padding: 2px; margin-bottom: 10px; }
-    .ci-icon-tab {
-      background: none; border: none; cursor: pointer;
-      font-size: .8rem; color: var(--text-tertiary);
-      padding: 5px 12px; border-radius: 6px; transition: background .1s, color .1s;
-    }
-    .ci-icon-tab:hover { color: var(--text-secondary); }
-    .ci-icon-tab.active { background: var(--bg-elevated); color: var(--text-primary); }
-    .emoji-search { width:100%; padding:7px 10px; border-radius:8px; border:1px solid var(--border);
-                    background:var(--bg); color:var(--text); font-size:.82rem; outline:none; }
-    .emoji-search:focus { border-color: var(--accent); }
-    .emoji-cats { display:flex; gap:2px; overflow-x:auto; padding-bottom:2px; scrollbar-width:none; }
-    .emoji-cats::-webkit-scrollbar { display:none; }
-    .emoji-cat-btn { background:none; border:none; cursor:pointer; font-size:1rem; padding:4px 7px;
-                     border-radius:6px; flex-shrink:0; opacity:.5; transition:opacity .1s, background .1s; }
-    .emoji-cat-btn:hover { opacity:.85; background:#ffffff0a; }
-    .emoji-cat-btn.active { opacity:1; background:#ffffff12; }
-    .emoji-grid { display:grid; grid-template-columns:repeat(10,1fr); gap:2px;
-                  max-height:220px; overflow-y:auto; padding-right:2px; scrollbar-width:thin; }
-    .emoji-grid::-webkit-scrollbar { width:4px; }
-    .emoji-grid::-webkit-scrollbar-thumb { background:#ffffff20; border-radius:2px; }
+    .icon-grid { display:grid; grid-template-columns:repeat(8,1fr); gap:2px;
+                 max-height:220px; overflow-y:auto; padding-right:2px; scrollbar-width:thin; }
+    .icon-grid::-webkit-scrollbar { width:4px; }
+    .icon-grid::-webkit-scrollbar-thumb { background:#ffffff20; border-radius:2px; }
 
     /* ── dropdown menus ──────────────────────────────────────────────────────── */
     .ctx-menu {
@@ -559,20 +542,20 @@
     /* Ícone Lucide dentro de botão do toolbar: herda currentColor (segue cor do botão/active) + tamanho 14 */
     .view-btn svg.lucide { width: 14px; height: 14px; }
 
-    /* Primary action: + Nova tarefa — ghost com accent (primary sem gritar) */
+    /* Primary action: + Nova tarefa — fonte de laranja sólido no header */
     .g-new-btn {
       display: inline-flex; align-items: center; gap: 8px;
       padding: 0 12px;
       height: 32px; box-sizing: border-box;
-      background: transparent;
-      color: var(--accent);
+      background: var(--accent);
+      color: #fff;
       font-size: var(--font-size-xs);
       font-weight: var(--font-weight-medium);
-      border: 1px solid var(--accent); border-radius: 8px;
+      border: none; border-radius: 8px;
       cursor: pointer; white-space: nowrap; flex-shrink: 0;
-      transition: background 150ms ease, color 150ms ease;
+      transition: background 150ms ease;
     }
-    .g-new-btn:hover { background: var(--accent-soft); }
+    .g-new-btn:hover { background: var(--accent-hover); }
 
     /* empty state */
     .g-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--muted); padding: 40px; }
@@ -4656,44 +4639,17 @@
         </div>
       </div>
 
-      <!-- icon picker (spaces and lists only) -->
+      <!-- icon picker (spaces and lists only) — Lucide apenas -->
       <template x-if="ciType !== 'folder'">
         <div>
           <div class="form-label" style="margin-bottom:8px">Ícone</div>
-          <div class="ci-icon-tabs">
-            <button class="ci-icon-tab" :class="ciIconTab==='lucide'?'active':''" @click="ciIconTab='lucide'">Ícones</button>
-            <button class="ci-icon-tab" :class="ciIconTab==='emoji'?'active':''" @click="ciIconTab='emoji'">Emoji</button>
+          <div class="icon-grid">
+            <template x-for="ic in LUCIDE_ICONS" :key="ic">
+              <div class="ci-icon-btn" :class="ciIcon===ic?'selected':''" @click="ciIcon=ic" :title="ic">
+                <i :data-lucide="ic" aria-hidden="true" style="width:16px;height:16px"></i>
+              </div>
+            </template>
           </div>
-
-          <!-- Lucide -->
-          <template x-if="ciIconTab==='lucide'">
-            <div class="emoji-grid" style="grid-template-columns:repeat(8,1fr)">
-              <template x-for="ic in LUCIDE_ICONS" :key="ic">
-                <div class="ci-icon-btn" :class="ciIcon===ic?'selected':''" @click="ciIcon=ic" :title="ic">
-                  <i :data-lucide="ic" aria-hidden="true" style="width:16px;height:16px"></i>
-                </div>
-              </template>
-            </div>
-          </template>
-
-          <!-- Emoji -->
-          <template x-if="ciIconTab==='emoji'">
-            <div>
-              <input class="emoji-search" type="text" placeholder="Buscar emoji..." x-model="emojiSearch" @input="emojiCatIdx=-1">
-              <div class="emoji-cats" style="margin:8px 0 6px">
-                <template x-for="(cat, i) in EMOJI_CATS" :key="cat.n">
-                  <button class="emoji-cat-btn" :class="emojiCatIdx===i ? 'active':''"
-                          @click="emojiSearch=''; emojiCatIdx=i" x-text="cat.i" :title="cat.n"></button>
-                </template>
-              </div>
-              <div class="emoji-grid">
-                <template x-for="ic in filteredEmojiList" :key="ic">
-                  <div class="ci-icon-btn" :class="ciIcon===ic?'selected':''"
-                       @click="ciIcon=ic" x-text="ic"></div>
-                </template>
-              </div>
-            </div>
-          </template>
         </div>
       </template>
 
@@ -5690,7 +5646,6 @@ document.addEventListener('alpine:init', () => {
 
     colorIconModal: false,
     ciType:'', ciTarget:null, ciColor:'#EB7321', ciIcon:'⚡',
-    ciIconTab: 'lucide',
     LUCIDE_ICONS: [
       'folder','briefcase','rocket','target','flag','star','heart','zap',
       'bell','calendar','clipboard','file-text','layers','box','package','tag',
@@ -5699,20 +5654,6 @@ document.addEventListener('alpine:init', () => {
       'map-pin','home','settings','wrench','code','terminal','database','cloud',
       'lock','shield','lightbulb','coffee','gift','award','smile','check-circle'
     ],
-    emojiSearch: '', emojiCatIdx: 0,
-    get EMOJI_CATS() { return window._EMOJI_CATS || []; },
-    get filteredEmojiList() {
-      const cats = window._EMOJI_CATS || [];
-      if (this.emojiSearch.trim()) {
-        const q = this.emojiSearch.toLowerCase();
-        return cats.flatMap(c => c.e).filter(e => {
-          const meta = (window._EMOJI_META || {})[e] || '';
-          return meta.includes(q);
-        });
-      }
-      const idx = this.emojiCatIdx >= 0 ? this.emojiCatIdx : 0;
-      return (cats[idx] || cats[0] || {e:[]}).e;
-    },
     colorPalette: [
       '#ef4444','#f97316','#f59e0b','#eab308','#84cc16','#22c55e',
       '#10b981','#14b8a6','#06b6d4','#3b82f6','#6366f1','#8b5cf6',
@@ -6194,7 +6135,6 @@ document.addEventListener('alpine:init', () => {
       this.ciTarget = target;
       this.ciColor = target.color || '#6b7280';
       this.ciIcon  = target.icon  || '⚡';
-      this.ciIconTab = this.isLucideName(this.ciIcon) ? 'lucide' : 'emoji';
       this.colorIconModal = true;
     },
     async submitColorIcon() {
@@ -8194,28 +8134,6 @@ document.addEventListener('alpine:init', () => {
     });
   });
 })();
-</script>
-<script>
-// ── Full iOS Emoji Dataset ────────────────────────────────────────────────
-window._EMOJI_CATS = [
-  { n:'Smileys', i:'😀', e:['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','🙃','🫠','😉','😊','😇','🥰','😍','🤩','😘','😗','☺️','😚','😙','🥲','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🫢','🫣','🤫','🤔','🫡','🤐','🤨','😐','😑','😶','🫥','😶‍🌫️','😏','😒','🙄','😬','😮‍💨','🤥','🫨','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🤧','🥵','🥶','🥴','😵','😵‍💫','🤯','🤠','🥳','🥸','😎','🤓','🧐','😕','🫤','😟','🙁','☹️','😮','😯','😲','😳','🥺','🥹','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡','😠','🤬','😈','👿','💀','☠️','💩','🤡','👹','👺','👻','👽','👾','🤖','😺','😸','😹','😻','😼','😽','🙀','😿','😾'] },
-  { n:'Gestos', i:'👋', e:['👋','🤚','🖐️','✋','🖖','🫱','🫲','🫳','🫴','🫷','🫸','👌','🤌','🤏','✌️','🤞','🫰','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','🫵','👍','👎','✊','👊','🤛','🤜','👏','🙌','🫶','👐','🤲','🤝','🙏','✍️','💅','🤳','💪','🦾','🦿','🦵','🦶','👂','🦻','👃','🫀','🫁','🧠','🦷','🦴','👀','👁️','👅','👄','🫦','👶','🧒','👦','👧','🧑','👱','👨','🧔','👩','🧓','👴','👵','🙍','🙎','🙅','🙆','💁','🙋','🧏','🙇','🤦','🤷','💆','💇','🚶','🧍','🧎','🏃','💃','🕺','🕴️','👯','🧖','🧗','🤺','🏇','⛷️','🏂','🏌️','🏄','🚣','🧘','🛀','🛌'] },
-  { n:'Pessoas', i:'👨‍👩‍👧', e:['👮','🕵️','💂','🥷','👷','🫅','🤴','👸','👰','🤵','🎅','🤶','🧑‍🎄','🦸','🦹','🧙','🧝','🧛','🧟','🧞','🧜','🧚','🪄','👼','🤰','🫄','🤱','👩‍🍼','🧑‍🍼','👩‍👦','👩‍👧','👩‍👧‍👦','👩‍👦‍👦','👩‍👧‍👧','👨‍👦','👨‍👧','👨‍👧‍👦','👨‍👦‍👦','👨‍👧‍👧','👨‍👩‍👦','👨‍👩‍👧','👨‍👩‍👧‍👦','👨‍👩‍👦‍👦','👨‍👩‍👧‍👧','👫','👬','👭','💏','💑','🗣️','👤','👥','🫂','👣'] },
-  { n:'Animais', i:'🐶', e:['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐻‍❄️','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🙈','🙉','🙊','🐒','🐔','🐧','🐦','🐤','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🫎','🐝','🪱','🐛','🦋','🐌','🐞','🐜','🪲','🦟','🦗','🪳','🕷️','🦂','🐢','🐍','🦎','🐊','🦕','🦖','🐙','🦑','🦐','🦞','🦀','🐡','🐠','🐟','🐬','🦭','🐳','🐋','🦈','🐊','🐅','🐆','🦓','🦍','🦧','🦣','🐘','🦛','🦏','🐪','🐫','🦒','🦘','🦬','🐃','🐂','🐄','🐎','🐖','🐏','🐑','🦙','🐐','🦌','🫏','🐕','🐩','🦮','🐕‍🦺','🐈','🐈‍⬛','🪶','🐓','🦃','🦤','🦚','🦜','🦢','🕊️','🐇','🦝','🦨','🦡','🦫','🦦','🦥','🐁','🐀','🐿️','🦔','🐾','🐉','🐲','🌵','🎄','🌲','🌳','🌴','🪵','🌱','🌿','☘️','🍀','🎍','🪴','🎋','🍃','🍂','🍁','🪺','🪹','🍄','🐚','🪸','🪨','🌾','💐','🌷','🌹','🥀','🪻','🌺','🌸','🌼','🌻','🌞','🌝','🌛','🌜','🌚','🌕','🌖','🌗','🌘','🌑','🌒','🌓','🌔','🌙','🌟','⭐','🌠','🌌','☀️','🌤️','⛅','🌥️','🌦️','🌧️','⛈️','🌩️','🌨️','❄️','☃️','⛄','🌬️','💨','💧','💦','🫧','☔','☂️','🌊','🌀','🌈','🌂'] },
-  { n:'Comida', i:'🍎', e:['🍏','🍎','🍐','🍊','🍋','🫛','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🍆','🥑','🫒','🥦','🥬','🥒','🌶️','🫑','🧄','🧅','🥔','🍠','🫚','🥐','🥯','🍞','🥖','🥨','🧀','🥚','🍳','🧈','🥞','🧇','🥓','🥩','🍗','🍖','🌭','🍔','🍟','🍕','🫓','🥪','🥙','🧆','🌮','🌯','🫔','🥗','🥘','🫕','🍝','🍜','🍲','🍛','🍣','🍱','🥟','🦪','🍤','🍙','🍚','🍘','🍥','🥮','🍢','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿','🍩','🍪','🌰','🥜','🍯','🧃','🥤','🧋','☕','🫖','🍵','🧉','🍺','🍻','🥂','🍷','🫗','🥃','🍸','🍹','🍾','🧊','🥄','🍴','🍽️','🥢','🫙','🧂'] },
-  { n:'Viagem', i:'✈️', e:['🚗','🚕','🚙','🚌','🚎','🏎️','🚓','🚑','🚒','🚐','🛻','🚚','🚛','🚜','🏍️','🛵','🛺','🚲','🛴','🛹','🛼','🚏','🛣️','🛤️','⛽','🚨','🚥','🚦','🛑','🚧','⚓','🛟','⛵','🚤','🛥️','🛳️','⛴️','🚢','✈️','🛩️','🛫','🛬','🪂','💺','🚁','🚟','🚠','🚡','🛰️','🚀','🛸','🎠','🎡','🎢','💈','🎪','🛎️','🧳','🌋','🗺️','🏔️','⛰️','🗻','🏕️','🏖️','🏜️','🏝️','🏞️','🏟️','🏛️','🏗️','🧱','🪨','🪵','🛖','🏘️','🏚️','🏠','🏡','🏢','🏣','🏤','🏥','🏦','🏨','🏩','🏪','🏫','🏬','🏭','🏯','🏰','💒','🗼','🗽','⛪','🕌','🛕','🕍','⛩️','🕋','⛲','⛺','🌁','🌃','🏙️','🌄','🌅','🌆','🌇','🌉','♾️','🎑','🏞️','🌐','🗾','🧭','🌍','🌎','🌏','🪐','💫','⭐','🌟','✨','⚡','🌈','🌤️','🌦️','❄️','🌊','🌀','🌫️','🌬️'] },
-  { n:'Atividades', i:'⚽', e:['⚽','🏀','🏈','⚾','🥎','🎾','🏐','🏉','🥏','🎱','🏓','🏸','🏒','🥍','🏑','🏏','🪃','⛳','🏹','🎣','🤿','🥊','🥋','🎽','🛹','🛷','⛸️','🥅','🎯','🪀','🪁','🎱','🔫','🎿','🛷','🥌','🎲','♟️','🎭','🎨','🖼️','🎰','🎳','🏆','🥇','🥈','🥉','🎖️','🏅','🎪','🤹','🎗️','🎫','🎟️','🎠','🎡','🎢','🎬','🎤','🎧','🎼','🎹','🥁','🪘','🎷','🎺','🎸','🪕','🎻','🪗','🎮','🕹️','🎲','🧩','🪅','🪆','♠️','♥️','♦️','♣️','♟️','🃏','🀄','🎴','🎭','🖼️','🎨','🧵','🪡','🧶','🪢'] },
-  { n:'Objetos', i:'💡', e:['🕶️','🥽','🦺','👔','👕','👖','🧣','🧤','🧥','🧦','👗','👘','🥻','🩱','🩲','🩳','👙','👚','👛','👜','👝','🎒','🧳','👒','🎩','🪖','⛑️','📿','💄','💍','💎','🔇','🔈','🔉','🔊','📢','📣','📯','🔔','🔕','🎵','🎶','📻','🎷','🎸','🎹','🎺','🎻','🪗','🥁','🪘','📱','☎️','📞','📟','📠','🔋','🪫','🔌','💻','🖥️','🖨️','⌨️','🖱️','🖲️','💽','💾','💿','📀','🧮','🎥','🎞️','📽️','📺','📷','📸','📹','📼','🔍','🔎','🕯️','💡','🔦','🏮','🪔','📔','📕','📖','📗','📘','📙','📚','📓','📒','📃','📄','📑','🗒️','🗓️','📅','📆','📇','📈','📉','📊','📋','📌','📍','🗺️','📌','📍','✂️','🗃️','🗄️','🗑️','🔒','🔓','🔏','🔐','🔑','🗝️','🔨','🪓','⛏️','⚒️','🛠️','🗡️','⚔️','🛡️','🪃','🏹','🔧','🪛','🔩','⚙️','🗜️','🔗','⛓️','🪝','🧲','🪜','⚗️','🧪','🧫','🧬','🔬','🔭','📡','💈','🪞','🪟','🛋️','🪑','🚪','🧴','🪥','🧹','🧺','🧻','🪣','🧼','🫧','🪒','🧽','🪤','🧯','🛒','🚪','🪞','🪟','🛏️','🛁','🪠','🧴','🧷','🪢','🧹','🧺','🧻','🪣','🧼','🫧','🚿','🛁','🪥','💊','💉','🩸','🩹','🩺','🩻','🩼','🌡️','🧬','🔬','⚗️','🔭','📡'] },
-  { n:'Símbolos', i:'❤️', e:['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟','☮️','✝️','☪️','🕉️','☸️','✡️','🔯','🕎','☯️','☦️','🛐','⛎','♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓','🆔','⚛️','🈴','🈺','🉐','🈹','🈲','🅰️','🅱️','🆎','🆑','🅾️','🆘','⛔','📵','🚫','❌','⭕','🛑','💢','♨️','🚷','🚯','🚳','🚱','🔞','📵','❗','❕','❓','❔','‼️','⁉️','🔅','🔆','〽️','⚠️','🚸','🔱','⚜️','🔰','♻️','✅','🈯','💹','❎','🌐','💠','Ⓜ️','🌀','💤','🏧','🚾','♿','🅿️','🛗','🈳','🈹','🅱️','🆎','🆑','🆘','⛔','🚫','📵','🔕','🎵','🎶','💯','✔️','☑️','🔲','🔳','▪️','▫️','◾','◽','◼️','◻️','⬛','⬜','🟥','🟧','🟨','🟩','🟦','🟪','🟫','⚫','⚪','🔴','🟠','🟡','🟢','🔵','🟣','🟤','🔺','🔻','🔷','🔶','🔹','🔸','🔷','🔵','🔘','🔲','🔳','🏁','🚩','🎌','🏴','🏳️','⚑'] },
-  { n:'Bandeiras', i:'🏳️', e:['🏳️','🏴','🏴‍☠️','🚩','🎌','🏁','🇦🇨','🇦🇩','🇦🇪','🇦🇫','🇦🇬','🇦🇮','🇦🇱','🇦🇲','🇦🇴','🇦🇶','🇦🇷','🇦🇸','🇦🇹','🇦🇺','🇦🇼','🇦🇽','🇦🇿','🇧🇦','🇧🇧','🇧🇩','🇧🇪','🇧🇫','🇧🇬','🇧🇭','🇧🇮','🇧🇯','🇧🇱','🇧🇲','🇧🇳','🇧🇴','🇧🇶','🇧🇷','🇧🇸','🇧🇹','🇧🇻','🇧🇼','🇧🇾','🇧🇿','🇨🇦','🇨🇨','🇨🇩','🇨🇫','🇨🇬','🇨🇭','🇨🇮','🇨🇰','🇨🇱','🇨🇲','🇨🇳','🇨🇴','🇨🇵','🇨🇷','🇨🇺','🇨🇻','🇨🇼','🇨🇽','🇨🇾','🇨🇿','🇩🇪','🇩🇬','🇩🇯','🇩🇰','🇩🇲','🇩🇴','🇩🇿','🇪🇦','🇪🇨','🇪🇪','🇪🇬','🇪🇭','🇪🇷','🇪🇸','🇪🇹','🇪🇺','🇫🇮','🇫🇯','🇫🇰','🇫🇲','🇫🇴','🇫🇷','🇬🇦','🇬🇧','🇬🇩','🇬🇪','🇬🇫','🇬🇬','🇬🇭','🇬🇮','🇬🇱','🇬🇲','🇬🇳','🇬🇵','🇬🇶','🇬🇷','🇬🇸','🇬🇹','🇬🇺','🇬🇼','🇬🇾','🇭🇰','🇭🇲','🇭🇳','🇭🇷','🇭🇹','🇭🇺','🇮🇨','🇮🇩','🇮🇪','🇮🇱','🇮🇲','🇮🇳','🇮🇴','🇮🇶','🇮🇷','🇮🇸','🇮🇹','🇯🇪','🇯🇲','🇯🇴','🇯🇵','🇰🇪','🇰🇬','🇰🇭','🇰🇮','🇰🇲','🇰🇳','🇰🇵','🇰🇷','🇰🇼','🇰🇾','🇰🇿','🇱🇦','🇱🇧','🇱🇨','🇱🇮','🇱🇰','🇱🇷','🇱🇸','🇱🇹','🇱🇺','🇱🇻','🇱🇾','🇲🇦','🇲🇨','🇲🇩','🇲🇪','🇲🇫','🇲🇬','🇲🇭','🇲🇰','🇲🇱','🇲🇲','🇲🇳','🇲🇴','🇲🇵','🇲🇶','🇲🇷','🇲🇸','🇲🇹','🇲🇺','🇲🇻','🇲🇼','🇲🇽','🇲🇾','🇲🇿','🇳🇦','🇳🇨','🇳🇪','🇳🇫','🇳🇬','🇳🇮','🇳🇱','🇳🇴','🇳🇵','🇳🇷','🇳🇺','🇳🇿','🇴🇲','🇵🇦','🇵🇪','🇵🇫','🇵🇬','🇵🇭','🇵🇰','🇵🇱','🇵🇲','🇵🇳','🇵🇷','🇵🇸','🇵🇹','🇵🇼','🇵🇾','🇶🇦','🇷🇪','🇷🇴','🇷🇸','🇷🇺','🇷🇼','🇸🇦','🇸🇧','🇸🇨','🇸🇩','🇸🇪','🇸🇬','🇸🇭','🇸🇮','🇸🇯','🇸🇰','🇸🇱','🇸🇲','🇸🇳','🇸🇴','🇸🇷','🇸🇸','🇸🇹','🇸🇻','🇸🇽','🇸🇾','🇸🇿','🇹🇦','🇹🇨','🇹🇩','🇹🇫','🇹🇬','🇹🇭','🇹🇯','🇹🇰','🇹🇱','🇹🇲','🇹🇳','🇹🇴','🇹🇷','🇹🇹','🇹🇻','🇹🇼','🇹🇿','🇺🇦','🇺🇬','🇺🇲','🇺🇳','🇺🇸','🇺🇾','🇺🇿','🇻🇦','🇻🇨','🇻🇪','🇻🇬','🇻🇮','🇻🇳','🇻🇺','🇼🇫','🇼🇸','🇽🇰','🇾🇪','🇾🇹','🇿🇦','🇿🇲','🇿🇼','🏴󠁧󠁢󠁥󠁮󠁧󠁿','🏴󠁧󠁢󠁳󠁣󠁴󠁿','🏴󠁧󠁢󠁷󠁬󠁳󠁿'] },
-];
-// Search metadata: emoji → keywords (simplified — just category name for now)
-window._EMOJI_META = {};
-for (const cat of window._EMOJI_CATS) {
-  for (const e of cat.e) {
-    window._EMOJI_META[e] = cat.n.toLowerCase();
-  }
-}
 </script>
 {% include "_twemoji.html" %}
 </body>
