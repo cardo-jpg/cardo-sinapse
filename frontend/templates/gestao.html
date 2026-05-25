@@ -111,10 +111,11 @@
     .g-nav-toggle:hover { color: var(--text); background: #242424; border-color: #3a3a3a; }
     .g-nav.collapsed .g-nav-toggle { transform: rotate(180deg); }
 
-    /* fixed links (Cérebro / Ferramentas section). O wrapper do Início (filho
-       imediato do .g-nav-brand) recebe altura fixa via regra adjacent-sibling
-       abaixo, pra alinhar a linha divisória com o .g-toolbar do main. */
-    .g-nav-links { padding: 6px; border-bottom: 1px solid var(--border-subtle); flex-shrink: 0; }
+    /* fixed links (Início e Ferramentas section). Sem border-bottom: a única
+       linha divisória do bloco-de-atalhos vem do border-top de .g-nav-tree
+       (Espaços), pra que Início + Ferramentas funcionem como um único bloco
+       visual. */
+    .g-nav-links { padding: 6px; flex-shrink: 0; }
     .g-nav-brand + .g-nav-links {
       height: var(--header-row-height); box-sizing: border-box;
       padding: 0 6px;
@@ -146,9 +147,11 @@
     .g-nav.collapsed .g-nav-link:hover::after { opacity: 1; }
     .g-nav.collapsed .g-nav-links span:not(.g-nav-icon) { display: none; }
 
-    /* tree section */
+    /* tree section. border-top marca o início do bloco "Espaços", separando-o
+       do bloco-de-atalhos (Início + Ferramentas) que vem acima. */
     .g-nav-tree {
       flex: 1; overflow-y: auto; overflow-x: hidden; padding: 4px 0 8px;
+      border-top: 1px solid var(--border-subtle);
     }
     .g-nav.collapsed .g-nav-tree { overflow: hidden; }
 
