@@ -555,6 +555,8 @@
       font-weight: var(--font-weight-medium);
     }
     .view-btn.active svg { color: var(--accent); }
+    /* Ícone Lucide dentro de botão do toolbar: herda currentColor (segue cor do botão/active) + tamanho 14 */
+    .view-btn svg.lucide { width: 14px; height: 14px; }
 
     /* Primary action: + Nova tarefa — única fonte de laranja sólido no header */
     .g-new-btn {
@@ -2604,7 +2606,10 @@
       </div>
       <button class="view-btn"
               :class="colsPanel ? 'active' : ''"
-              @click="colsPanel=!colsPanel" title="Personalizar colunas">⊞ Colunas</button>
+              @click="colsPanel=!colsPanel" title="Personalizar colunas">
+        <i data-lucide="columns-3" style="width:14px;height:14px;flex-shrink:0"></i>
+        Colunas
+      </button>
       </div>
       <!-- /Grupo 3 -->
       <button class="g-new-btn" x-show="activeList" @click="openNew()">+ Nova tarefa</button>
