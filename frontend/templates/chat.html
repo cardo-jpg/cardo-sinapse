@@ -110,40 +110,49 @@
     .cb-client-name { color: var(--text-tertiary); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .cb-client-pill svg { width: 13px; height: 13px; color: var(--text-tertiary); }
 
-    /* dropdown de troca de cliente (seletor mínimo — ⌘K completo no Commit 4) */
-    .cb-pill-wrap { position: relative; }
-    .cb-client-menu {
-      position: absolute; top: 42px; left: 0; z-index: 60;
-      width: 300px; max-height: 60vh; display: flex; flex-direction: column;
-      background: var(--bg-elevated); border: 1px solid var(--border-default);
-      border-radius: 10px; padding: var(--space-2); box-shadow: 0 12px 32px rgba(0,0,0,.4);
-    }
-    .cb-client-search {
-      width: 100%; padding: 7px 10px; margin-bottom: 6px;
-      background: var(--bg-tertiary); border: 1px solid var(--border-default);
-      border-radius: 8px; color: var(--text-primary); font-size: var(--font-size-sm); outline: none;
-    }
-    .cb-client-search:focus { border-color: var(--accent); }
-    .cb-client-list { overflow-y: auto; }
-    .cb-client-opt {
-      display: flex; align-items: baseline; gap: 8px; width: 100%; text-align: left;
-      padding: 7px 10px; border-radius: 6px; cursor: pointer; background: none; border: none;
-      color: var(--text-secondary); font-size: var(--font-size-sm); text-decoration: none;
-    }
-    .cb-client-opt:hover { background: var(--bg-tertiary); color: var(--text-primary); }
-    .cb-client-opt-sigla { font-weight: var(--font-weight-semibold); color: var(--text-primary); flex-shrink: 0; }
-    .cb-client-opt-nome { color: var(--text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
     .cb-header-right { margin-left: auto; display: flex; align-items: center; gap: var(--space-2); }
     .cb-kbd {
       display: inline-flex; align-items: center; gap: 5px;
       font-size: var(--font-size-xs); color: var(--text-tertiary);
       padding: 4px 8px; border: 1px solid var(--border-subtle); border-radius: 6px;
-      background: transparent;
+      background: transparent; cursor: pointer; font-family: inherit;
+      transition: background .12s, color .12s;
     }
+    .cb-kbd:hover { background: var(--bg-elevated); color: var(--text-secondary); }
     .cb-kbd kbd {
       font-family: inherit; font-size: 10px; color: var(--text-secondary);
       background: var(--bg-elevated); border-radius: 4px; padding: 1px 5px;
+    }
+
+    /* ⌘K command palette */
+    .cb-palette-backdrop {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(0,0,0,.5); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+      display: flex; align-items: flex-start; justify-content: center; padding-top: 12vh;
+    }
+    .cb-palette {
+      width: 100%; max-width: 520px; max-height: 70vh; display: flex; flex-direction: column;
+      background: var(--bg-elevated); border: 1px solid var(--border-default);
+      border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.5); overflow: hidden;
+    }
+    .cb-palette-input {
+      width: 100%; padding: 15px 18px; background: transparent; border: none;
+      border-bottom: 1px solid var(--border-subtle); color: var(--text-primary);
+      font-size: var(--font-size-md); font-family: inherit; outline: none;
+    }
+    .cb-palette-input::placeholder { color: var(--text-tertiary); }
+    .cb-palette-list { overflow-y: auto; padding: 6px; }
+    .cb-palette-opt {
+      display: flex; align-items: baseline; gap: 12px; padding: 10px 12px;
+      border-radius: 8px; cursor: pointer;
+    }
+    .cb-palette-opt.active { background: var(--bg-tertiary); }
+    .cb-palette-opt-sigla { font-weight: var(--font-weight-semibold); color: var(--text-primary); min-width: 46px; flex-shrink: 0; }
+    .cb-palette-opt-nome { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cb-palette-empty { padding: 16px; color: var(--text-tertiary); font-size: var(--font-size-sm); }
+    .cb-palette-foot {
+      border-top: 1px solid var(--border-subtle); padding: 8px 16px;
+      font-size: var(--font-size-xs); color: var(--text-tertiary); display: flex; gap: 16px;
     }
     .cb-ghost-btn {
       display: inline-flex; align-items: center; gap: 6px;
@@ -267,7 +276,9 @@
 <body>
 <div class="sinapse-shell">
   {% include "_sidebar.html" %}
-  <main class="sinapse-main cb-main" x-data="cerebro()">
+  <main class="sinapse-main cb-main" x-data="cerebro()"
+        @keydown.window.meta.k.prevent="openPalette()"
+        @keydown.window.ctrl.k.prevent="openPalette()">
     <input type="hidden" id="cbUserName" value="{{ nav_username }}">
 
     <!-- ── Coluna 2: painel de contexto (dados reais — Commit 3) ── -->
@@ -345,29 +356,15 @@
     <!-- ── Coluna 3: chat ── -->
     <section class="cb-chat">
       <header class="cb-header">
-        <div class="cb-pill-wrap" @click.outside="clientMenu=false">
-          <button class="cb-client-pill" @click="toggleClientMenu()" title="Trocar cliente">
-            <span class="cb-client-dot"></span>
-            <span class="cb-client-sigla" x-text="client ? client.sigla : 'Selecionar cliente'"></span>
-            <span class="cb-client-name" x-show="client" x-text="client ? client.nome : ''"></span>
-            {{ icon("chevron-down", size=13) }}
-          </button>
-          <div class="cb-client-menu" x-show="clientMenu" x-cloak x-transition>
-            <input class="cb-client-search" x-ref="clientSearch" x-model="clientQ" placeholder="Buscar cliente…">
-            <div class="cb-client-list">
-              <template x-if="!clients.length"><div class="cb-drawer-empty">Carregando…</div></template>
-              <template x-for="c in filteredClients" :key="c.sigla">
-                <a class="cb-client-opt" :href="'/cerebro/' + encodeURIComponent(c.sigla)">
-                  <span class="cb-client-opt-sigla" x-text="c.sigla"></span>
-                  <span class="cb-client-opt-nome" x-text="c.nome"></span>
-                </a>
-              </template>
-            </div>
-          </div>
-        </div>
+        <button class="cb-client-pill" @click="openPalette()" title="Trocar cliente (⌘K)">
+          <span class="cb-client-dot"></span>
+          <span class="cb-client-sigla" x-text="client ? client.sigla : 'Selecionar cliente'"></span>
+          <span class="cb-client-name" x-show="client" x-text="client ? client.nome : ''"></span>
+          {{ icon("chevron-down", size=13) }}
+        </button>
 
         <div class="cb-header-right">
-          <span class="cb-kbd">Trocar <kbd>⌘K</kbd></span>
+          <button class="cb-kbd" @click="openPalette()">Trocar <kbd>⌘K</kbd></button>
           <button class="cb-ghost-btn" @click="convDrawer=!convDrawer">
             {{ icon("message-square", size=14) }} Conversas
           </button>
@@ -427,6 +424,31 @@
         </div>
       </div>
     </section>
+
+    <!-- ⌘K command palette — troca de cliente (async, sem reload) -->
+    <div class="cb-palette-backdrop" x-show="palette" x-cloak @click.self="closePalette()" x-transition>
+      <div class="cb-palette">
+        <input class="cb-palette-input" x-ref="paletteInput" x-model="clientQ"
+               placeholder="Trocar de cliente…"
+               @input="paletteIdx=0"
+               @keydown.down.prevent="paletteMove(1)"
+               @keydown.up.prevent="paletteMove(-1)"
+               @keydown.enter.prevent="palettePick()"
+               @keydown.escape.prevent="closePalette()">
+        <div class="cb-palette-list">
+          <template x-if="clientsLoaded && !filteredClients.length"><div class="cb-palette-empty">Nenhum cliente.</div></template>
+          <template x-if="!clientsLoaded"><div class="cb-palette-empty">Carregando…</div></template>
+          <template x-for="(c, i) in filteredClients" :key="c.sigla">
+            <div class="cb-palette-opt" :class="i===paletteIdx ? 'active' : ''"
+                 @click="selectClient(c)" @mouseenter="paletteIdx=i">
+              <span class="cb-palette-opt-sigla" x-text="c.sigla"></span>
+              <span class="cb-palette-opt-nome" x-text="c.nome"></span>
+            </div>
+          </template>
+        </div>
+        <div class="cb-palette-foot"><span>↑↓ navegar</span><span>↵ selecionar</span><span>esc fechar</span></div>
+      </div>
+    </div>
   </main>
 </div>
 
@@ -442,7 +464,8 @@
       convDrawer: false,
       convs: [],
       convId: null,
-      clientMenu: false, clients: [], clientsLoaded: false, clientQ: '',
+      clients: [], clientsLoaded: false, clientQ: '',
+      palette: false, paletteIdx: 0,
       userName: (document.getElementById('cbUserName') || {}).value || 'colaborador',
 
       context: { performance: null, whatsapp: null, atas: [], tarefas: [] },
@@ -459,7 +482,43 @@
       init() {
         this.$nextTick(() => window.lucide && lucide.createIcons());
         this.loadConvs();
+        this.loadClients();              // pré-carrega pra palette instantânea + popstate
         if (this.client) this.loadContext();
+        window.addEventListener('popstate', () => this.syncClientFromUrl());
+      },
+
+      // ── ⌘K command palette ──────────────────────────────────────────────
+      openPalette() {
+        this.palette = true; this.paletteIdx = 0; this.clientQ = '';
+        if (!this.clientsLoaded) this.loadClients();
+        this.$nextTick(() => this.$refs.paletteInput && this.$refs.paletteInput.focus());
+      },
+      closePalette() { this.palette = false; },
+      paletteMove(d) {
+        const n = this.filteredClients.length;
+        if (!n) return;
+        this.paletteIdx = Math.max(0, Math.min(n - 1, this.paletteIdx + d));
+      },
+      palettePick() {
+        const c = this.filteredClients[this.paletteIdx];
+        if (c) this.selectClient(c);
+      },
+      selectClient(c) {
+        if (!c) return;
+        this.client = { sigla: c.sigla, nome: c.nome };
+        try { history.pushState({}, '', '/cerebro/' + encodeURIComponent(c.sigla)); } catch (e) {}
+        this.closePalette();
+        this.newChat();
+        this.loadContext();
+      },
+      syncClientFromUrl() {
+        const m = location.pathname.match(/\/cerebro\/([^\/?#]+)/);
+        if (!m) { this.client = null; this.context = { performance: null, whatsapp: null, atas: [], tarefas: [] }; return; }
+        const sig = decodeURIComponent(m[1]).toUpperCase();
+        const c = this.clients.find(x => (x.sigla || '').toUpperCase() === sig);
+        this.client = c ? { sigla: c.sigla, nome: c.nome } : { sigla: sig, nome: sig };
+        this.newChat();
+        this.loadContext();
       },
 
       async loadContext() {
@@ -487,12 +546,6 @@
         try { return n.toLocaleString('pt-BR'); } catch (e) { return '' + n; }
       },
 
-      // Seletor mínimo de cliente (⌘K palette completo vem no Commit 4)
-      toggleClientMenu() {
-        this.clientMenu = !this.clientMenu;
-        if (this.clientMenu && !this.clientsLoaded) this.loadClients();
-        if (this.clientMenu) this.$nextTick(() => this.$refs.clientSearch && this.$refs.clientSearch.focus());
-      },
       async loadClients() {
         try {
           const r = await fetch('/api/cerebro/clients');
