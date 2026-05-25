@@ -471,13 +471,40 @@
       context: { performance: null, whatsapp: null, atas: [], tarefas: [] },
       contextLoading: false,
 
-      // Sugestões estáticas — Commit 5 gera dinamicamente do contexto real
-      suggestions: [
-        'Resuma a situação atual deste cliente',
-        'O que foi falado na última reunião?',
-        'Quais tarefas estão abertas?',
-        'Como está a performance das campanhas?',
-      ],
+      // Sugestões inteligentes — derivadas do contexto real (Commit 5).
+      // Reativo: muda conforme os cards carregam (WhatsApp não-lido, ata recente, etc.)
+      get suggestions() {
+        const c = this.context || {};
+        const s = [];
+        if (c.whatsapp && c.whatsapp.nao_lidas) {
+          s.push(`Resuma as ${c.whatsapp.nao_lidas} mensagens não lidas do WhatsApp`);
+        } else if (c.whatsapp && c.whatsapp.ultima) {
+          s.push('O que foi falado nas últimas conversas do WhatsApp?');
+        }
+        if (c.atas && c.atas.length) {
+          const a = c.atas[0];
+          s.push(`Resuma a última ata${a.data ? ' (' + a.data + ')' : ''}`);
+        }
+        if (c.tarefas && c.tarefas.length) {
+          s.push(`Quais as ${c.tarefas.length} tarefas abertas e o que priorizar?`);
+        }
+        if (c.performance) {
+          s.push(c.performance.cpl != null
+            ? `Analise a performance das campanhas (CPL ${this.fmtBRL(c.performance.cpl)})`
+            : 'Como está a performance das campanhas?');
+        }
+        // completa com genéricas até 4
+        const generic = [
+          'Resuma a situação atual deste cliente',
+          'Quais os próximos passos com este cliente?',
+          'O que precisa de atenção agora?',
+        ];
+        for (const g of generic) {
+          if (s.length >= 4) break;
+          if (!s.includes(g)) s.push(g);
+        }
+        return s.slice(0, 4);
+      },
 
       init() {
         this.$nextTick(() => window.lucide && lucide.createIcons());
