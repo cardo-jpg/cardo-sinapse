@@ -5,29 +5,27 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sinapse</title>
-  <link rel="stylesheet" href="/static/style.css?v=5">
+  <link rel="stylesheet" href="/static/style.css?v=6">
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <script defer src="https://unpkg.com/lucide@1.16.0/dist/umd/lucide.js"></script>
   <script>
-    // Renderiza ícones Lucide e mantém em sincronia com mutações do Alpine
-    // (toggle de espaço/pasta cria <i data-lucide> novos via x-for).
+    // Renderiza ícones Lucide e mantém em sincronia com mutações do Alpine.
+    // Observa document.body inteiro: <i data-lucide> aparece tanto na sidebar
+    // (toggle de espaço/pasta) quanto em modais (detalhe de tarefa, picker de ícone).
     document.addEventListener('DOMContentLoaded', () => {
       if (!window.lucide || typeof window.lucide.createIcons !== 'function') return;
       window.lucide.createIcons();
-      const watchTargets = [document.querySelector('.g-nav'), document.querySelector('.fin-nav')].filter(Boolean);
-      if (!watchTargets.length) return;
       let pending = false;
       const flush = () => {
         pending = false;
-        const has = watchTargets.some(t => t.querySelector('i[data-lucide]'));
-        if (has) window.lucide.createIcons();
+        if (document.querySelector('i[data-lucide]')) window.lucide.createIcons();
       };
       const obs = new MutationObserver(() => {
         if (pending) return;
         pending = true;
         requestAnimationFrame(flush);  // coalesce mutations no mesmo frame
       });
-      watchTargets.forEach(t => obs.observe(t, { childList: true, subtree: true }));
+      obs.observe(document.body, { childList: true, subtree: true });
     });
   </script>
   <script type="module">
@@ -67,21 +65,15 @@
     /* ── shell ───────────────────────────────────────────────────────────────── */
     body {
       overflow: hidden;
-      /* Glow Cardō atrás de tudo — aparece através das áreas translúcidas */
-      background:
-        radial-gradient(1200px 600px at -10% -20%, rgba(25,25,108,.45) 0%, transparent 60%),
-        radial-gradient(900px 600px at 110% 110%, rgba(224,104,58,.18) 0%, transparent 60%),
-        var(--bg);
+      background: var(--bg-primary);
     }
     .g-shell { display: flex; height: 100vh; overflow: hidden; background: transparent; }
 
     /* ── unified sidebar ─────────────────────────────────────────────────────── */
     .g-nav {
       width: 260px; flex-shrink: 0;
-      background: rgba(14, 14, 26, 0.72);
-      backdrop-filter: blur(14px) saturate(140%);
-      -webkit-backdrop-filter: blur(14px) saturate(140%);
-      border-right: 1px solid rgba(255, 255, 255, 0.06);
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border-subtle);
       display: flex; flex-direction: column;
       height: 100vh; overflow: hidden;
       transition: width .2s ease;
@@ -322,8 +314,8 @@
 
     .dnd-before { border-top: 2px solid var(--accent) !important; }
     .dnd-after  { border-bottom: 2px solid var(--accent) !important; }
-    .dnd-into   { background: rgba(224,104,58,.07) !important;
-                  box-shadow: inset 0 0 0 1px rgba(224,104,58,.35); border-radius: 7px; }
+    .dnd-into   { background: rgba(235,115,33,.07) !important;
+                  box-shadow: inset 0 0 0 1px rgba(235,115,33,.35); border-radius: 7px; }
     .dnd-dragging { opacity: .35; pointer-events: none; }
 
     /* space icon: emoji inside colored box → chevron on hover ─────────────── */
@@ -366,7 +358,18 @@
       border: 1px solid transparent; transition: background .1s, border-color .1s;
     }
     .ci-icon-btn:hover { background: #ffffff0d; }
-    .ci-icon-btn.selected { background: rgba(224,104,58,.18); border-color: var(--accent); }
+    .ci-icon-btn.selected { background: rgba(235,115,33,.18); border-color: var(--accent); }
+    .ci-icon-btn svg { width: 16px; height: 16px; vertical-align: middle; color: var(--text-secondary); }
+    .ci-icon-btn.selected svg { color: var(--accent); }
+    /* tabs Emoji/Ícones do picker */
+    .ci-icon-tabs { display: inline-flex; gap: 2px; background: var(--bg-tertiary); border-radius: 8px; padding: 2px; margin-bottom: 10px; }
+    .ci-icon-tab {
+      background: none; border: none; cursor: pointer;
+      font-size: .8rem; color: var(--text-tertiary);
+      padding: 5px 12px; border-radius: 6px; transition: background .1s, color .1s;
+    }
+    .ci-icon-tab:hover { color: var(--text-secondary); }
+    .ci-icon-tab.active { background: var(--bg-elevated); color: var(--text-primary); }
     .emoji-search { width:100%; padding:7px 10px; border-radius:8px; border:1px solid var(--border);
                     background:var(--bg); color:var(--text); font-size:.82rem; outline:none; }
     .emoji-search:focus { border-color: var(--accent); }
@@ -463,17 +466,15 @@
       display: flex; align-items: center; justify-content: center;
       padding: 0 var(--space-4);
       border-bottom: 1px solid var(--border-subtle);
-      background: rgba(14, 14, 26, 0.55);
-      backdrop-filter: blur(14px) saturate(140%);
-      -webkit-backdrop-filter: blur(14px) saturate(140%);
+      background: var(--bg-primary);
       flex-shrink: 0;
       height: var(--header-row-height); box-sizing: border-box;
       position: relative; z-index: 10;
     }
     .g-topbar-search {
       display: flex; align-items: center; gap: 8px;
-      background: rgba(20, 20, 42, 0.6);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-default);
       border-radius: 10px;
       padding: 7px 14px; width: 380px; cursor: pointer;
       color: var(--muted); font-size: .85rem;
@@ -481,7 +482,7 @@
     }
     .g-topbar-search:hover {
       border-color: rgba(233, 121, 25, .35);
-      background: rgba(20, 20, 42, 0.85);
+      background: var(--bg-elevated);
     }
     .g-topbar-search:focus-within {
       border-color: rgba(233, 121, 25, .55);
@@ -550,7 +551,7 @@
     .view-btn:not(.active):hover { background: var(--bg-elevated); color: var(--text-primary); }
     /* Active translúcido (não compete com o + Nova tarefa que é o único laranja sólido) */
     .view-btn.active {
-      background: rgba(232, 100, 58, 0.20);
+      background: rgba(235, 115, 33, 0.20);
       color: var(--text-primary);
       font-weight: var(--font-weight-medium);
     }
@@ -558,20 +559,20 @@
     /* Ícone Lucide dentro de botão do toolbar: herda currentColor (segue cor do botão/active) + tamanho 14 */
     .view-btn svg.lucide { width: 14px; height: 14px; }
 
-    /* Primary action: + Nova tarefa — única fonte de laranja sólido no header */
+    /* Primary action: + Nova tarefa — ghost com accent (primary sem gritar) */
     .g-new-btn {
       display: inline-flex; align-items: center; gap: 8px;
       padding: 0 12px;
       height: 32px; box-sizing: border-box;
-      background: var(--accent);
-      color: #fff;
+      background: transparent;
+      color: var(--accent);
       font-size: var(--font-size-xs);
       font-weight: var(--font-weight-medium);
-      border: none; border-radius: 8px;
+      border: 1px solid var(--accent); border-radius: 8px;
       cursor: pointer; white-space: nowrap; flex-shrink: 0;
-      transition: background 150ms ease;
+      transition: background 150ms ease, color 150ms ease;
     }
-    .g-new-btn:hover { background: var(--accent-hover); }
+    .g-new-btn:hover { background: var(--accent-soft); }
 
     /* empty state */
     .g-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--muted); padding: 40px; }
@@ -592,7 +593,7 @@
       padding: 11px 20px; border-bottom: 1px solid #1a1a1a;
       align-items: center; transition: background .1s;
     }
-    .task-row.is-selected { background: rgba(224,104,58,.07); }
+    .task-row.is-selected { background: rgba(235,115,33,.07); }
     .task-row.is-selected:hover { background: var(--accent-soft); }
 
     /* multi-select checkbox */
@@ -914,7 +915,7 @@
     .filter-field-picker { position: absolute; top: calc(100% + 4px); left: 0; z-index: 10; background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 6px; min-width: 220px; box-shadow: 0 8px 20px #000a; }
     /* Badge "1" do filtros: laranja translúcido (vai junto com .view-btn.active) */
     .filter-count-badge {
-      background: rgba(232, 100, 58, 0.20);
+      background: rgba(235, 115, 33, 0.20);
       color: var(--accent);
       border-radius: 8px;
       padding: 0 5px;
@@ -1086,14 +1087,14 @@
     }
     .time-play-btn {
       width: 36px; height: 36px; flex-shrink: 0;
-      border-radius: 50%;
-      background: var(--accent);
-      color: #fff; border: none; cursor: pointer;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--text-secondary); border: 1px solid var(--border-default); cursor: pointer;
       display: inline-flex; align-items: center; justify-content: center;
-      font-size: .85rem;
-      transition: transform .1s, background .12s;
+      transition: background .12s, color .12s, border-color .12s;
     }
-    .time-play-btn:hover { background: var(--accent-hover); transform: scale(1.05); }
+    .time-play-btn:hover { background: var(--bg-elevated); color: var(--text-primary); border-color: var(--border-strong); }
+    .time-play-btn svg { width: 15px; height: 15px; }
     .timer-running {
       display: flex; align-items: center; gap: 12px;
       padding: 8px 4px;
@@ -1158,7 +1159,7 @@
       transition: color .12s, border-color .12s;
     }
     .task-totals-row:hover .totals-add { color: #888; border-color: #3a3a3a; }
-    .totals-add:hover { color: var(--accent) !important; border-color: rgba(224,104,58,.5) !important; }
+    .totals-add:hover { color: var(--accent) !important; border-color: rgba(235,115,33,.5) !important; }
     .totals-value {
       cursor: pointer; padding: 0;
       border-radius: 6px;
@@ -1254,8 +1255,8 @@
     .briefing-actions {
       margin: 12px 0 18px;
       padding: 14px 16px;
-      background: linear-gradient(135deg, rgba(224,104,58,.08), rgba(25,25,108,.08));
-      border: 1px solid rgba(224,104,58,.25);
+      background: linear-gradient(135deg, rgba(235,115,33,.08), transparent);
+      border: 1px solid rgba(235,115,33,.25);
       border-radius: 10px;
     }
     .briefing-actions-eyebrow {
@@ -1302,7 +1303,8 @@
       display: flex; align-items: center; gap: 8px;
       width: 160px; flex-shrink: 0; font-size: .83rem; color: #555;
     }
-    .prop-label-icon { font-size: .8rem; width: 16px; text-align: center; flex-shrink: 0; }
+    .prop-label-icon { font-size: .8rem; width: 16px; text-align: center; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
+    .prop-label-icon svg { width: 14px; height: 14px; color: var(--text-tertiary); }
     .prop-value {
       flex: 1; min-width: 0; font-size: .88rem;
       color: var(--text); cursor: pointer; padding: 4px 8px;
@@ -1874,7 +1876,7 @@
       padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);
       cursor: pointer; transition: border-color .12s, background .12s;
     }
-    .perm-option.selected { border-color: var(--accent); background: rgba(224,104,58,.06); }
+    .perm-option.selected { border-color: var(--accent); background: rgba(235,115,33,.06); }
     .perm-option input[type=radio] { accent-color: var(--accent); margin-top: 3px; flex-shrink: 0; }
     .perm-user-row {
       display: flex; align-items: center; gap: 10px;
@@ -2166,8 +2168,7 @@
                @drop.stop="dndDrop($event,'space',space,space,null)"
                @contextmenu.prevent="openCtxMenu($event,'space',space,space,null)"
                @click="toggleSpace(space.id)">
-            <div class="g-space-icon-wrap"
-                 :style="`background:${space.color}2e; border:1px solid ${space.color}50`">
+            <div class="g-space-icon-wrap">
               <span class="g-space-icon-emoji">
                 <template x-if="isLucideName(space.icon)">
                   <i :data-lucide="space.icon" class="sb-icon" aria-hidden="true"
@@ -2977,7 +2978,7 @@
                     <input class="bulk-pop-input" type="text" x-model="timePanel.newText"
                            placeholder="Insira o tempo (ex: 3h 20m) ou inicie o cronômetro"
                            @keydown.enter.prevent="addManualEntry()">
-                    <button class="time-play-btn" title="Iniciar cronômetro" @click="startTimer(timePanel.taskId)">▶</button>
+                    <button class="time-play-btn" title="Iniciar cronômetro" @click="startTimer(timePanel.taskId)"><i data-lucide="play" aria-hidden="true"></i></button>
                   </div>
                   <input class="bulk-pop-input" type="text" x-model="timePanel.newNote"
                          placeholder="Notas (opcional)" style="margin-top:6px">
@@ -4141,7 +4142,7 @@
 
             <!-- Status -->
             <div class="prop-row">
-              <div class="prop-label"><span class="prop-label-icon">◉</span> Status</div>
+              <div class="prop-label"><span class="prop-label-icon"><i data-lucide="circle-dot" aria-hidden="true"></i></span> Status</div>
               <div class="prop-value">
                 <template x-if="!propEditing.status">
                   <span class="status-item" :class="`status-item--${statusVariant(form.status)}`"
@@ -4160,7 +4161,7 @@
 
             <!-- Responsável -->
             <div class="prop-row">
-              <div class="prop-label"><span class="prop-label-icon">👤</span> Responsável</div>
+              <div class="prop-label"><span class="prop-label-icon"><i data-lucide="user" aria-hidden="true"></i></span> Responsável</div>
               <div class="prop-value">
                 <template x-if="!propEditing.responsavel">
                   <span @click="propEditing.responsavel=true">
@@ -4187,7 +4188,7 @@
 
             <!-- Prazo -->
             <div class="prop-row">
-              <div class="prop-label"><span class="prop-label-icon">📅</span> Prazo</div>
+              <div class="prop-label"><span class="prop-label-icon"><i data-lucide="calendar" aria-hidden="true"></i></span> Prazo</div>
               <div class="prop-value">
                 <span :class="!form.due_date ? 'empty' : dueCss(form.due_date)"
                       style="cursor:pointer"
@@ -4198,7 +4199,7 @@
 
             <!-- Prioridade -->
             <div class="prop-row">
-              <div class="prop-label"><span class="prop-label-icon">⚑</span> Prioridade</div>
+              <div class="prop-label"><span class="prop-label-icon"><i data-lucide="flag" aria-hidden="true"></i></span> Prioridade</div>
               <div class="prop-value">
                 <template x-if="!propEditing.prioridade">
                   <span class="priority-item" :class="`priority-item--${form.priority || 'none'}`"
@@ -4219,7 +4220,7 @@
 
             <!-- Estimativa -->
             <div class="prop-row" x-show="editTask">
-              <div class="prop-label"><span class="prop-label-icon">⏱</span> Estimativa</div>
+              <div class="prop-label"><span class="prop-label-icon"><i data-lucide="timer" aria-hidden="true"></i></span> Estimativa</div>
               <div class="prop-value">
                 <span style="cursor:pointer"
                       :style="!editTask?.estimate_seconds ? 'color:#444' : 'color:#ddd'"
@@ -4230,14 +4231,14 @@
 
             <!-- Tempo rastreado -->
             <div class="prop-row" x-show="editTask">
-              <div class="prop-label"><span class="prop-label-icon">⏲</span> Tempo rastreado</div>
+              <div class="prop-label"><span class="prop-label-icon"><i data-lucide="clock" aria-hidden="true"></i></span> Tempo rastreado</div>
               <div class="prop-value" style="display:flex;align-items:center;gap:10px">
                 <span x-text="editTask?.time_total_seconds ? formatDuration(editTask.time_total_seconds) : '0m'"></span>
                 <button type="button" class="bulk-btn" style="padding:4px 10px"
                         @click="openTaskTimePanel(editTask)">+ Adicionar tempo</button>
-                <button type="button" class="time-play-btn" style="width:28px;height:28px;font-size:.7rem"
+                <button type="button" class="time-play-btn" style="width:28px;height:28px"
                         x-show="!timer.running || timer.taskId !== editTask?.id"
-                        @click="startTimer(editTask.id)" title="Iniciar cronômetro">▶</button>
+                        @click="startTimer(editTask.id)" title="Iniciar cronômetro"><i data-lucide="play" aria-hidden="true"></i></button>
                 <button type="button" class="bulk-btn danger" style="padding:4px 10px"
                         x-show="timer.running && timer.taskId === editTask?.id"
                         @click="stopTimer()">⏹ Parar</button>
@@ -4625,7 +4626,12 @@
         <div style="width:28px; height:28px; border-radius:7px; display:flex; align-items:center;
                     justify-content:center; font-size:1rem; flex-shrink:0"
              :style="`background:${ciColor}2e; border:1px solid ${ciColor}55`">
-          <span x-text="ciType==='folder' ? '📁' : (ciIcon || '⚡')"></span>
+          <template x-if="ciType!=='folder' && isLucideName(ciIcon)">
+            <i :data-lucide="ciIcon" aria-hidden="true" :style="`color:${ciColor};width:16px;height:16px`"></i>
+          </template>
+          <template x-if="!(ciType!=='folder' && isLucideName(ciIcon))">
+            <span x-text="ciType==='folder' ? '📁' : (ciIcon || '⚡')"></span>
+          </template>
         </div>
         <span style="font-size:.88rem; color:var(--text); font-weight:600"
               x-text="ciTarget?.name || ''"></span>
@@ -4646,7 +4652,7 @@
                  style="width:34px; height:34px; border:1px solid var(--border); background:none;
                         cursor:pointer; padding:2px; border-radius:7px">
           <input class="form-input" style="flex:1; font-family:monospace; font-size:.82rem"
-                 x-model="ciColor" placeholder="#e0683a">
+                 x-model="ciColor" placeholder="#EB7321">
         </div>
       </div>
 
@@ -4654,19 +4660,40 @@
       <template x-if="ciType !== 'folder'">
         <div>
           <div class="form-label" style="margin-bottom:8px">Ícone</div>
-          <input class="emoji-search" type="text" placeholder="Buscar emoji..." x-model="emojiSearch" @input="emojiCatIdx=-1">
-          <div class="emoji-cats" style="margin:8px 0 6px">
-            <template x-for="(cat, i) in EMOJI_CATS" :key="cat.n">
-              <button class="emoji-cat-btn" :class="emojiCatIdx===i ? 'active':''"
-                      @click="emojiSearch=''; emojiCatIdx=i" x-text="cat.i" :title="cat.n"></button>
-            </template>
+          <div class="ci-icon-tabs">
+            <button class="ci-icon-tab" :class="ciIconTab==='lucide'?'active':''" @click="ciIconTab='lucide'">Ícones</button>
+            <button class="ci-icon-tab" :class="ciIconTab==='emoji'?'active':''" @click="ciIconTab='emoji'">Emoji</button>
           </div>
-          <div class="emoji-grid">
-            <template x-for="ic in filteredEmojiList" :key="ic">
-              <div class="ci-icon-btn" :class="ciIcon===ic?'selected':''"
-                   @click="ciIcon=ic" x-text="ic"></div>
-            </template>
-          </div>
+
+          <!-- Lucide -->
+          <template x-if="ciIconTab==='lucide'">
+            <div class="emoji-grid" style="grid-template-columns:repeat(8,1fr)">
+              <template x-for="ic in LUCIDE_ICONS" :key="ic">
+                <div class="ci-icon-btn" :class="ciIcon===ic?'selected':''" @click="ciIcon=ic" :title="ic">
+                  <i :data-lucide="ic" aria-hidden="true" style="width:16px;height:16px"></i>
+                </div>
+              </template>
+            </div>
+          </template>
+
+          <!-- Emoji -->
+          <template x-if="ciIconTab==='emoji'">
+            <div>
+              <input class="emoji-search" type="text" placeholder="Buscar emoji..." x-model="emojiSearch" @input="emojiCatIdx=-1">
+              <div class="emoji-cats" style="margin:8px 0 6px">
+                <template x-for="(cat, i) in EMOJI_CATS" :key="cat.n">
+                  <button class="emoji-cat-btn" :class="emojiCatIdx===i ? 'active':''"
+                          @click="emojiSearch=''; emojiCatIdx=i" x-text="cat.i" :title="cat.n"></button>
+                </template>
+              </div>
+              <div class="emoji-grid">
+                <template x-for="ic in filteredEmojiList" :key="ic">
+                  <div class="ci-icon-btn" :class="ciIcon===ic?'selected':''"
+                       @click="ciIcon=ic" x-text="ic"></div>
+                </template>
+              </div>
+            </div>
+          </template>
         </div>
       </template>
 
@@ -5662,7 +5689,16 @@ document.addEventListener('alpine:init', () => {
     get permTypeLabel() { return {space:'Espaço',folder:'Pasta',list:'Lista'}[this.permType]||''; },
 
     colorIconModal: false,
-    ciType:'', ciTarget:null, ciColor:'#e0683a', ciIcon:'⚡',
+    ciType:'', ciTarget:null, ciColor:'#EB7321', ciIcon:'⚡',
+    ciIconTab: 'lucide',
+    LUCIDE_ICONS: [
+      'folder','briefcase','rocket','target','flag','star','heart','zap',
+      'bell','calendar','clipboard','file-text','layers','box','package','tag',
+      'bookmark','book','pen-tool','palette','camera','image','video','music',
+      'megaphone','trending-up','bar-chart','pie-chart','dollar-sign','shopping-cart','users','globe',
+      'map-pin','home','settings','wrench','code','terminal','database','cloud',
+      'lock','shield','lightbulb','coffee','gift','award','smile','check-circle'
+    ],
     emojiSearch: '', emojiCatIdx: 0,
     get EMOJI_CATS() { return window._EMOJI_CATS || []; },
     get filteredEmojiList() {
@@ -5680,7 +5716,7 @@ document.addEventListener('alpine:init', () => {
     colorPalette: [
       '#ef4444','#f97316','#f59e0b','#eab308','#84cc16','#22c55e',
       '#10b981','#14b8a6','#06b6d4','#3b82f6','#6366f1','#8b5cf6',
-      '#a855f7','#ec4899','#f43f5e','#e0683a','#6b7280','#94a3b8',
+      '#a855f7','#ec4899','#f43f5e','#EB7321','#6b7280','#94a3b8',
     ],
 
     _navStateKey: 'sinapse_gestao_nav',
@@ -6158,6 +6194,7 @@ document.addEventListener('alpine:init', () => {
       this.ciTarget = target;
       this.ciColor = target.color || '#6b7280';
       this.ciIcon  = target.icon  || '⚡';
+      this.ciIconTab = this.isLucideName(this.ciIcon) ? 'lucide' : 'emoji';
       this.colorIconModal = true;
     },
     async submitColorIcon() {
