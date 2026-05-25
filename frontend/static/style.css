@@ -39,6 +39,9 @@
   /* ── Prioridade ─────────────────────────────────────────────────── */
   --priority-urgent: #e5484d;
 
+  /* ── Ação destrutiva ────────────────────────────────────────────── */
+  --danger: #ef4444;
+
   /* ── Typography ─────────────────────────────────────────────────── */
   --font-size-xs:   11px;   /* labels de coluna, badges, helpers */
   --font-size-sm:   12px;   /* metadata, datas, contadores */
