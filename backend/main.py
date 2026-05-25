@@ -1593,14 +1593,58 @@ def _nav_base(request: Request, active_page: str = "") -> dict:
 async def home(request: Request):
     return await gestao_page(request)
 
-@app.get("/conversar", response_class=HTMLResponse)
-async def conversar(request: Request):
-    if not verify_session(request):
-        return RedirectResponse("/login")
-    resp = templates.TemplateResponse("chat.html", {"request": request, **_nav_base(request, "conversar")})
+def _cerebro_client(sigla: str):
+    """Carrega {sigla, nome} da tabela `clientes` pra contexto do Cérebro.
+    Fallback: nome canônico do Painel de Clientes. None se não achar."""
+    if not sigla:
+        return None
+    s = sigla.upper()
+    row = None
+    try:
+        conn = get_conn(); cur = dict_cursor(conn)
+        try:
+            cur.execute(
+                "SELECT sigla, razao_social, nome_fantasia FROM clientes WHERE UPPER(sigla)=%s LIMIT 1",
+                (s,),
+            )
+            row = cur.fetchone()
+        finally:
+            cur.close(); conn.close()
+    except Exception:
+        row = None
+    if row:
+        return {
+            "sigla": (row.get("sigla") or s).upper(),
+            "nome": row.get("nome_fantasia") or row.get("razao_social") or s,
+        }
+    nome = _resolve_client_name(s)
+    return {"sigla": s, "nome": nome} if nome else None
+
+def _render_cerebro(request: Request, client):
+    resp = templates.TemplateResponse(
+        "chat.html",
+        {"request": request, "client": client, **_nav_base(request, "cerebro")},
+    )
     resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
     resp.headers["Pragma"] = "no-cache"
     return resp
+
+@app.get("/conversar")
+async def conversar_redirect():
+    # Compat: rota antiga → novo Cérebro
+    return RedirectResponse("/cerebro", status_code=302)
+
+@app.get("/cerebro", response_class=HTMLResponse)
+async def cerebro(request: Request):
+    if not verify_session(request):
+        return RedirectResponse("/login")
+    return _render_cerebro(request, None)
+
+@app.get("/cerebro/{sigla}", response_class=HTMLResponse)
+async def cerebro_client_page(sigla: str, request: Request):
+    if not verify_session(request):
+        return RedirectResponse("/login")
+    return _render_cerebro(request, _cerebro_client(sigla))
 
 @app.get("/ata", response_class=HTMLResponse)
 async def ata_page(request: Request):
@@ -1875,17 +1919,38 @@ async def chat(request: Request):
     specialist = classify_specialist(messages)
     specialist_prompt = SPECIALIST_PROMPTS.get(specialist, "") if specialist else ""
 
-    system = SYSTEM_PROMPT.format(documents=documents, client_context=client_context)
+    # Prompt caching: o bloco base (instruções + documentos + ficha do cliente) é
+    # estável dentro da conversa → cache_control ephemeral evita reprocessar todo o
+    # contexto a cada mensagem (corta custo e latência). O prompt do especialista
+    # vai num bloco separado sem cache (pode variar entre mensagens).
+    base_system = SYSTEM_PROMPT.format(documents=documents, client_context=client_context)
+    system = [{"type": "text", "text": base_system, "cache_control": {"type": "ephemeral"}}]
     if specialist_prompt:
-        system = system + specialist_prompt
+        system.append({"type": "text", "text": specialist_prompt})
 
-    response = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=2048,
-        system=system,
-        messages=messages,
-        tools=TOOLS,
-    )
+    try:
+        response = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=2048,
+            system=system,
+            messages=messages,
+            tools=TOOLS,
+        )
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        msg = str(e)
+        low = msg.lower()
+        if "credit balance is too low" in low:
+            friendly = "⚠️ Sem créditos na API Anthropic. Adicione créditos em Plans & Billing pra usar o Cérebro."
+        elif "rate_limit" in low or "429" in low:
+            friendly = "⚠️ Limite de requisições atingido. Tente de novo em instantes."
+        elif "overloaded" in low or "529" in low:
+            friendly = "⚠️ A IA está sobrecarregada no momento. Tente de novo em instantes."
+        else:
+            friendly = f"⚠️ Erro ao processar a pergunta ({type(e).__name__}). Tente de novo."
+        # `error` carrega a causa crua pra debug (visível no devtools/Network)
+        return JSONResponse({"reply": friendly, "conv_id": conv_id, "error": msg}, status_code=200)
 
     task_created = None
 
