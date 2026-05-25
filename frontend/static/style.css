@@ -22,13 +22,13 @@
   --text-tertiary:  #62666d;
 
   /* ── Accent (Cardō dessaturado) ─────────────────────────────────── */
-  --accent:       #e0683a;
-  --accent-hover: #c95a30;
-  --accent-soft:  rgba(224, 104, 58, 0.10);
-  --accent-ring:  rgba(224, 104, 58, 0.40);
+  --accent:       #EB7321;
+  --accent-hover: #d4641a;
+  --accent-soft:  rgba(235, 115, 33, 0.10);
+  --accent-ring:  rgba(235, 115, 33, 0.40);
 
   /* ── Tags (ex: cliente) ─────────────────────────────────────────── */
-  --tag-client-bg:   rgba(232, 100, 58, 0.25);
+  --tag-client-bg:   rgba(235, 115, 33, 0.25);
   --tag-client-text: #f7c4af;
 
   /* ── Status semântico (Fase 4) ──────────────────────────────────── */
@@ -38,6 +38,9 @@
 
   /* ── Prioridade ─────────────────────────────────────────────────── */
   --priority-urgent: #e5484d;
+
+  /* ── Ação destrutiva ────────────────────────────────────────────── */
+  --danger: #ef4444;
 
   /* ── Typography ─────────────────────────────────────────────────── */
   --font-size-xs:   11px;   /* labels de coluna, badges, helpers */
@@ -583,7 +586,7 @@ body {
 .fin-nav-item.active .sb-icon { color: var(--text-primary); }
 
 /* ── fin-nav: sidebar padrão escuro (refinada Fase 5) ────────────────────── */
-.fin-nav { width: 260px; flex-shrink: 0; background: #0f0f1c; border-right: 1px solid var(--border-subtle); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+.fin-nav { width: 260px; flex-shrink: 0; background: var(--bg-secondary); border-right: 1px solid var(--border-subtle); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .fin-nav-brand { padding: 13px 14px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border-subtle); flex-shrink: 0; min-height: 48px; }
 .fin-nav-brand-name { font-size: .88rem; font-weight: 600; color: var(--text-primary); letter-spacing: .01em; flex: 1; }
 .fin-nav-back { font-size: .68rem; color: var(--text-tertiary); text-decoration: none; white-space: nowrap; transition: color .15s; }

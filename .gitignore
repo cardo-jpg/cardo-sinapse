@@ -24,3 +24,5 @@ scripts/
 Conversas WhatsApp/
 *.docx.pdf
 nohup.out
+venv_old_py39/
+swatch_accent.html
