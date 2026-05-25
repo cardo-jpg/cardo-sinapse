@@ -174,10 +174,14 @@
     .g-tree-add:focus-visible { opacity: 1; outline: 1px solid var(--accent); outline-offset: 1px; }
     .g-tree-add:hover { color: var(--text-primary); background: var(--bg-tertiary); }
 
-    /* Variante colapsável do tree-header (usada por Ferramentas após Espaços) */
+    /* Variante colapsável do tree-header (usada por Ferramentas).
+       Override do margin-top herdado de .g-tree-header (16px) → 4px:
+       sem linha divisória acima dele, 16px era respiro de "section break"
+       excessivo. 4px mantém respiro mínimo entre Início e o chevron. */
     .g-tree-header--collapsible {
       cursor: pointer; user-select: none;
       border-radius: 6px;
+      margin-top: var(--space-1);
       margin-left: var(--space-2); margin-right: var(--space-2);
       padding-left: var(--space-1);
       transition: background 120ms ease, color 120ms ease;
