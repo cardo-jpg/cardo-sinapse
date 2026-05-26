@@ -54,6 +54,20 @@
     .wa-setup-sub { font-size: .85rem; color: rgba(255,255,255,.75); }
     .wa-setup-url { background: rgba(0,0,0,.4); padding: 8px 12px; border-radius: 7px; font-family: ui-monospace, monospace; font-size: .78rem; margin-top: 10px; word-break: break-all; cursor: pointer; }
     .wa-setup-url:hover { background: rgba(0,0,0,.6); }
+
+    /* barra de saúde da sincronização (Eixo 1) */
+    .wa-health { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 10px; margin-bottom: 18px; font-size: .85rem; border: 1px solid var(--border-subtle); background: var(--bg-secondary); color: var(--text-secondary); }
+    .wa-health-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--text-tertiary); }
+    .wa-health.ok    { border-color: rgba(76,183,130,.3); }
+    .wa-health.ok .wa-health-dot   { background: #4cb782; }
+    .wa-health.warn  { border-color: rgba(242,201,76,.35); }
+    .wa-health.warn .wa-health-dot { background: #f2c94c; }
+    .wa-health.down  { border-color: rgba(239,68,68,.4); background: rgba(239,68,68,.06); }
+    .wa-health.down .wa-health-dot { background: #ef4444; }
+    .wa-health-state { font-weight: 600; color: var(--text-primary); }
+    .wa-health-sep { color: var(--text-tertiary); }
+    .wa-health-cta { margin-left: auto; background: var(--accent); color: #fff; border: none; border-radius: 7px; padding: 6px 13px; font-size: .8rem; font-weight: 500; cursor: pointer; }
+    .wa-health-cta:hover { background: var(--accent-hover); }
   </style>
 </head>
 <body>
@@ -64,6 +78,18 @@
     <div class="wa-header">
       <div class="wa-title">📱 WhatsApp</div>
       <div class="wa-sub">Grupos vinculados a clientes — todas as mensagens dos grupos ativos viram parte da inteligência do dossiê.</div>
+    </div>
+
+    <!-- Barra de saúde da sincronização -->
+    <div class="wa-health" :class="health.connected ? (healthStale ? 'warn' : 'ok') : 'down'">
+      <span class="wa-health-dot"></span>
+      <span class="wa-health-state" x-text="health.connected ? 'Conectado' : 'Desconectado'"></span>
+      <span class="wa-health-sep">·</span>
+      <span x-text="health.last_message_at ? ('última mensagem ' + fmtRel(health.last_message_at)) : 'nenhuma mensagem ainda'"
+            :style="(!health.connected) ? 'color:#f87171' : (healthStale ? 'color:#f2c94c' : '')"></span>
+      <template x-if="health.grupos_ativos"><span class="wa-health-sep">·</span></template>
+      <span x-show="health.grupos_ativos" x-text="health.grupos_ativos + ' grupos ativos'"></span>
+      <button class="wa-health-cta" x-show="!health.connected" @click="scrollToConnect()">Reconectar</button>
     </div>
 
     <!-- Connect card (Evolution API) -->
@@ -80,7 +106,7 @@
 
       <template x-if="state.instance?.state !== 'open'">
         <div style="margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-          <input type="tel" class="wa-input" style="max-width: 280px;" x-model="connectNumber"
+          <input type="tel" class="wa-input" style="max-width: 280px;" x-model="connectNumber" x-ref="numInput"
                  placeholder="Ex: 5547999999999 (sem + nem espaços)">
           <button class="wa-btn-primary" @click="conectarPairing()" :disabled="connecting || !connectNumber">
             <span x-text="connecting ? 'Conectando…' : '🔑 Gerar código de pareamento'"></span>
@@ -274,6 +300,7 @@ function waApp() {
     copied: false,
 
     state: { instance: { state: null } },
+    health: { connected: false, waha_status: '', last_message_at: null, seconds_since: null, grupos_ativos: 0 },
     connectNumber: '',
     connecting: false,
     connectError: '',
@@ -293,11 +320,33 @@ function waApp() {
     },
     get semCliente() { return this.grupos.filter(g => !g.cliente_id); },
     get comCliente() { return this.grupos.filter(g => g.cliente_id); },
+    // sync parada > 6h (mesmo conectado) → estado de alerta
+    get healthStale() { return this.health.connected && this.health.seconds_since != null && this.health.seconds_since > 6 * 3600; },
 
     async init() {
-      await Promise.all([this.load(), this.checkState(), this.loadSenders()]);
+      await Promise.all([this.load(), this.checkState(), this.loadSenders(), this.loadHealth()]);
       // Poll status quando há pareamento em andamento
       setInterval(() => { if (this.pairingCode || this.qrBase64) this.checkState(); }, 5000);
+      // Saúde da sincronização — atualiza a cada 30s
+      setInterval(() => this.loadHealth(), 30000);
+    },
+
+    async loadHealth() {
+      try {
+        const r = await fetch('/api/whatsapp/health');
+        if (r.ok) this.health = await r.json();
+      } catch (e) {}
+    },
+    scrollToConnect() {
+      const el = document.querySelector('.wa-setup-card');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // pulso de destaque + foco no input pra ação ficar óbvia
+        el.style.transition = 'box-shadow .25s';
+        el.style.boxShadow = '0 0 0 3px var(--accent-ring)';
+        setTimeout(() => { el.style.boxShadow = ''; }, 900);
+      }
+      this.$nextTick(() => this.$refs.numInput && this.$refs.numInput.focus());
     },
 
     async importarHistorico() {
