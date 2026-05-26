@@ -688,6 +688,70 @@ async def instance_state(request: Request):
     }
 
 
+@router.get("/api/whatsapp/health")
+async def whatsapp_health(request: Request):
+    """Saúde da sincronização: status da sessão WAHA + última mensagem recebida (global).
+    Usado pela barra de saúde do frontend pra detectar sync parada/desconexão."""
+    _require(request)
+    waha = "UNKNOWN"
+    try:
+        waha = _waha_session_status()
+    except Exception:
+        waha = "UNREACHABLE"
+    connected = (waha == "WORKING")
+
+    last = None
+    grupos_ativos = 0
+    try:
+        conn = get_conn(); cur = dict_cursor(conn)
+        try:
+            cur.execute("SELECT MAX(message_timestamp) AS last FROM wa_mensagens")
+            last = (cur.fetchone() or {}).get("last")
+            cur.execute("SELECT COUNT(*) AS n FROM wa_grupos WHERE ativo=TRUE AND cliente_id IS NOT NULL")
+            grupos_ativos = (cur.fetchone() or {}).get("n", 0)
+        finally:
+            cur.close(); conn.close()
+    except Exception:
+        pass
+
+    seconds_since = None
+    if isinstance(last, datetime):
+        now = datetime.now(last.tzinfo) if last.tzinfo else datetime.now()
+        seconds_since = int((now - last).total_seconds())
+
+    return {
+        "waha_status": waha,
+        "connected": connected,
+        "last_message_at": last.isoformat() if isinstance(last, datetime) else None,
+        "seconds_since": seconds_since,
+        "grupos_ativos": int(grupos_ativos or 0),
+    }
+
+
+@router.get("/api/whatsapp/debug/config")
+async def whatsapp_debug_config(request: Request):
+    """Diagnóstico (sem expor segredos): pra onde aponta o WAHA, versão/engine e status.
+    Usado pra investigar o hosting e dimensionar backfill. Acesse em produção."""
+    _require(request)
+    info = {
+        "waha_api_url": WAHA_API_URL or None,
+        "waha_session": WAHA_SESSION,
+        "waha_api_key_set": bool(WAHA_API_KEY),
+        "webhook_token_set": bool(WEBHOOK_TOKEN),
+        "public_base": os.getenv("PUBLIC_BASE_URL") or os.getenv("BASE_URL") or None,
+    }
+    try:
+        info["session_status"] = _waha_session_status()
+    except Exception as e:
+        info["session_status"] = f"erro: {e}"
+    try:
+        v = _waha_call("GET", "/api/version")
+        info["waha_version"] = v.get("data") if isinstance(v, dict) else None
+    except Exception as e:
+        info["waha_version"] = f"erro: {e}"
+    return info
+
+
 @router.post("/api/whatsapp/instance/connect")
 async def instance_connect(request: Request):
     """
