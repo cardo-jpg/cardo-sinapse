@@ -24,6 +24,15 @@
       border-radius: 8px; font-size: .85rem;
     }
     .ini-search-input:focus { outline: none; border-color: var(--accent); }
+    /* indicador de saúde do WhatsApp (proativo) */
+    .ini-wa-chip { display: inline-flex; align-items: center; gap: 7px; text-decoration: none; font-size: .8rem; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border-subtle); white-space: nowrap; transition: background .12s; }
+    .ini-wa-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .ini-wa-chip.ok { color: var(--text-tertiary); }
+    .ini-wa-chip.ok .ini-wa-dot { background: #4cb782; }
+    .ini-wa-chip.warn { color: #f2c94c; border-color: rgba(242,201,76,.4); background: rgba(242,201,76,.07); }
+    .ini-wa-chip.warn .ini-wa-dot { background: #f2c94c; }
+    .ini-wa-chip.down { color: #f87171; border-color: rgba(239,68,68,.45); background: rgba(239,68,68,.08); font-weight: 600; }
+    .ini-wa-chip.down .ini-wa-dot { background: #ef4444; }
 
     /* ── Hero header (gradiente Cardô) ── */
     .ini-hero {
@@ -144,7 +153,15 @@
   <main class="ini-main">
     <div class="ini-topbar">
       <div class="ini-page-title">Início</div>
-      <input class="ini-search-input" type="text" placeholder="Buscar cliente ou tarefa…" disabled>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <a class="ini-wa-chip" href="/whatsapp" x-show="waLoaded" x-cloak
+           :class="!wa.connected ? 'down' : (waStale ? 'warn' : 'ok')"
+           :title="wa.last_message_at ? ('última mensagem ' + waRel) : ''">
+          <span class="ini-wa-dot"></span>
+          <span x-text="!wa.connected ? 'WhatsApp desconectado' : (waStale ? 'WhatsApp sync parada' : 'WhatsApp ok')"></span>
+        </a>
+        <input class="ini-search-input" type="text" placeholder="Buscar cliente ou tarefa…" disabled>
+      </div>
     </div>
 
     <!-- Hero -->
@@ -271,6 +288,17 @@ function iniApp() {
     foco: { hoje: 0, atrasadas: 0, sem_contato_7d: 0 },
     clients: [],
     alertas: [],
+    wa: { connected: false, seconds_since: null, last_message_at: null },
+    waLoaded: false,
+
+    get waStale() { return this.wa.connected && this.wa.seconds_since != null && this.wa.seconds_since > 6 * 3600; },
+    get waRel() {
+      const s = this.wa.seconds_since;
+      if (s == null) return '';
+      if (s < 3600) return 'há ' + Math.floor(s / 60) + ' min';
+      if (s < 86400) return 'há ' + Math.floor(s / 3600) + 'h';
+      return 'há ' + Math.floor(s / 86400) + 'd';
+    },
 
     get greeting() {
       const h = new Date().getHours();
@@ -303,6 +331,14 @@ function iniApp() {
         }
       } catch (e) { console.error(e); }
       this.loading = false;
+      this.loadWaHealth();
+    },
+
+    async loadWaHealth() {
+      try {
+        const r = await fetch('/api/whatsapp/health');
+        if (r.ok) { this.wa = await r.json(); this.waLoaded = true; }
+      } catch (e) {}
     },
 
     toggleVisibility() {
