@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+{% from "_icon.html" import icon %}
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,50 +11,54 @@
     [x-cloak] { display: none !important; }
     body { overflow: hidden; }
     .wa-shell { display: flex; height: 100vh; overflow: hidden; }
-    .wa-main { flex: 1; overflow: auto; padding: 22px 26px 64px; background: var(--bg); }
+    .wa-main { flex: 1; overflow: auto; padding: 22px 26px 64px; background: var(--bg-primary); }
 
     .wa-header { margin-bottom: 18px; }
-    .wa-title { font-size: 1.4rem; font-weight: 700; }
-    .wa-sub { font-size: .82rem; color: var(--muted); margin-top: 4px; }
+    .wa-title { font-size: 1.4rem; font-weight: 700; display: flex; align-items: center; gap: 9px; }
+    .wa-title svg { width: 22px; height: 22px; color: var(--text-secondary); }
+    .wa-sub { font-size: .82rem; color: var(--text-secondary); margin-top: 4px; }
 
-    .wa-section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; margin-bottom: 16px; }
+    .wa-section { background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 16px 20px; margin-bottom: 16px; }
     .wa-section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-    .wa-section-title { font-size: .92rem; font-weight: 700; }
-    .wa-section-count { font-size: .72rem; color: var(--muted); background: #0f0f0f; padding: 2px 8px; border-radius: 999px; }
+    .wa-section-title { font-size: .92rem; font-weight: 700; display: flex; align-items: center; gap: 7px; }
+    .wa-section-title svg { width: 15px; height: 15px; color: var(--text-tertiary); }
+    .wa-section-count { font-size: .72rem; color: var(--text-secondary); background: var(--bg-tertiary); padding: 2px 8px; border-radius: 999px; }
 
     .wa-grupo {
       display: grid; grid-template-columns: 1fr 220px 90px 90px; gap: 12px; align-items: center;
-      padding: 12px 0; border-top: 1px solid var(--border); font-size: .85rem;
+      padding: 12px 0; border-top: 1px solid var(--border-subtle); font-size: .85rem;
     }
     .wa-grupo:first-child { border-top: none; }
     .wa-grupo-name { font-weight: 600; }
-    .wa-grupo-name.muted { color: var(--muted); font-style: italic; }
-    .wa-grupo-meta { font-size: .7rem; color: var(--muted); margin-top: 2px; }
+    .wa-grupo-name.muted { color: var(--text-secondary); font-style: italic; }
+    .wa-grupo-meta { font-size: .7rem; color: var(--text-secondary); margin-top: 2px; }
     .wa-select, .wa-input {
-      background: #0f0f0f; border: 1px solid var(--border); color: var(--text);
+      background: var(--bg-tertiary); border: 1px solid var(--border-subtle); color: var(--text-primary);
       padding: 7px 10px; border-radius: 7px; font-size: .82rem; width: 100%;
     }
     .wa-select:focus, .wa-input:focus { outline: none; border-color: var(--accent); }
     .wa-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: .8rem; }
-    .wa-btn-sm { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 5px 10px; border-radius: 6px; font-size: .75rem; cursor: pointer; }
+    .wa-btn-sm { background: var(--bg-secondary); border: 1px solid var(--border-subtle); color: var(--text-primary); padding: 5px 10px; border-radius: 6px; font-size: .75rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
     .wa-btn-sm:hover { border-color: var(--accent); }
-    .wa-btn-primary { background: var(--accent); border: 1px solid var(--accent); color: #fff; padding: 8px 14px; border-radius: 7px; font-size: .82rem; font-weight: 500; cursor: pointer; }
+    .wa-btn-sm svg { width: 13px; height: 13px; color: var(--text-tertiary); }
+    .wa-btn-primary { background: var(--accent); border: 1px solid var(--accent); color: #fff; padding: 8px 14px; border-radius: 7px; font-size: .82rem; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
+    .wa-btn-primary svg { width: 14px; height: 14px; }
     .wa-btn-primary:hover { background: var(--accent-hover); }
     .wa-btn-primary:disabled { opacity: .5; cursor: not-allowed; }
 
-    .wa-empty { padding: 36px 16px; text-align: center; color: var(--muted); font-size: .9rem; }
-    .wa-empty-strong { color: var(--text); font-weight: 600; display: block; margin-bottom: 6px; font-size: 1rem; }
+    .wa-empty { padding: 36px 16px; text-align: center; color: var(--text-secondary); font-size: .9rem; }
+    .wa-empty-strong { color: var(--text-primary); font-weight: 600; display: block; margin-bottom: 6px; font-size: 1rem; }
 
+    /* card de conexão — sóbrio (Linear), aparece só quando desconectado */
     .wa-setup-card {
-      background: linear-gradient(135deg, #2b0d04 0%, #4a1606 100%);
-      border: 1px solid rgba(255, 77, 0, .25);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-default);
       border-radius: 14px; padding: 20px 24px; margin-bottom: 18px;
     }
-    .wa-setup-card.success { background: linear-gradient(135deg, #052e16 0%, #14532d 100%); border-color: rgba(74, 222, 128, .3); }
     .wa-setup-title { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
-    .wa-setup-sub { font-size: .85rem; color: rgba(255,255,255,.75); }
-    .wa-setup-url { background: rgba(0,0,0,.4); padding: 8px 12px; border-radius: 7px; font-family: ui-monospace, monospace; font-size: .78rem; margin-top: 10px; word-break: break-all; cursor: pointer; }
-    .wa-setup-url:hover { background: rgba(0,0,0,.6); }
+    .wa-setup-sub { font-size: .85rem; color: var(--text-secondary); }
+    .wa-pairing-box { margin-top: 18px; padding: 14px; background: var(--bg-tertiary); border: 1px solid var(--border-subtle); border-radius: 10px; }
+    .wa-pairing-code { font-family: ui-monospace, monospace; font-size: 1.8rem; font-weight: 700; letter-spacing: .12em; color: var(--text-primary); }
 
     /* barra de saúde da sincronização (Eixo 1) */
     .wa-health { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 10px; margin-bottom: 18px; font-size: .85rem; border: 1px solid var(--border-subtle); background: var(--bg-secondary); color: var(--text-secondary); }
@@ -76,7 +81,7 @@
 
   <main class="wa-main">
     <div class="wa-header">
-      <div class="wa-title">📱 WhatsApp</div>
+      <div class="wa-title">WhatsApp</div>
       <div class="wa-sub">Grupos vinculados a clientes — todas as mensagens dos grupos ativos viram parte da inteligência do dossiê.</div>
     </div>
 
@@ -92,16 +97,14 @@
       <button class="wa-health-cta" x-show="!health.connected" @click="scrollToConnect()">Reconectar</button>
     </div>
 
-    <!-- Connect card (Evolution API) -->
-    <div class="wa-setup-card" :class="state.instance?.state === 'open' ? 'success' : ''">
+    <!-- Card de conexão — só aparece quando NÃO está conectado (status fica na barra de saúde) -->
+    <div class="wa-setup-card" x-show="state.instance?.state !== 'open'" x-cloak>
       <div class="wa-setup-title">
-        <span x-show="state.instance?.state === 'open'">✅ WhatsApp conectado</span>
-        <span x-show="state.instance?.state === 'connecting'">⏳ Aguardando conexão</span>
-        <span x-show="!state.instance || state.instance?.state === 'close' || !state.instance?.state">📱 Conectar WhatsApp</span>
+        <span x-show="state.instance?.state === 'connecting'">Aguardando conexão</span>
+        <span x-show="state.instance?.state !== 'connecting'">Conectar WhatsApp</span>
       </div>
       <div class="wa-setup-sub">
-        <span x-show="state.instance?.state === 'open'">Tudo certo — mensagens dos grupos vinculados já estão sendo capturadas.</span>
-        <span x-show="state.instance?.state !== 'open'">Use seu número de WhatsApp para parear via código (sem QR). É mais confiável que escanear QR.</span>
+        Use seu número de WhatsApp para parear via código (sem QR). É mais confiável que escanear QR.
       </div>
 
       <template x-if="state.instance?.state !== 'open'">
@@ -109,25 +112,26 @@
           <input type="tel" class="wa-input" style="max-width: 280px;" x-model="connectNumber" x-ref="numInput"
                  placeholder="Ex: 5547999999999 (sem + nem espaços)">
           <button class="wa-btn-primary" @click="conectarPairing()" :disabled="connecting || !connectNumber">
-            <span x-text="connecting ? 'Conectando…' : '🔑 Gerar código de pareamento'"></span>
+            {{ icon("key-round", size=14, color="#ffffff") }}
+            <span x-text="connecting ? 'Conectando…' : 'Gerar código de pareamento'"></span>
           </button>
           <button class="wa-btn-sm" @click="conectarQR()" :disabled="connecting">QR code</button>
         </div>
       </template>
 
       <template x-if="pairingCode">
-        <div style="margin-top: 18px; padding: 14px; background: rgba(0,0,0,.35); border-radius: 10px;">
-          <div style="font-size: .82rem; color: rgba(255,255,255,.7); margin-bottom: 8px;">
-            ✨ Código de pareamento:
+        <div class="wa-pairing-box">
+          <div style="font-size: .82rem; color: var(--text-secondary); margin-bottom: 8px;">
+            Código de pareamento:
           </div>
-          <div style="font-family: ui-monospace, monospace; font-size: 1.8rem; font-weight: 700; letter-spacing: .12em; color: #fff;" x-text="pairingCode"></div>
-          <div style="font-size: .78rem; color: rgba(255,255,255,.65); margin-top: 10px; line-height: 1.55;">
+          <div class="wa-pairing-code" x-text="pairingCode"></div>
+          <div style="font-size: .78rem; color: var(--text-secondary); margin-top: 10px; line-height: 1.55;">
             1. WhatsApp do celular → <strong>⋮</strong> → <strong>Aparelhos conectados</strong><br>
             2. Toque em <strong>Conectar um aparelho</strong><br>
             3. No rodapé: <strong>Conectar com número de telefone</strong><br>
-            4. Digita o código (sem hífen). Status muda pra "Connected" em ~5s.
+            4. Digita o código (sem hífen). Status muda pra "Conectado" em ~5s.
           </div>
-          <button class="wa-btn-sm" style="margin-top: 10px;" @click="checkState()">↻ Verificar conexão</button>
+          <button class="wa-btn-sm" style="margin-top: 10px;" @click="checkState()">{{ icon("rotate-cw", size=13) }} Verificar conexão</button>
         </div>
       </template>
 
@@ -144,38 +148,46 @@
 
     <template x-if="grupos.length">
       <div>
-        <!-- Importar histórico (.txt do WhatsApp) -->
-        <div class="wa-section">
+        <!-- Vinculados — foco principal (grupos que alimentam o dossiê) -->
+        <div class="wa-section" x-show="comCliente.length">
           <div class="wa-section-head">
-            <div>
-              <div class="wa-section-title">📜 Importar histórico de conversas</div>
-              <div style="font-size: .72rem; color: var(--muted); margin-top: 2px;">
-                Sobe um <code>.txt</code> exportado do WhatsApp e vincula ao cliente. Mensagens entram no banco com data/hora reais.
+            <div class="wa-section-title">{{ icon("circle-check", size=15) }} Vinculados</div>
+            <div class="wa-section-count" x-text="comCliente.length + ' grupo(s)'"></div>
+          </div>
+          <template x-for="g in comCliente" :key="g.id">
+            <div class="wa-grupo">
+              <div>
+                <div class="wa-grupo-name" x-text="g.nome || g.jid"></div>
+                <div class="wa-grupo-meta">
+                  <span style="color: var(--status-feito); font-weight: 600;" x-show="g.cliente_sigla" x-text="`→ [${g.cliente_sigla}] ${g.cliente_nome}`"></span>
+                  · <span x-text="g.total_mensagens + ' msgs'"></span>
+                  <span x-show="g.last_message_at"> · última </span>
+                  <span x-show="g.last_message_at" x-text="fmtRel(g.last_message_at)"></span>
+                </div>
               </div>
+              <select class="wa-select" :value="g.cliente_id || ''" @change="vincularSelect(g, $event.target.value)">
+                <option value="">— Desvincular —</option>
+                <template x-for="c in clientes" :key="c.id">
+                  <option :value="c.id" x-text="`[${c.sigla}] ${c.razao_social}`"></option>
+                </template>
+              </select>
+              <label class="wa-toggle">
+                <input type="checkbox" :checked="g.ativo" @change="toggleAtivo(g)">
+                <span x-text="g.ativo ? 'Ativo' : 'Inativo'"></span>
+              </label>
+              <a class="wa-btn-sm" :href="`/clientes/${g.cliente_id}?tab=whatsapp`" target="_blank">abrir dossiê {{ icon("external-link", size=12) }}</a>
             </div>
-          </div>
-          <div style="display: grid; grid-template-columns: 1fr 240px 130px; gap: 10px; align-items: center; padding: 8px 0;">
-            <input type="file" accept=".txt" multiple x-ref="histFile" @change="histFiles = Array.from($event.target.files)" class="wa-input">
-            <select class="wa-select" x-model="histClienteId">
-              <option value="">— escolher cliente —</option>
-              <template x-for="c in clientes" :key="c.id">
-                <option :value="c.id" x-text="`[${c.sigla}] ${c.razao_social}`"></option>
-              </template>
-            </select>
-            <button class="wa-btn-primary" :disabled="!histFiles.length || !histClienteId || histImporting" @click="importarHistorico()">
-              <span x-text="histImporting ? 'Importando…' : `↑ Importar (${histFiles.length})`"></span>
-            </button>
-          </div>
-          <div x-show="histResultado" class="wa-msg-pending" style="margin-top: 8px; font-size: .8rem;" x-text="histResultado"></div>
+          </template>
         </div>
 
-        <!-- Sem cliente -->
+        <!-- Aguardando vínculo -->
         <div class="wa-section" x-show="semCliente.length">
           <div class="wa-section-head">
-            <div class="wa-section-title">🔗 Aguardando vínculo</div>
+            <div class="wa-section-title">{{ icon("link-2", size=15) }} Aguardando vínculo</div>
             <div style="display: flex; gap: 10px; align-items: center;">
               <button class="wa-btn-sm" @click="refreshNomes()" :disabled="refreshingNomes">
-                <span x-text="refreshingNomes ? 'Buscando…' : '↻ Buscar nomes'"></span>
+                {{ icon("rotate-cw", size=13) }}
+                <span x-text="refreshingNomes ? 'Buscando…' : 'Buscar nomes'"></span>
               </button>
               <div class="wa-section-count" x-text="semCliente.length + ' grupo(s)'"></div>
             </div>
@@ -205,86 +217,30 @@
           </template>
         </div>
 
-        <!-- Remetentes (descobrir quem é quem) -->
-        <div class="wa-section" x-show="senders.length || showAllSenders">
+        <!-- Importar histórico (.txt) — utilitário, no fim -->
+        <div class="wa-section">
           <div class="wa-section-head">
             <div>
-              <div class="wa-section-title">👥 Remetentes detectados</div>
-              <div style="font-size: .72rem; color: var(--muted); margin-top: 2px;">
-                Identifica quem é do <strong style="color: #4ade80;">time</strong> (Victor, José, etc) pelas amostras —
-                só de grupos já vinculados a clientes.
+              <div class="wa-section-title">{{ icon("file-up", size=15) }} Importar histórico de conversas</div>
+              <div style="font-size: .72rem; color: var(--text-secondary); margin-top: 2px;">
+                Sobe um <code>.txt</code> exportado do WhatsApp e vincula ao cliente. Mensagens entram no banco com data/hora reais.
               </div>
-            </div>
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <label class="wa-toggle" style="font-size: .72rem;">
-                <input type="checkbox" :checked="showAllSenders" @change="showAllSenders = !showAllSenders; loadSenders()">
-                ver todos os grupos
-              </label>
-              <button class="wa-btn-sm" @click="loadSenders()">↻ Atualizar</button>
             </div>
           </div>
-          <template x-if="!senders.length">
-            <div style="padding: 20px; text-align: center; color: var(--muted); font-size: .85rem;">
-              Vincule pelo menos um grupo a um cliente pra começar a aparecer aqui.
-            </div>
-          </template>
-          <template x-for="s in senders" :key="s.sender_jid">
-            <div style="display: grid; grid-template-columns: 1fr 110px; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border);">
-              <div>
-                <div style="display: flex; gap: 10px; align-items: baseline; margin-bottom: 2px;">
-                  <span style="font-family: monospace; font-size: .7rem; color: var(--muted);" x-text="s.sender_jid"></span>
-                  <span x-show="s.grupos" style="font-size: .68rem; color: #fb923c;" x-text="'em: ' + s.grupos"></span>
-                </div>
-                <div style="font-size: .82rem;">
-                  <span x-show="s.recent_bodies.length === 0" style="color: var(--muted); font-style: italic;">(só áudio/mídia ou mensagens sem texto)</span>
-                  <template x-for="b in s.recent_bodies" :key="b">
-                    <div style="margin: 2px 0; color: #e5e7eb;">"<span x-text="b.length > 110 ? b.slice(0, 110) + '…' : b"></span>"</div>
-                  </template>
-                </div>
-                <div style="font-size: .68rem; color: var(--muted); margin-top: 4px;" x-text="`${s.msgs} mensagens · última ${fmtRel(s.last_seen)}`"></div>
-              </div>
-              <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center;">
-                <template x-if="!s.is_own">
-                  <button class="wa-btn-primary" style="padding: 5px 10px; font-size: .76rem;" @click="marcarComoTime(s)">✓ É do time</button>
-                </template>
-                <template x-if="s.is_own">
-                  <button class="wa-btn-sm" style="background: #052e16; border-color: #4ade80; color: #4ade80;" @click="desmarcarTime(s)">✓ Time</button>
-                </template>
-              </div>
-            </div>
-          </template>
-        </div>
-
-        <!-- Com cliente -->
-        <div class="wa-section" x-show="comCliente.length">
-          <div class="wa-section-head">
-            <div class="wa-section-title">✅ Vinculados</div>
-            <div class="wa-section-count" x-text="comCliente.length + ' grupo(s)'"></div>
+          <div style="display: grid; grid-template-columns: 1fr 240px 130px; gap: 10px; align-items: center; padding: 8px 0;">
+            <input type="file" accept=".txt" multiple x-ref="histFile" @change="histFiles = Array.from($event.target.files)" class="wa-input">
+            <select class="wa-select" x-model="histClienteId">
+              <option value="">— escolher cliente —</option>
+              <template x-for="c in clientes" :key="c.id">
+                <option :value="c.id" x-text="`[${c.sigla}] ${c.razao_social}`"></option>
+              </template>
+            </select>
+            <button class="wa-btn-primary" :disabled="!histFiles.length || !histClienteId || histImporting" @click="importarHistorico()">
+              {{ icon("upload", size=14, color="#ffffff") }}
+              <span x-text="histImporting ? 'Importando…' : `Importar (${histFiles.length})`"></span>
+            </button>
           </div>
-          <template x-for="g in comCliente" :key="g.id">
-            <div class="wa-grupo">
-              <div>
-                <div class="wa-grupo-name" x-text="g.nome || g.jid"></div>
-                <div class="wa-grupo-meta">
-                  <span style="color: #4ade80; font-weight: 600;" x-show="g.cliente_sigla" x-text="`→ [${g.cliente_sigla}] ${g.cliente_nome}`"></span>
-                  · <span x-text="g.total_mensagens + ' msgs'"></span>
-                  <span x-show="g.last_message_at"> · última </span>
-                  <span x-show="g.last_message_at" x-text="fmtRel(g.last_message_at)"></span>
-                </div>
-              </div>
-              <select class="wa-select" :value="g.cliente_id || ''" @change="vincularSelect(g, $event.target.value)">
-                <option value="">— Desvincular —</option>
-                <template x-for="c in clientes" :key="c.id">
-                  <option :value="c.id" x-text="`[${c.sigla}] ${c.razao_social}`"></option>
-                </template>
-              </select>
-              <label class="wa-toggle">
-                <input type="checkbox" :checked="g.ativo" @change="toggleAtivo(g)">
-                <span x-text="g.ativo ? 'Ativo' : 'Inativo'"></span>
-              </label>
-              <a class="wa-btn-sm" :href="`/clientes/${g.cliente_id}?tab=whatsapp`" target="_blank">abrir dossiê ↗</a>
-            </div>
-          </template>
+          <div x-show="histResultado" class="wa-msg-pending" style="margin-top: 8px; font-size: .8rem;" x-text="histResultado"></div>
         </div>
       </div>
     </template>
@@ -307,8 +263,6 @@ function waApp() {
     pairingCode: '',
     qrBase64: '',
     refreshingNomes: false,
-    senders: [],
-    showAllSenders: false,
 
     histFiles: [],
     histClienteId: '',
@@ -324,12 +278,16 @@ function waApp() {
     get healthStale() { return this.health.connected && this.health.seconds_since != null && this.health.seconds_since > 6 * 3600; },
 
     async init() {
-      await Promise.all([this.load(), this.checkState(), this.loadSenders(), this.loadHealth()]);
+      await Promise.all([this.load(), this.checkState(), this.loadHealth()]);
+      this._renderIcons();
       // Poll status quando há pareamento em andamento
       setInterval(() => { if (this.pairingCode || this.qrBase64) this.checkState(); }, 5000);
       // Saúde da sincronização — atualiza a cada 30s
       setInterval(() => this.loadHealth(), 30000);
     },
+
+    // re-renderiza ícones Lucide após o Alpine montar conteúdo dinâmico (seções/grupos)
+    _renderIcons() { this.$nextTick(() => { try { window.lucide && lucide.createIcons(); } catch (e) {} }); },
 
     async loadHealth() {
       try {
@@ -377,38 +335,6 @@ function waApp() {
       await this.load();
     },
 
-    async loadSenders() {
-      try {
-        const qs = this.showAllSenders ? '?all=true' : '';
-        const r = await fetch(`/api/whatsapp/debug/senders${qs}`);
-        if (r.ok) {
-          const d = await r.json();
-          this.senders = d.senders || [];
-        }
-      } catch (e) { console.error(e); }
-    },
-
-    async marcarComoTime(s) {
-      const apelido = prompt(`Quem é "${s.sender_jid}"? (Ex: Victor, José)\n\nÚltima mensagem: ${(s.recent_bodies[0] || '(só áudio)').slice(0, 80)}`, '');
-      if (apelido === null) return;
-      try {
-        await fetch('/api/whatsapp/debug/team-lid', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ jid: s.sender_jid, apelido: apelido.trim() || null }),
-        });
-        await this.loadSenders();
-      } catch (e) { console.error(e); alert('Erro'); }
-    },
-
-    async desmarcarTime(s) {
-      if (!confirm(`Desmarcar "${s.sender_jid}" como time?`)) return;
-      try {
-        await fetch(`/api/whatsapp/debug/team-lid/${encodeURIComponent(s.sender_jid)}`, { method: 'DELETE' });
-        await this.loadSenders();
-      } catch (e) { console.error(e); alert('Erro'); }
-    },
-
     async checkState() {
       try {
         const r = await fetch('/api/whatsapp/instance/state');
@@ -423,6 +349,7 @@ function waApp() {
           }
         }
       } catch (e) { console.error(e); }
+      this._renderIcons();
     },
 
     async conectarPairing() {
@@ -490,6 +417,7 @@ function waApp() {
         }
       } catch (e) { console.error(e); }
       this.loading = false;
+      this._renderIcons();
     },
 
     async refreshNomes() {
