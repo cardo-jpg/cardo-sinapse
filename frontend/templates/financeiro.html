@@ -2279,7 +2279,7 @@ window.finApp = function() {
         this.lancForm.contato_id   = l.contato_id   || '';
         this.lancForm.conta_id     = l.conta_id      || '';
         this.lancForm.categoria_id = l.categoria_id  || '';
-        this.lancForm.centro_id    = l.centro_id      || '';
+        this.lancForm.centro_id    = l.centro_custo_id || '';
       });
     },
 
@@ -2315,9 +2315,11 @@ window.finApp = function() {
           valor_total: this.lancForm.valor_total,
           conta_id: this.lancForm.conta_id || null,
           categoria_id: this.lancForm.categoria_id || null,
-          centro_id: this.lancForm.centro_id || null,
+          centro_custo_id: this.lancForm.centro_id || null,
           meio_pagamento: this.lancForm.meio_pagamento || null,
           situacao: this.lancForm.situacao,
+          vencimento_tipo: this.lancForm.vencimento_tipo,
+          num_parcelas: this.lancForm.num_parcelas,
         };
         if (this.lancForm.id) {
           await this.api('PUT', `/api/fin/lancamentos/${this.lancForm.id}`, payload);

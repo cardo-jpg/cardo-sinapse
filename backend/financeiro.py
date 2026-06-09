@@ -3,6 +3,7 @@ import csv
 import os
 import json
 import re
+import calendar
 import time as _time
 from datetime import date, datetime
 from pathlib import Path
@@ -338,6 +339,38 @@ def _extract_lancamento(data: dict) -> dict:
 def _build_set(fields: dict):
     set_clause = ", ".join(f"{k}=%s" for k in fields)
     return set_clause, list(fields.values())
+
+
+# ── Parcelamento ──────────────────────────────────────────────────────────────
+
+_PARCELA_SUFFIX_RE = re.compile(r"\s+\d+/\d+\s*$")
+
+
+def _strip_parcela_suffix(desc: str) -> str:
+    """Remove um sufixo ' x/N' do fim da descrição, para não duplicar (ex.: 'Teste 1/3 1/3')."""
+    return _PARCELA_SUFFIX_RE.sub("", desc or "").strip()
+
+
+def _add_months(iso_date: str, months: int) -> str:
+    """Soma `months` meses a uma data ISO 'YYYY-MM-DD', preservando o dia
+    (com clamp para o último dia do mês quando o dia não existir, ex.: 31 → 30)."""
+    y, m, d = (int(x) for x in str(iso_date)[:10].split("-"))
+    total = (m - 1) + months
+    y2 = y + total // 12
+    m2 = total % 12 + 1
+    d2 = min(d, calendar.monthrange(y2, m2)[1])
+    return date(y2, m2, d2).isoformat()
+
+
+def _parse_parcelas(data: dict):
+    """Retorna o nº de parcelas (>=2) quando o lançamento é parcelado válido; senão None."""
+    if (data.get("vencimento_tipo") or "uma_vez") != "parcelado":
+        return None
+    try:
+        n = int(data.get("num_parcelas") or 0)
+    except (TypeError, ValueError):
+        return None
+    return n if 2 <= n <= 420 else None
 
 
 # ── Generic CRUD for contato tables (clientes / fornecedores) ─────────────────
@@ -1123,11 +1156,34 @@ async def api_create_lancamento(request: Request):
     fields["descricao"] = descricao
     fields.setdefault("situacao", "em_aberto")
 
-    cols         = ", ".join(fields.keys())
-    placeholders = ", ".join("%s" for _ in fields)
+    n_parcelas = _parse_parcelas(data)
     conn = get_conn()
     cur = dict_cursor(conn)
     try:
+        if n_parcelas:
+            # Gera N lançamentos, um por mês, com o vencimento avançando 1 mês a cada parcela.
+            base_venc = fields.get("vencimento") or emissao
+            base_desc = _strip_parcela_suffix(descricao)
+            first_id = None
+            for i in range(1, n_parcelas + 1):
+                row_fields = dict(fields)
+                row_fields["descricao"]  = f"{base_desc} {i}/{n_parcelas}"
+                row_fields["vencimento"] = _add_months(base_venc, i - 1)
+                p_cols = ", ".join(row_fields.keys())
+                p_phs  = ", ".join("%s" for _ in row_fields)
+                cur.execute(
+                    f"INSERT INTO fin_lancamentos ({p_cols}) VALUES ({p_phs}) RETURNING id",
+                    list(row_fields.values()),
+                )
+                rid = cur.fetchone()["id"]
+                if first_id is None:
+                    first_id = rid
+            conn.commit()
+            cur.execute(_LANCAMENTO_JOIN + " WHERE l.id=%s", (first_id,))
+            return {"lancamento": dict(cur.fetchone()), "parcelas": n_parcelas}
+
+        cols         = ", ".join(fields.keys())
+        placeholders = ", ".join("%s" for _ in fields)
         cur.execute(
             f"INSERT INTO fin_lancamentos ({cols}) VALUES ({placeholders}) RETURNING id",
             list(fields.values()),
@@ -1172,10 +1228,42 @@ async def api_update_lancamento(lid: int, request: Request):
     if not fields:
         raise HTTPException(400, "Nenhum campo válido")
 
+    n_parcelas = _parse_parcelas(data)
     set_clause, vals = _build_set(fields)
     conn = get_conn()
     cur = dict_cursor(conn)
     try:
+        if n_parcelas:
+            # Edição → parcelado: este lançamento vira a 1ª parcela e as demais
+            # são criadas (clonadas) nos meses seguintes.
+            cur.execute("SELECT * FROM fin_lancamentos WHERE id=%s", (lid,))
+            atual = cur.fetchone()
+            if not atual:
+                raise HTTPException(404, "Lançamento não encontrado")
+            atual = dict(atual)
+            base_venc = fields.get("vencimento") or atual.get("vencimento") or atual.get("emissao")
+            base_desc = _strip_parcela_suffix(fields.get("descricao") or atual.get("descricao") or "")
+            # Atualiza a linha atual como 1/N
+            f1 = dict(fields)
+            f1["descricao"]  = f"{base_desc} 1/{n_parcelas}"
+            f1["vencimento"] = _add_months(base_venc, 0)
+            sc1, v1 = _build_set(f1)
+            cur.execute(f"UPDATE fin_lancamentos SET {sc1} WHERE id=%s", v1 + [lid])
+            # Recarrega a linha já atualizada para clonar as parcelas seguintes
+            cur.execute("SELECT * FROM fin_lancamentos WHERE id=%s", (lid,))
+            full = dict(cur.fetchone())
+            clone_cols = [c for c in full.keys() if c not in ("id", "created_at")]
+            for i in range(2, n_parcelas + 1):
+                newrow = {c: full[c] for c in clone_cols}
+                newrow["descricao"]  = f"{base_desc} {i}/{n_parcelas}"
+                newrow["vencimento"] = _add_months(base_venc, i - 1)
+                p_cols = ", ".join(newrow.keys())
+                p_phs  = ", ".join("%s" for _ in newrow)
+                cur.execute(f"INSERT INTO fin_lancamentos ({p_cols}) VALUES ({p_phs})", list(newrow.values()))
+            conn.commit()
+            cur.execute(_LANCAMENTO_JOIN + " WHERE l.id=%s", (lid,))
+            return {"lancamento": dict(cur.fetchone()), "parcelas": n_parcelas}
+
         cur.execute(f"UPDATE fin_lancamentos SET {set_clause} WHERE id=%s", vals + [lid])
         conn.commit()
         cur.execute(_LANCAMENTO_JOIN + " WHERE l.id=%s", (lid,))
