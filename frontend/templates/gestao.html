@@ -5336,7 +5336,9 @@ document.addEventListener('alpine:init', () => {
     get filteredTasks() {
       let list = this.tasks;
       if (!this.showClosed) {
-        list = list.filter(task => this.statusObj(task.status).group !== 'closed');
+        // Oculta tudo que é visualmente "feito" (check verde) — grupos `done`
+        // ("Feito") e `closed` ("Finalizado"). O toggle Concluídas revela.
+        list = list.filter(task => this.statusVariant(task.status) !== 'feito');
       }
       if (this.assigneeFilter.length) {
         list = list.filter(task => {
