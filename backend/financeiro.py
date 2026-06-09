@@ -303,7 +303,7 @@ _LANCAMENTO_FIELDS = (
     "tipo", "emissao", "contato_tipo", "contato_id", "contato_nome",
     "descricao", "vencimento", "valor", "acrescimo", "acrescimo_tipo",
     "desconto", "desconto_tipo", "valor_total", "conta_id", "categoria_id",
-    "centro_custo_id", "documento", "meio_pagamento", "situacao",
+    "centro_custo_id", "meio_pagamento", "situacao",
 )
 
 
@@ -929,7 +929,6 @@ _SIGA_COL_ALIASES: dict = {
     'categoria':            'categoria_nome',
     'centro de custos':     'centro_nome',
     'conta corrente':       'conta_nome',
-    'documento':            'documento',
     'receber':              'receber',
     'pagar':                'pagar',
 }
@@ -937,7 +936,7 @@ _SIGA_COL_ALIASES: dict = {
 _SIGA_COL_DEFAULTS: dict = {
     'emissao': 0, 'vencimento': 1, 'quitado_em': 2,
     'contato_nome': 5, 'descricao': 6, 'categoria_nome': 7,
-    'centro_nome': 8, 'conta_nome': 9, 'documento': 10,
+    'centro_nome': 8, 'conta_nome': 9,
     'receber': 13, 'pagar': 14,
 }
 
@@ -1026,7 +1025,6 @@ def _fetch_siga_rows() -> list[dict]:
                 "categoria_nome": _gf(r, col_map, 'categoria_nome'),
                 "centro_nome":    _gf(r, col_map, 'centro_nome'),
                 "conta_nome":     _gf(r, col_map, 'conta_nome'),
-                "documento":      _gf(r, col_map, 'documento'),
                 "situacao":       situacao,
                 "valor":          valor,
                 "valor_total":    valor,
@@ -1983,8 +1981,8 @@ def _executar_migracao_siga() -> int:
                 """INSERT INTO fin_lancamentos
                    (tipo, emissao, contato_nome, descricao, vencimento,
                     valor, valor_total, conta_id, categoria_id, centro_custo_id,
-                    documento, situacao, origem, created_at)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'siga',%s)""",
+                    situacao, origem, created_at)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'siga',%s)""",
                 (
                     r['tipo'], emissao_db,
                     r['contato_nome'] or '—', r['descricao'] or '—',
@@ -1992,7 +1990,6 @@ def _executar_migracao_siga() -> int:
                     conta_map.get((r['conta_nome'] or '').lower()),
                     cat_map.get((r['categoria_nome'] or '').lower()),
                     centro_map.get((r['centro_nome'] or '').lower()),
-                    r['documento'] or None,
                     r['situacao'], now,
                 )
             )

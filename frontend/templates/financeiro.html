@@ -566,7 +566,7 @@
                       <th>Data</th>
                       <th>Contato</th>
                       <th>Descrição</th>
-                      <th>Documento</th>
+                      <th>Centro de Custo</th>
                       <th>Conta</th>
                       <th>Valor</th>
                       <th>Situação</th>
@@ -583,7 +583,7 @@
                         <td x-text="fmtDate(l.vencimento)"></td>
                         <td x-text="l.contato_nome||'—'"></td>
                         <td x-text="l.descricao"></td>
-                        <td x-text="l.documento||'—'"></td>
+                        <td x-text="l.centro_nome||'—'"></td>
                         <td x-text="l.conta_nome||'—'"></td>
                         <td :class="l.tipo==='receber' ? 'td-val-pos' : 'td-val-neg'" x-text="(l.tipo==='receber' ? '+' : '-') + formatBRL(l.valor_total||l.valor||0)"></td>
                         <td>
@@ -1641,10 +1641,6 @@
                 </template>
               </select>
             </div>
-            <div class="form-group">
-              <label class="form-label">Documento</label>
-              <input class="form-input" type="text" x-model="lancForm.documento" placeholder="Nº do documento">
-            </div>
           </div>
 
           <div class="form-row">
@@ -2240,7 +2236,7 @@ window.finApp = function() {
         data_emissao: this.today(), vencimento: this.today(),
         vencimento_tipo: 'uma_vez', num_parcelas: '',
         contato_tipo: '', contato_id: '',
-        descricao: '', documento: '',
+        descricao: '',
         valor_str: '', acrescimo_str: '', acrescimo_tipo: 'R$',
         desconto_str: '', desconto_tipo: 'R$',
         valor_total: 0,
@@ -2262,7 +2258,6 @@ window.finApp = function() {
         contato_tipo: l.contato_tipo || '',
         contato_id: '',
         descricao: l.descricao || '',
-        documento: l.documento || '',
         valor_str: l.valor ? String(l.valor).replace('.', ',') : '',
         acrescimo_str: l.acrescimo ? String(l.acrescimo).replace('.', ',') : '',
         acrescimo_tipo: l.acrescimo_tipo || 'R$',
@@ -2312,7 +2307,6 @@ window.finApp = function() {
           contato_id: this.lancForm.contato_id || null,
           contato_nome: this._resolveContatoNome() || null,
           descricao: this.lancForm.descricao,
-          documento: this.lancForm.documento || null,
           valor: this.parseBRL(this.lancForm.valor_str),
           acrescimo: this.parseBRL(this.lancForm.acrescimo_str),
           acrescimo_tipo: this.lancForm.acrescimo_tipo,
