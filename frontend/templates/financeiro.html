@@ -2256,8 +2256,11 @@ window.finApp = function() {
         tipo: l.tipo,
         data_emissao: l.data_emissao ? l.data_emissao.slice(0,10) : this.today(),
         vencimento: l.vencimento ? l.vencimento.slice(0,10) : this.today(),
+        // Campos de <select> ficam vazios aqui e são preenchidos no $nextTick
+        // abaixo — senão o x-model tenta casar o valor antes das <option> do
+        // x-for existirem (modal é x-if) e o select volta pra "— Selecione —".
         contato_tipo: l.contato_tipo || '',
-        contato_id: l.contato_id || '',
+        contato_id: '',
         descricao: l.descricao || '',
         documento: l.documento || '',
         valor_str: l.valor ? String(l.valor).replace('.', ',') : '',
@@ -2268,13 +2271,21 @@ window.finApp = function() {
         valor_total: l.valor_total || l.valor || 0,
         vencimento_tipo: l.vencimento_tipo || 'uma_vez',
         num_parcelas: l.num_parcelas || '',
-        conta_id: l.conta_id || '',
-        categoria_id: l.categoria_id || '',
-        centro_id: l.centro_id || '',
+        conta_id: '',
+        categoria_id: '',
+        centro_id: '',
         meio_pagamento: l.meio_pagamento || '',
         situacao: l.situacao || 'em_aberto',
       };
       this.lancModal = true;
+      // Reaplica os selects depois que o modal e as <option> renderizaram.
+      // Atribuir um valor diferente do atual ('') força o x-model a reselecionar.
+      this.$nextTick(() => {
+        this.lancForm.contato_id   = l.contato_id   || '';
+        this.lancForm.conta_id     = l.conta_id      || '';
+        this.lancForm.categoria_id = l.categoria_id  || '';
+        this.lancForm.centro_id    = l.centro_id      || '';
+      });
     },
 
     recalcTotal() {
