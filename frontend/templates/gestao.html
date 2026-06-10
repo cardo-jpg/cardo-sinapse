@@ -7038,7 +7038,8 @@ document.addEventListener('alpine:init', () => {
     },
     _cfNumericValues(cfId) {
       const vals = [];
-      for (const t of this.tasks) {
+      // Só as tarefas filtradas — o total da coluna respeita Filtros/responsável/Concluídas.
+      for (const t of this.filteredTasks) {
         const raw = (t.cf_values || {})[cfId];
         if (raw === '' || raw === null || raw === undefined) continue;
         const n = parseFloat(String(raw).replace(',', '.'));
