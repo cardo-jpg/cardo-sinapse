@@ -2055,6 +2055,22 @@ def _executar_migracao_siga() -> int:
         cur.execute("SELECT id, nome FROM fin_centros_custo")
         centro_map = {r['nome'].lower(): r['id'] for r in cur.fetchall()}
 
+        # Mapa de contato (nome -> (tipo, id)). Prioridade fornecedor > cliente >
+        # colaborador: popula em ordem inversa para que o fornecedor sobrescreva.
+        contato_map: dict = {}
+        cur.execute("SELECT id, nome_fantasia FROM fin_colaboradores")
+        for r in cur.fetchall():
+            nm = (r['nome_fantasia'] or '').strip().lower()
+            if nm: contato_map[nm] = ('colaborador', r['id'])
+        cur.execute("SELECT id, nome_fantasia, razao_social FROM fin_clientes")
+        for r in cur.fetchall():
+            nm = (r['nome_fantasia'] or r['razao_social'] or '').strip().lower()
+            if nm: contato_map[nm] = ('cliente', r['id'])
+        cur.execute("SELECT id, nome_fantasia, razao_social FROM fin_fornecedores")
+        for r in cur.fetchall():
+            nm = (r['nome_fantasia'] or r['razao_social'] or '').strip().lower()
+            if nm: contato_map[nm] = ('fornecedor', r['id'])
+
         # Limpa tudo — dá uma base limpa antes de reimportar
         cur.execute("DELETE FROM fin_lancamentos WHERE COALESCE(origem,'manual') NOT IN ('cc')")
 
@@ -2065,15 +2081,17 @@ def _executar_migracao_siga() -> int:
             venc_db = r['quitado_em'] if r['situacao'] == 'quitado' and r['quitado_em'] else r['vencimento']
             emissao_db = r['emissao'] or r['vencimento'] or today_iso
             venc_db    = venc_db or emissao_db
+            ct_tipo, ct_id = contato_map.get((r['contato_nome'] or '').strip().lower(), (None, None))
             cur.execute(
                 """INSERT INTO fin_lancamentos
-                   (tipo, emissao, contato_nome, descricao, vencimento,
+                   (tipo, emissao, contato_nome, contato_tipo, contato_id, descricao, vencimento,
                     valor, valor_total, conta_id, categoria_id, centro_custo_id,
                     situacao, origem, created_at)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'siga',%s)""",
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'siga',%s)""",
                 (
                     r['tipo'], emissao_db,
-                    r['contato_nome'] or '—', r['descricao'] or '—',
+                    r['contato_nome'] or '—', ct_tipo, ct_id,
+                    r['descricao'] or '—',
                     venc_db, r['valor'], r['valor_total'],
                     conta_map.get((r['conta_nome'] or '').lower()),
                     cat_map.get((r['categoria_nome'] or '').lower()),
