@@ -6833,10 +6833,11 @@ document.addEventListener('alpine:init', () => {
       return `${pad(d.getDate())}/${pad(d.getMonth()+1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
     },
     get totalEstimateSeconds() {
-      return (this.tasks || []).reduce((s, t) => s + (t.estimate_seconds || 0), 0);
+      // Soma só as tarefas filtradas (respeita Filtros, responsável e Concluídas).
+      return (this.filteredTasks || []).reduce((s, t) => s + (t.estimate_seconds || 0), 0);
     },
     get totalTimeSeconds() {
-      return (this.tasks || []).reduce((s, t) => s + (t.time_total_seconds || 0), 0);
+      return (this.filteredTasks || []).reduce((s, t) => s + (t.time_total_seconds || 0), 0);
     },
     openEstimateEditor(task, evt) {
       const r = evt.currentTarget.getBoundingClientRect();
